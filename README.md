@@ -22,6 +22,8 @@ Working directory for my final project in EECS289a: Intro to Machine Learning an
   - iLQR
   - many choices
   
+  --------------
+  
   # Papers Read in rough Order:
   1. Nagabandi - Neural Network Dynamics Models for Control of Under-actuated Legged Millirobots
   2. Bansal - Learning Quadrotor Dynamics Using Neural Network for Flight Control
