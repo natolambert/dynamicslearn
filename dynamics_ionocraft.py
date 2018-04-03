@@ -1,20 +1,21 @@
-# Compatibility Python 2/3
-from __future__ import division, print_function, absolute_import
-from future.builtins import range
-from builtins import range, super
 # ----------------------------------------------------------------------------------------------------------------------
+
+'''
+UNDER CONSTRUCTION: linearized dynamics model around the hover point for the ionocraft
+
+'''
 
 # Start importing packages
 import numpy as np
 import math
-from system_utils.systems.deterministic.dynamics import Dynamics as Dynamics
+import dynamics as dynamics
 
 # Original version inhereted from Somil Bansal - Tomlin Group
-__author__ = 'Somil Bansal'
+__author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
-class CrazyFlie(Dynamics):
-    def __init__(self, dt, m=.035, L=.065, Ixx = 2.3951e-5, Iyy = 2.3951e-5, Izz = 3.2347e-5):
+class IonoCraft(Dynamics):
+    def __init__(self, dt, m=.67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09):
         super().__init__(dt, x_dim=12, u_dim=4)
 
         # Setup the state indices
