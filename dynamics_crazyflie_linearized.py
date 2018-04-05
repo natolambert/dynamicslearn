@@ -13,7 +13,7 @@ import dynamics as dynamics
 __author__ = 'Somil Bansal'
 __version__ = '0.1'
 
-class CrazyFlie(dynamics):
+class CrazyFlie(Dynamics):
     def __init__(self, dt, m=.035, L=.065, Ixx = 2.3951e-5, Iyy = 2.3951e-5, Izz = 3.2347e-5):
         super().__init__(dt, x_dim=12, u_dim=4)
 
