@@ -7,13 +7,13 @@ from builtins import range, super
 # Start importing packages
 import numpy as np
 import math
-from system_utils.systems.deterministic.dynamics import Dynamics as Dynamics
+import dynamics as dynamics
 
 # Original version inhereted from Somil Bansal - Tomlin Group
 __author__ = 'Somil Bansal'
 __version__ = '0.1'
 
-class CrazyFlie(Dynamics):
+class CrazyFlie(dynamics):
     def __init__(self, dt, m=.035, L=.065, Ixx = 2.3951e-5, Iyy = 2.3951e-5, Izz = 3.2347e-5):
         super().__init__(dt, x_dim=12, u_dim=4)
 
@@ -60,10 +60,8 @@ class CrazyFlie(Dynamics):
 
         # Array containing the forces
         Fxyz = np.zeros(3)
-        Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(x0[idx_ptp[2]]) + math.sin(
-            x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(x0[idx_ptp[2]]) - math.sin(
-            x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
+        Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(x0[idx_ptp[2]]) + math.sin(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
+        Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(x0[idx_ptp[2]]) - math.sin(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
         Fxyz[2] = g - 1 * (math.cos(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[1]])) * u0[0] / m
 
         # Compute the torques

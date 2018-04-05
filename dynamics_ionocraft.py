@@ -14,8 +14,8 @@ import dynamics as dynamics
 __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
-class IonoCraft(Dynamics):
-    def __init__(self, dt, m=.67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09):
+class IonoCraft(dynamics):
+    def __init__(self, dt, m=67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09, linear = False):
         super().__init__(dt, x_dim=12, u_dim=4)
 
         # Setup the state indices
@@ -31,6 +31,17 @@ class IonoCraft(Dynamics):
         self.Iyy = Iyy
         self.Izz = Izz
         self.g = 9.81
+
+    def force2thrust_torque(self,angle):
+        # transformation matrix for ionocraft with XY thrusts
+        # [Thrustx; Thrusty; Thrustz; Tauz; Tauy; Taux;] = M * [F4; F3; F2; F1]
+        M =  np.array([[0.,         math.sin(angle),           0.,                     -math.sin(angle)],
+                    [-math.sin(angle),         0.,                        math.sin(angle),           0.],
+                    [math.cos(angle),          math.cos(angle),           math.cos(angle),           math.cos(angle)],
+                    [-self.L*math.sin(angle),  self.L*math.sin(angle),    -self.L*math.sin(angle),   self.L*math.sin(angle)],
+                    [-self.L*math.cos(angle),  -self.L*math.cos(angle),   self.L*math.cos(angle),    self.L*math.cos(angle)],
+                    [self.L*math.cos(angle),   -self.L*math.cos(angle),   -self.L*math.cos(angle),   self.L*math.cos(angle)]])
+        return M
 
     def pqr2rpy(self, x0, pqr):
         rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
@@ -55,32 +66,11 @@ class IonoCraft(Dynamics):
         Izz = self.Izz
         g = self.g
 
-        Tx = np.array([Iyy / Ixx - Izz / Ixx, L / Ixx])
-        Ty = np.array([Izz / Iyy - Ixx / Iyy, L / Iyy])
-        Tz = np.array([Ixx / Izz - Iyy / Izz, 1. / Izz])
+        # Implement free body dynamics
 
-        # Array containing the forces
-        Fxyz = np.zeros(3)
-        Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(x0[idx_ptp[2]]) + math.sin(
-            x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(x0[idx_ptp[2]]) - math.sin(
-            x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[2] = g - 1 * (math.cos(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[1]])) * u0[0] / m
+        # if self.Linear:
+        #
+        # else:
 
-        # Compute the torques
-        t0 = np.array([x0[idx_ptp_dot[1]] * x0[idx_ptp_dot[2]], u0[1]])
-        t1 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[2]], u0[2]])
-        t2 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[1]], u0[3]])
-        Txyz = np.array([Tx.dot(t0), Ty.dot(t1), Tz.dot(t2)])
-
-        x1 = np.zeros(12)
-        x1[idx_xyz_dot] = x0[idx_xyz_dot] + dt * Fxyz
-        x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
-        x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
-        x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
         return x1
-
-    @property
-    def non_linear(self):
-        return True
