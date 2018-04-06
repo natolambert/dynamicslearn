@@ -8,9 +8,13 @@ from math import sin
 class Dynamics:
     # init class
     def __init__(self,dt, x_dim=12, u_dim = 4):
-        self.timestep = dt
+        self.dt = dt
         self.x_dim = x_dim
         self.u_dim = u_dim
+
+    @property
+    def dims(self):
+        return self.x_dim, self.u_dim
 
     # dimension check raises error if incorrect
     def _enforce_dimension(self, x, u):
@@ -46,9 +50,14 @@ def W_inv(ypr):
     phi = ypr[2]       # roll
     W_inv = (1./cos(theta))*np.array([  [0, sin(phi), cos(phi)],
             [0, cos(phi)*cos(theta), -sin(phi)*cos(theta)],
-            [cos(thetea), sin(phi)*sin(theta), cos(phi)*sin(theta)] ])
+            [cos(theta), sin(phi)*sin(theta), cos(phi)*sin(theta)] ])
 
     return W_inv
 
-def generate_data(dynam, sequence_len, num_iter):
+def generate_data(dynam, sequence_len, num_iter=1, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
+    return []
+
+def sim_sequence(dynam, sequence_len, control = 'random'):
+    # Simulates a squence following the control sequence provided
+    return []

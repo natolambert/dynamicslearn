@@ -3,12 +3,16 @@
 '''
 UNDER CONSTRUCTION: linearized dynamics model around the hover point for the ionocraft
 
+Test cases passed:
+- gravity fall only
+- hover condition
+
 '''
 
 # Start importing packages
 import numpy as np
 import math
-import dynamics import *
+from dynamics import *
 
 # Original version inhereted from Somil Bansal - Tomlin Group
 __author__ = 'Nathan Lambert'
@@ -38,7 +42,7 @@ class IonoCraft(Dynamics):
             [0, 0, Izz]
         ])
 
-    def force2thrust_torque(angle):
+    def force2thrust_torque(self, angle):
         # transformation matrix for ionocraft with XY thrusts
         # [Thrustx; Thrusty; Thrustz; Tauz; Tauy; Taux;] = M * [F4; F3; F2; F1]
         M =  np.array([[0.,         math.sin(angle),           0.,                     -math.sin(angle)],
@@ -58,7 +62,7 @@ class IonoCraft(Dynamics):
 
     def simulate(self, x, u, t=None):
         self._enforce_dimension(x, u)
-        dt = self._dt
+        dt = self.dt
         u0 = u
         x0 = x
         idx_xyz = self.idx_xyz
@@ -101,10 +105,10 @@ class IonoCraft(Dynamics):
         xdot[idx_xyz] = np.matmul(Q_BI(ypr),x0[idx_xyz_dot])
 
         # Euler angle derivative
-        xdot[idx_ptp] = np.matumul(W_inv(ypr), x0[idx_ptp_dot])
+        xdot[idx_ptp] = np.matmul(W_inv(ypr), x0[idx_ptp_dot])
 
         # body velocity derivative
-        omegas = x0[idx_ptp_dot]
+        omega = x0[idx_ptp_dot]
         omega_mat = np.array([  [0, -omega[2], omega[1]],
                                 [omega[2], 0, -omega[0]],
                                 [-omega[2], omega[0], 0]
@@ -113,8 +117,7 @@ class IonoCraft(Dynamics):
         xdot[idx_xyz_dot] = (1/m)*F_ext - np.matmul(omega_mat, x0[idx_xyz_dot])
 
         # angular velocity derivative
-        xdot[idx_ptp_dot] = np.matmul(np.inv(Ib),Tau) - np.matmul(np.matmul(np.inv(Ib),omega_mat),np.matmul(Ib,x0[idx_ptp_dot]))
-
+        xdot[idx_ptp_dot] = np.matmul(np.linalg.inv(Ib),Tau) - np.matmul(np.matmul(np.linalg.inv(Ib),omega_mat),np.matmul(Ib,x0[idx_ptp_dot]))
         x1 = x0+dt*xdot
 
         return x1
