@@ -14,7 +14,6 @@ import numpy as np
 import math
 from dynamics import *
 
-# Original version inhereted from Somil Bansal - Tomlin Group
 __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
@@ -41,6 +40,9 @@ class IonoCraft(Dynamics):
             [0, Iyy, 0],
             [0, 0, Izz]
         ])
+
+        # Defines equilibrium control for the IonoCraft
+        self.u_e = (m*g/4)*np.ones(4)
 
     def force2thrust_torque(self, angle):
         # transformation matrix for ionocraft with XY thrusts

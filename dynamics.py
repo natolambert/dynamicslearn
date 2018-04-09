@@ -4,6 +4,8 @@ import math
 from math import cos
 from math import sin
 
+__author__ = 'Nathan Lambert'
+__version__ = '0.1'
 
 class Dynamics:
     # init class

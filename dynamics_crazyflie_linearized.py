@@ -31,6 +31,9 @@ class CrazyFlie(Dynamics):
         self.Izz = Izz
         self.g = 9.81
 
+        # Define equilibrium input for quadrotor around hover
+        # TODO
+
     def pqr2rpy(self, x0, pqr):
         rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
                                 [0., math.cos(x0[0]),                   -math.sin(x0[0])],
