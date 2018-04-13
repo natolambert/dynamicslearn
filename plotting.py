@@ -20,6 +20,16 @@ def plot_trajectory(X,T):
     rolls = X[:,8]
 
     ax.plot(xs,ys,zs=zs)
+
+    # Axis limits
+    ax.set_xlim([-.5,.5])
+    ax.set_ylim([-.5,.5])
+    ax.set_zlim([-.5,.5])
+    ax.set_title('simulated single trajectory')
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Y (m)')
+    ax.set_zlabel('Z (m)')
+
     plt.show()
 
 def plot12(X,T):

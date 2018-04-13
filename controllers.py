@@ -1,4 +1,5 @@
 # File containing controllers for both collecting data and for on learned dynamics
+import numpy as np
 
 class Controller:
     # init class
@@ -7,7 +8,7 @@ class Controller:
         self.dim = dim
 
     @property
-    def dims(self):
+    def getdims(self):
         return self.dt, self.dim
 
     # dimension check raises error if incorrect
@@ -15,12 +16,14 @@ class Controller:
         if np.size(u) != self.dim:
             raise ValueError('u dimension passed into controller does not align with initiated value - given: ' + str(np.size(u)) + ', desired: ' + str(self.dim) )
 
-class random(Controller):
-    def __init__(self, dt, dim, dynamics, variance = .001):
+class randControl(Controller):
+    def __init__(self, dynamics, variance = .00001):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control
         # variance is the divergence from the equilibrium point
+        dt = dynamics.get_dt
+        dim = dynamics.get_dims[1]
         super().__init__(dt, dim=dim)
 
         # equilibrium point is from dynamics
@@ -32,14 +35,14 @@ class random(Controller):
         return self.equil + np.random.normal(scale=self.var,size=(self.dim))
 
     @property
-    def var(self):
+    def get_var(self):
         return self.var
 
     @property
-    def equil(self):
+    def get_equil(self):
         return self.equil
 
 
-# class PID(Controller):
+# class PIDControl(Controller):
 
-# class MPC(Controller):
+# class MPControl(Controller):

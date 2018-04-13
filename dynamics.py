@@ -3,20 +3,29 @@ import numpy as np
 import math
 from math import cos
 from math import sin
+from math import pi
+from controllers import *
+
 
 __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
 class Dynamics:
     # init class
-    def __init__(self,dt, x_dim=12, u_dim = 4):
+    def __init__(self, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
         self.dt = dt
         self.x_dim = x_dim
         self.u_dim = u_dim
+        self.x_noise = x_noise
+        self.u_noise = u_noise
 
     @property
-    def dims(self):
+    def get_dims(self):
         return self.x_dim, self.u_dim
+
+    @property
+    def get_dt(self):
+        return self.dt
 
     # dimension check raises error if incorrect
     def _enforce_dimension(self, x, u):
@@ -27,9 +36,9 @@ class Dynamics:
 
 def Q_BI(ypr):
     # returns the Q body to inertial frame transformation matrix
-    psi = ypr[0]       # yaw
-    theta = ypr[1]     # pitch
-    phi = ypr[2]       # roll
+    psi = ypr[0] % (2*pi)       # yaw
+    theta = ypr[1] % (2*pi)     # pitch
+    phi = ypr[2]  % (2*pi)      # roll
     Q = np.array([  [cos(theta)*cos(psi), cos(psi)*sin(theta)*sin(phi)-cos(phi)*sin(psi), sin(phi)*sin(psi)+cos(phi)*cos(psi)*sin(theta)],
                     [cos(theta)*sin(psi), cos(phi)*cos(psi)+sin(theta)*sin(phi)*sin(psi), cos(phi)*sin(theta)*sin(psi)-cos(psi)*sin(phi)],
                     [-sin(theta), cos(theta)*sin(phi), cos(theta)*cos(phi)] ])
@@ -37,9 +46,9 @@ def Q_BI(ypr):
 
 def Q_IB(ypr):
     # returns the Q inertial to body frame transformation matrix
-    psi = ypr[0]       # yaw
-    theta = ypr[1]     # pitch
-    phi = ypr[2]       # roll
+    psi = ypr[0] % (2*pi)       # yaw
+    theta = ypr[1] % (2*pi)     # pitch
+    phi = ypr[2] % (2*pi)       # roll
     Q = np.array([  [cos(psi)*cos(theta), cos(theta)*sin(psi), -sin(theta)],
                     [cos(psi)*sin(phi)*sin(theta)-cos(phi)*sin(psi), cos(phi)*cos(psi)+sin(theta)*sin(phi)*sin(psi), cos(theta)*sin(phi)],
                     [sin(phi)*sin(psi)+cos(psi)*cos(phi)*sin(theta), cos(phi)*sin(psi)*sin(theta)-cos(psi)*sin(phi), cos(phi)*cos(theta)] ])
@@ -47,19 +56,56 @@ def Q_IB(ypr):
 
 def W_inv(ypr):
     # transformation from angular velocities w_BI to Euler angle rates dot(E)
-    psi = ypr[0]       # yaw
-    theta = ypr[1]     # pitch
-    phi = ypr[2]       # roll
+    psi = ypr[0] % (2*pi)       # yaw
+    theta = ypr[1] % (2*pi)    # pitch
+    phi = ypr[2] % (2*pi)       # roll
     W_inv = (1./cos(theta))*np.array([  [0, sin(phi), cos(phi)],
             [0, cos(phi)*cos(theta), -sin(phi)*cos(theta)],
             [cos(theta), sin(phi)*sin(theta), cos(phi)*sin(theta)] ])
 
     return W_inv
 
-def generate_data(dynam, sequence_len, num_iter=1, controller = 'random'):
+def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
-    return []
+    if controller == 'random':
+        controller = randControl(dynam)
 
-def sim_sequence(dynam, sequence_len, control = 'random'):
+    Seqs_X = []
+    Seqs_U = []
+    for i in range(num_iter):
+        X, U = sim_sequence(dynam, sequence_len, x0= [], controller=controller)
+        Seqs_X.append(X)
+        Seqs_U.append(U)
+
+    return Seqs_X, Seqs_U
+
+def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random'):
     # Simulates a squence following the control sequence provided
-    return []
+    # returns the list of states and inputs as a large array
+
+    if controller == 'random':
+        controller = randControl(dynam)
+        print('Running Random control for designated dynamics...')
+    if (x0 == []):
+        x0 = np.zeros(dynam.get_dims[0])
+
+    # inititialize initial control to be equilibrium amount
+    u = controller.get_equil
+
+    # intitialize arrays to append the sequences
+    U = np.array([u])
+    X = np.array([x0])
+    for n in range(sequence_len-1):
+
+        # update state
+        x_prev = X[-1]
+        x = dynam.simulate(x_prev,u)
+
+        # contstruct array
+        X = np.append(X, [x], axis=0)
+        U = np.append(U, [u], axis=0)
+
+        # generate new u
+        u = controller.update()
+
+    return X, U

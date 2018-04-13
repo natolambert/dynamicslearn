@@ -18,8 +18,8 @@ __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
 class IonoCraft(Dynamics):
-    def __init__(self, dt, m=67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09, angle = 0, linear = False):
-        super().__init__(dt, x_dim=12, u_dim=4)
+    def __init__(self, dt, m=67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09, angle = 0, x_noise = .0001, u_noise=0, linear = False):
+        super().__init__(dt, x_dim=12, u_dim=4, x_noise = .0001, u_noise=0)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
@@ -42,7 +42,7 @@ class IonoCraft(Dynamics):
         ])
 
         # Defines equilibrium control for the IonoCraft
-        self.u_e = (m*g/4)*np.ones(4)
+        self.u_e = (m*self.g/4)*np.ones(4)
 
     def force2thrust_torque(self, angle):
         # transformation matrix for ionocraft with XY thrusts
@@ -84,6 +84,10 @@ class IonoCraft(Dynamics):
         # Easy access to yawpitchroll vector
         ypr = x0[idx_ptp]
 
+        # Add noise to input
+        u_noise_vec = np.random.normal(loc=0, scale = self.u_noise, size=(self.u_dim,1))
+        u = u+u_noise_vec
+        
         # Transform the input into body frame forces
         T_tau_thrusters = np.zeros(6)
         T_tau_thrusters = np.matmul(self.force2thrust_torque(angle),u)
@@ -120,6 +124,9 @@ class IonoCraft(Dynamics):
 
         # angular velocity derivative
         xdot[idx_ptp_dot] = np.matmul(np.linalg.inv(Ib),Tau) - np.matmul(np.matmul(np.linalg.inv(Ib),omega_mat),np.matmul(Ib,x0[idx_ptp_dot]))
-        x1 = x0+dt*xdot
+
+        # State update
+        x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim,1))
+        x1 = x0+dt*xdot+x_noise_vec
 
         return x1

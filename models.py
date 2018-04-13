@@ -1,4 +1,5 @@
 # Compatibility Python 3
+import torch
 
 # Import project files
 
@@ -10,12 +11,15 @@ class LearningModel:
     # class for dynamics learning model
     # TODO
 
+
 class LeastSquares(LearningModel):
-    # TODO
+    # fits gathered data to the form
+    # x_(t+1) = Ax + Bu
 
-
-class NueralNet(LearningModel):
+class NeuralNet(LearningModel):
     # TODO
 
 class GaussianProcess(LearningModel):
     # TODO
+
+def ComputeAccuracy(truth,prediction):
