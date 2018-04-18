@@ -4,6 +4,7 @@ Working directory for my final project in EECS289a: Intro to Machine Learning an
 -------------
 
 # Project Goal
+This project is exploring the functionality of different machine learning structures to model unknown dynamics. In simulation, we can rapidly collect data and test on different pre-made dynamics models. This code-base is meant to serve as the foundation for testing in experiment.
 
 # Implemented:
 - set up dynamics exploration system around an equilibrium point to colelct training data
