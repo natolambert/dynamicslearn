@@ -15,7 +15,7 @@ __version__ = '0.1'
 
 class CrazyFlie(Dynamics):
     def __init__(self, dt, m=.035, L=.065, Ixx = 2.3951e-5, Iyy = 2.3951e-5, Izz = 3.2347e-5, x_noise = .0001, u_noise=0):
-        super().__init__(dt, x_dim=12, u_dim=4, x_noise = .0001,u_noise=0)
+        super().__init__(dt, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
@@ -62,9 +62,9 @@ class CrazyFlie(Dynamics):
         Tz = np.array([Ixx / Izz - Iyy / Izz, 1. / Izz])
 
         # Add noise to input
-        u_noise_vec = np.random.normal(loc=0, scale = self.u_noise, size=(self.u_dim,1))
+        u_noise_vec = np.random.normal(loc=0, scale = self.u_noise, size=(self.u_dim))
         u = u+u_noise_vec
-        
+
         # Array containing the forces
         Fxyz = np.zeros(3)
         Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(x0[idx_ptp[2]]) + math.sin(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
@@ -84,7 +84,7 @@ class CrazyFlie(Dynamics):
         x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
         # Add noise component
-        x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim,1))
+        x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim))
         return x1+x_noise_vec
 
     @property
