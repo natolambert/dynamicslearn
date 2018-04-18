@@ -15,8 +15,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
-
 class LeastSquares:
     # fits gathered data to the form
     # x_(t+1) = Ax + Bu
@@ -68,4 +66,6 @@ class NeuralNet:
 class GaussianProcess:
     # TODO
 
-def ComputeAccuracy(truth,prediction):
+def simulate_learned(model, actions, x0=[]):
+    # returns a vector of the states predicted by the learned dynamics model given states and the inputs
+    raise NotImplementedError('To Be Done, SOON')
