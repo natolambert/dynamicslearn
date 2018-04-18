@@ -1,5 +1,6 @@
 # File containing controllers for both collecting data and for on learned dynamics
 import numpy as np
+import cvxopt           # convex opt package
 
 class Controller:
     # init class
@@ -75,7 +76,7 @@ class HoverPID(Controller):
     def update(self, state):
         # returns a random control sample
         z = state[2]
-        pitch =
+        pitch = state[4]
         self.error
         return self.equil + np.random.normal(scale=self.var,size=(self.dim))
 
@@ -112,9 +113,9 @@ class PID:
         # Caps integral error
         self.integral_error = self.integral_error + error
         if self.integral_error > self.integral_max:
-			self.integral_error = self.integral_max
-		elif self.integral_error < self.integral_min:
-			self.integral_error = self.integral_min
+            self.integral_error = self.integral_max
+        elif self.integral_error < self.integral_min:
+            self.integral_error = self.integral_min
 
         # Calculate PID terms
         P_fact = self.kP*error
@@ -159,6 +160,6 @@ class MPControl(Controller):
         self.method = 'Shooter'         # default to random shooting MPC
         self.time_horiz = N             # time steps into future to look
 
-    def control(self, dynamics_learned):
+    def control(self, current_state):
         # function that returns desired control output
         raise NotImplementedError('Not Yet Implemented')

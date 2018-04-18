@@ -6,7 +6,7 @@
 import numpy as np
 import math
 from sklearn.model_selection import train_test_split
-from sklearn import linear_modle
+from sklearn import linear_model
 
 # torch packages
 import torch
@@ -22,7 +22,7 @@ class LeastSquares:
     def __init__(self):
         self.reg = linear_model.LinearRegression()
 
-    def train(self, change_states, states_actions_prev):
+    def train(self, change_states, states_prev, actions_prev):
         # need to make sure data here is normalized AND the states are all
         # formed as change of state, rather than arbitary values (this makes sure
         # that the features are not fit to large vlaues)
@@ -32,22 +32,22 @@ class LeastSquares:
         #       z = [x, u]
         # then can make a matrix
         #       w ~ [A, B]
-        Z = np.hstack(states_actions_prev[:,0],states_actions_prev[:,1])
+        Z = np.hstack(states_prev, actions_prev)
         y = change_states
 
         self.reg.fit(Z,y)
         return self.reg.coef_
 
-    def predict(self, states_actions_prev):
+    def predict(self, state, action):
         # predicts next state of a state, action pairing
-        # works if it is a list element, or a pre-concatenated array
 
-        if (len(states_actions_prev) == 2):
-            vect = np.hstack(states_actions_prev[0],states_actions_prev[1])
-            pred = self.reg.predict(vect)
-        else:
-            pred = self.reg.predict(states_actions_prev)
+        vect = np.hstack(state, action)
+        pred = self.reg.predict(vect)
+
         return pred
+
+    def print_model(self):
+        # function that prints a readable form
 
 class NeuralNet:
     # NOTE
@@ -60,11 +60,11 @@ class NeuralNet:
         n_lay = len(layers)
         for (i,l) in enumerate(layers):
             if (i==0):
-                self.lay
+                self.layer
 
-
-class GaussianProcess:
-    # TODO
+#
+# class GaussianProcess:
+#     # TODO
 
 def simulate_learned(model, actions, x0=[]):
     # returns a vector of the states predicted by the learned dynamics model given states and the inputs
