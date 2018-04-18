@@ -33,7 +33,7 @@ def stack_trios(change_states, states, actions):
 
     return np.array(lst)
 
-def states_to_delta(states):
+def states2delta(states):
     # takes in a array of states, and reurns a array of states that is the     #   difference between the current state and next state.
     # NOTE: Does not return a value for the first point given
     # Above is bevause we are trying to model x_t+1 = f(x_t,a_t)
@@ -58,7 +58,7 @@ def normalize_states(delta_states, ScaleType = StandardScaler, x_dim = 12):
     scaled = scaler.fit(delta_states)
     return scaled
 
-def sequences_XU_toarray(X, U, normalize = False):
+def sequencesXU2array(X, U, normalize = False):
     # Uses other functions to take in two arrays X,U that are 3d arrays of sequences of states and actions
     # n = num sequences
     # l = len(sequences)
@@ -74,7 +74,7 @@ def sequences_XU_toarray(X, U, normalize = False):
     seqs = []
     for (seqX, seqU) in zip(X,U):
         # generates the changes in states from raw data
-        delta_states = states_to_delta(seqX)
+        delta_states = states2delta(seqX)
 
         # generates tuples of length l-1, with the 3 elements being
         # dx : change in state vector from time t
@@ -86,3 +86,10 @@ def sequences_XU_toarray(X, U, normalize = False):
     # reshape data into a long list of dx, x, u pairs for training
     data = np.reshape(seqs, (n*(l-1),3))
     return data
+
+def l2array(list_arrays):
+    arr = []
+    for l in list_arrays:
+        arr.append(l)
+
+    return np.array(arr)

@@ -32,9 +32,9 @@ class LeastSquares:
         #       z = [x, u]
         # then can make a matrix
         #       w ~ [A, B]
-        Z = np.hstack(states_prev, actions_prev)
+        Z = np.hstack([states_prev, actions_prev])
         y = change_states
-
+        
         self.reg.fit(Z,y)
         return self.reg.coef_
 
@@ -46,8 +46,10 @@ class LeastSquares:
 
         return pred
 
-    def print_model(self):
+    @property
+    def A_B(self):
         # function that prints a readable form
+        print('Not Implemented lol')
 
 class NeuralNet:
     # NOTE
