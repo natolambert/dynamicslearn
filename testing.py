@@ -42,19 +42,26 @@ print('\n')
 length = 25
 rand1 = randControl(iono1, variance = .000005)
 X, U = generate_data(iono1, sequence_len=length, num_iter=100, controller = rand1)
-T = np.linspace(0,length*iono1.get_dt,length)
-# X = X[0]
-print(np.shape(X))
-print(np.shape(U))
-dim_x, _ = iono1.get_dims
 
-lin1 = LeastSquares()
-data = sequencesXU2array(X,U)
-data_arr = l2array(data[:,0])
-# print(np.shape(data_arr))
-lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
-# delta = states_to_delta(X)
-print(np.shape(lin1.reg.coef_))
+X = np.array(X)
+# Choose dimensions to optimize over eg is staying near origin
+dim_to_eval = [0, 1, 2]
+origin_xyz_norm = Objective(np.linalg.norm, maxORmin = 'min', dim = 3,  dim_to_eval = dim_to_eval, data=X)
+min_idx = origin_xyz_norm.compute_ARGmm()
+min_val = origin_xyz_norm.compute_mm()
+# T = np.linspace(0,length*iono1.get_dt,length)
+# # X = X[0]
+# print(np.shape(X))
+# print(np.shape(U))
+# dim_x, _ = iono1.get_dims
+#
+# lin1 = LeastSquares()
+# data = sequencesXU2array(X,U)
+# data_arr = l2array(data[:,0])
+# # print(np.shape(data_arr))
+# lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
+# # delta = states_to_delta(X)
+# print(np.shape(lin1.reg.coef_))
 # lin1.train()
 
 # plot12(X,T)

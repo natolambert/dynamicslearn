@@ -176,44 +176,90 @@ class MPControl(Controller):
 
         # Simulate a bunch of random actions and then need a way to evaluate reward
 
+        # Makes controller to generate some action
+        rand_controller = randController(self.dynamics_true)
+        actions = [rand_controller.update() for i in range(N)]
+
+        # Extends control to the time horizon defined in init
+        # # TODO:
+
+        # simulates actions on learned dynamics, need to fill in matrix
+        X = []  # TODO: make this tiled matrix of x0
+        for n in N:
+            step = simulate_learned(self.dynamics_model, actions, x0=current_state)
+            # TODO: assign sequence to matrix
+
+        # Evaluate all the sequences with the objective function, get index of best action
+        mm_idx = self.Objective.computeArgmm()
+        best_action = actions[mm_idx]
+
 class Objective():
-    # class of objective functions to be used in MPC and maybe future implementations
-    def __init__(self, function, maxORmin = 'max', force_dim = False):
+    # class of objective functions to be used in MPC and maybe future implementations. Takes in sets of sequences when optimizing!
+    def __init__(self, function, maxORmin, dim, dim_to_eval=[], data =[],  choose_dim = True):
 
         # lambda or other function to max or min based on state and or input
         self.optimizer = function
-        self.force_dim = force_dim
+
+        # Dimensions of the data to evaluate objective on
+        self.dim = dim              # dimension of each vector that will be eval
+        self.data = data
+        self.choose_dim = choose_dim
+
+        if (choose_dim == False):
+            self.dim_to_eval = range(dim[1])
+        else:
+            self.dim_to_eval = dim_to_eval
 
         # sets max and argmax etc
+        self.maxORmin = maxORmin
         if (maxORmin == 'max'):
-            self.m = np.max()
-            self.argm = np.argmax()
+            self.mm = np.max              # mm is my notation for maxormin
+            self.argmm = np.argmax
         elif (maxORmin == 'min'):
-            self.m = np.min()
-            self.argm = np.argmin()
+            self.mm = np.min
+            self.argmm = np.argmin
         else:
             raise ValueError('Pass useable optimization function max or min')
 
-        # Dimension of objective. Output is scalar or less controlled
-        # self.dim = None        # See property
+    def loaddata(self,data):
+        # loads data to be optimized over
+        self.data = data
 
-    @property
-    def dim(self):
-        # Force a dimension on the objective function
-        return self.dim
+    def compute_mm(self):
+        # computes the min or max of the objective function given data
+        if (self.data == []):
+            raise AttributeError('Data Not Loaded')
 
-    @dim.setter
-    def dim(self, value):
-        self.dim = value
+        # Chooses data of sub-indices of each trajectory
+        data_eval = self.data[:,:,self.dim_to_eval]
+
+        objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
+        print(np.shape(objective_vals))
+        mm = self.mm(objective_vals)
+
+        return mm
+
+    def compute_ARGmm(self):
+        # computes the ARGmax or min over the data
+        if (self.data == []):
+            raise AttributeError('Data Not Loaded')
+
+        # Chooses data of sub-indices of each trajectory
+        data_eval = self.data[:,:,self.dim_to_eval]
+
+        objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
+        print(np.shape(objective_vals))
+        mm_idx = self.argmm(objective_vals)
+
+        return mm_idx
+
+    def eval(self, input_array):
+        # takes in an inpute array and returns the objective Value for each row
+        # Checks to make sure dimension is right
+        self._enforce_dimension(input_array[0,:])
+        val = [np.sum(self.optimizer(vect)) for vect in input_array ]
+        return val
 
     def _enforce_dimension(self, input_vector):
-        if (force_dim and not hasattr(self, 'dim')):
-            raise ValueError('Input Dimension Not Set')
-        if dim != np.shape(input_vector):
+        if (self.dim != np.size(input_vector)):
             raise ValueError('Dimension of input does not match what was set')
-
-    def eval(input_vect):
-        # takes in an inpute VECTOR and returns the objective Value
-        # Checks to make sure dimension is right
-        self._enforce_dimension(input_vector)
-        return self.optimizer(input_vect)

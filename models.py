@@ -81,4 +81,4 @@ def simulate_learned(model, actions, x0=[]):
         xnext = X[-1] + model.predict(X[-1], a)
         X.append(xnext)
 
-    return X
+    return np.array(X)
