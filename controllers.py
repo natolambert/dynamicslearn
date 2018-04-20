@@ -2,6 +2,9 @@
 import numpy as np
 import cvxopt           # convex opt package
 
+# Import models files for MPC controller
+from models import *
+
 class Controller:
     # init class
     def __init__(self, dt, dim=4):
@@ -144,22 +147,48 @@ class MPControl(Controller):
     # 1. random shooting control, with best reward being taken
     # 2. convext optimization solution on finite time horizon
 
-    def __init__(self, dynamics_learned, dynamics_true, optimizer, N = 5, max_min= 'min', method = 'Shooter'):
+    def __init__(self, dynamics_learned, dynamics_true, Objective, N = 50, T=5, method = 'Shooter'):
         # initialize some variables
+        # dynamics learned will be a model from models.py
+        # dynamcis true is the dynamics file for getting some parameters
+        # rewardORcost is of class Optimizer
+        # N is number of random sequences to try
+        # T is time horizon
 
         dt = dynamics_true.get_dt
         dim = dynamics_true.get_dims[1]
         super().__init__(dt, dim=dim)
 
-        self.dynamics_learned = dynamics_learned
+        self.dynamics_model = dynamics_learned
         self.dynamics_true = dynamics_true
 
         # opt Parameters
-        self.optimizer = optimizer      # function passed in to min or max
-        self.max_min = 'min'            # min or max cost / reward fnc
+        self.objective = Objective   # function passed in to be min'd or max'd. Of class Objective
         self.method = 'Shooter'         # default to random shooting MPC
-        self.time_horiz = N             # time steps into future to look
+        self.time_horiz = T             # time steps into future to look
+        self.N = N                      # number of samples to try when random
 
     def control(self, current_state):
         # function that returns desired control output
-        raise NotImplementedError('Not Yet Implemented')
+
+        if (method != 'Shooter'):
+            raise NotImplementedError('Not Yet Implemented. Please use shooter random method')
+
+        # Simulate a bunch of random actions and then need a way to evaluate reward
+
+class Objective():
+    # class of objective functions to be used in MPC and maybe future implementations
+    def __init__(self, function, maxORmin = 'max'):
+
+        # lambda function to max or min based on state and or input
+        self.optimizer = function
+
+        # sets max and argmax etc
+        if (maxORmin == 'max'):
+            self.m = np.max()
+            self.argm = np.argmax()
+        elif (maxORmin == 'min'):
+            self.m = np.min()
+            self.argm = np.argmin()
+        else:
+            raise ValueError('Pass useable optimization function max or min')

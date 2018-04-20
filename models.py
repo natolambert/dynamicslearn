@@ -19,8 +19,10 @@ class LeastSquares:
     # fits gathered data to the form
     # x_(t+1) = Ax + Bu
 
-    def __init__(self):
+    def __init__(self, x_dim = 12, u_dim = 4):
         self.reg = linear_model.LinearRegression()
+        self.x_dim = x_dim
+        self.u_dim = u_dim
 
     def train(self, change_states, states_prev, actions_prev):
         # need to make sure data here is normalized AND the states are all
@@ -34,7 +36,7 @@ class LeastSquares:
         #       w ~ [A, B]
         Z = np.hstack([states_prev, actions_prev])
         y = change_states
-        
+
         self.reg.fit(Z,y)
         return self.reg.coef_
 
@@ -69,5 +71,14 @@ class NeuralNet:
 #     # TODO
 
 def simulate_learned(model, actions, x0=[]):
-    # returns a vector of the states predicted by the learned dynamics model given states and the inputs
+    # returns a array of the states predicted by the learned dynamics model given states and the inputs
     raise NotImplementedError('To Be Done, SOON')
+    if (x0 == []):
+        x0 = np.zeros(model.x_dim,1)
+
+    X = [x0]
+    for a in actions:
+        xnext = X[-1] + model.predict(X[-1], a)
+        X.append(xnext)
+
+    return X

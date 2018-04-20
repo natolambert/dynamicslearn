@@ -88,8 +88,8 @@ def sequencesXU2array(X, U, normalize = False):
     return data
 
 def l2array(list_arrays):
+    # 2-tuple list to array. Needed for all the trios of data that return columns where each column is a list of states and not a 2d array of states etc. This may be slightly poor practice.
     arr = []
     for l in list_arrays:
         arr.append(l)
-
     return np.array(arr)
