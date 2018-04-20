@@ -178,10 +178,11 @@ class MPControl(Controller):
 
 class Objective():
     # class of objective functions to be used in MPC and maybe future implementations
-    def __init__(self, function, maxORmin = 'max'):
+    def __init__(self, function, maxORmin = 'max', force_dim = False):
 
-        # lambda function to max or min based on state and or input
+        # lambda or other function to max or min based on state and or input
         self.optimizer = function
+        self.force_dim = force_dim
 
         # sets max and argmax etc
         if (maxORmin == 'max'):
@@ -192,3 +193,27 @@ class Objective():
             self.argm = np.argmin()
         else:
             raise ValueError('Pass useable optimization function max or min')
+
+        # Dimension of objective. Output is scalar or less controlled
+        # self.dim = None        # See property
+
+    @property
+    def dim(self):
+        # Force a dimension on the objective function
+        return self.dim
+
+    @dim.setter
+    def dim(self, value):
+        self.dim = value
+
+    def _enforce_dimension(self, input_vector):
+        if (force_dim and not hasattr(self, 'dim')):
+            raise ValueError('Input Dimension Not Set')
+        if dim != np.shape(input_vector):
+            raise ValueError('Dimension of input does not match what was set')
+
+    def eval(input_vect):
+        # takes in an inpute VECTOR and returns the objective Value
+        # Checks to make sure dimension is right
+        self._enforce_dimension(input_vector)
+        return self.optimizer(input_vect)
