@@ -43,10 +43,10 @@ class LeastSquares:
     def predict(self, state, action):
         # predicts next state of a state, action pairing
 
-        vect = np.hstack(state, action)
+        # forces one dimensional vector, transpose to allign with .fit dimensions
+        vect = np.hstack((state, action)).reshape(-1,1).T
         pred = self.reg.predict(vect)
-
-        return pred
+        return pred[0]
 
     @property
     def A_B(self):
@@ -72,13 +72,13 @@ class NeuralNet:
 
 def simulate_learned(model, actions, x0=[]):
     # returns a array of the states predicted by the learned dynamics model given states and the inputs
-    raise NotImplementedError('To Be Done, SOON')
     if (x0 == []):
         x0 = np.zeros(model.x_dim,1)
 
     X = [x0]
     for a in actions:
-        xnext = X[-1] + model.predict(X[-1], a)
+        # print(a)
+        xnext = X[-1].flatten() + model.predict(X[-1], a)
         X.append(xnext)
 
     return np.array(X)

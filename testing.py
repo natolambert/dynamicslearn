@@ -1,5 +1,5 @@
 from dynamics import *
-from controllers import *
+from controllers import randController, MPController
 from dynamics_ionocraft import IonoCraft
 from utils_plot import *
 from utils_data import *
@@ -40,7 +40,7 @@ print('\n')
 #     X = np.append(X, [xnew],axis=0)
 
 length = 25
-rand1 = randControl(iono1, variance = .000005)
+rand1 = randController(iono1, variance = .000005)
 X, U = generate_data(iono1, sequence_len=length, num_iter=100, controller = rand1)
 
 X = np.array(X)
@@ -49,17 +49,44 @@ dim_to_eval = [0, 1, 2]
 origin_xyz_norm = Objective(np.linalg.norm, maxORmin = 'min', dim = 3,  dim_to_eval = dim_to_eval, data=X)
 min_idx = origin_xyz_norm.compute_ARGmm()
 min_val = origin_xyz_norm.compute_mm()
+
+print('TESTING ACTION GENERATION')
+N = 50
+T = 5
+rand_controller = randController(iono1)
+rrr = rand_controller.update()
+actions = np.array([rand_controller.update() for i in range(N)])
+actions_seq = np.dstack((actions,actions,actions))
+a = actions
+action_list = []
+for i in range(T):
+    action_list.append(actions)
+
+actions_seq = np.dstack(action_list)
+print(np.shape(np.swapaxes(actions_seq,1,2)))
+
+print('_---___-_--_-____---')
+print('\n')
+# actions_seq = [np.dstack((actions,a)) for i in range(T)]
+
+
+# actions_seq = np.repeat(actions,5,axis=2)
+# print(np.shape(actions_seq))
+lin1 = LeastSquares()
+data = sequencesXU2array(X,U)
+lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
+
+mpc1 = MPController(lin1, iono1, origin_xyz_norm)
+hmm = mpc1.control(x0)
+print(hmm)
 # T = np.linspace(0,length*iono1.get_dt,length)
 # # X = X[0]
 # print(np.shape(X))
 # print(np.shape(U))
 # dim_x, _ = iono1.get_dims
 #
-# lin1 = LeastSquares()
-# data = sequencesXU2array(X,U)
 # data_arr = l2array(data[:,0])
 # # print(np.shape(data_arr))
-# lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 # # delta = states_to_delta(X)
 # print(np.shape(lin1.reg.coef_))
 # lin1.train()

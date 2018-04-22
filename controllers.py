@@ -34,7 +34,7 @@ class Controller:
     def get_equil(self):
         return self.equil
 
-class randControl(Controller):
+class randController(Controller):
     def __init__(self, dynamics, variance = .00001):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
@@ -142,7 +142,7 @@ class PID:
 
 # class PIDControl(Controller):
 
-class MPControl(Controller):
+class MPController(Controller):
     # MPC control, there will be two types
     # 1. random shooting control, with best reward being taken
     # 2. convext optimization solution on finite time horizon
@@ -163,7 +163,7 @@ class MPControl(Controller):
         self.dynamics_true = dynamics_true
 
         # opt Parameters
-        self.objective = Objective   # function passed in to be min'd or max'd. Of class Objective
+        self.Objective = Objective   # function passed in to be min'd or max'd. Of class Objective
         self.method = 'Shooter'         # default to random shooting MPC
         self.time_horiz = T             # time steps into future to look
         self.N = N                      # number of samples to try when random
@@ -171,27 +171,44 @@ class MPControl(Controller):
     def control(self, current_state):
         # function that returns desired control output
 
-        if (method != 'Shooter'):
+        if (self.method != 'Shooter'):
             raise NotImplementedError('Not Yet Implemented. Please use shooter random method')
 
         # Simulate a bunch of random actions and then need a way to evaluate reward
-
+        N = self.N
+        T = self.time_horiz
         # Makes controller to generate some action
         rand_controller = randController(self.dynamics_true)
         actions = [rand_controller.update() for i in range(N)]
 
         # Extends control to the time horizon defined in init
-        # # TODO:
+        actions_list = []
+        for i in range(T):
+            actions_list.append(actions)    #creates actions depth wise here
+        actions_seq = np.dstack(actions_list)
+        actions_seq = np.swapaxes(actions_seq,1,2)        # Keeps tuple in the form (n, traj_idx, state/input_idx)
 
         # simulates actions on learned dynamics, need to fill in matrix
-        X = []  # TODO: make this tiled matrix of x0
-        for n in N:
-            step = simulate_learned(self.dynamics_model, actions, x0=current_state)
-            # TODO: assign sequence to matrix
+        X_sim = [] # np.tile(current_state,(N,1))  # tiled matrix of x0 = current_state
+        for n in range(N):
+            seq_sim = simulate_learned(self.dynamics_model, actions_seq[n,:,:], x0=current_state)
+            # append sequence to array
+            X_sim.append(seq_sim)
+
+        print('checking shapes')
+        print(np.shape(X_sim))
+        print(np.shape(actions_seq))
 
         # Evaluate all the sequences with the objective function, get index of best action
-        mm_idx = self.Objective.computeArgmm()
-        best_action = actions[mm_idx]
+
+        # Load objective with simulated data
+        self.Objective.loaddata(np.array(X_sim))
+
+        # Calculate best actions
+        mm_idx = self.Objective.compute_ARGmm()
+        print(mm_idx)
+        best_action = actions_seq[mm_idx]
+        return best_action
 
 class Objective():
     # class of objective functions to be used in MPC and maybe future implementations. Takes in sets of sequences when optimizing!
@@ -234,7 +251,7 @@ class Objective():
         data_eval = self.data[:,:,self.dim_to_eval]
 
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
-        print(np.shape(objective_vals))
+        # print(np.shape(objective_vals))
         mm = self.mm(objective_vals)
 
         return mm
@@ -243,12 +260,13 @@ class Objective():
         # computes the ARGmax or min over the data
         if (self.data == []):
             raise AttributeError('Data Not Loaded')
-
+        print(np.shape(self.data))
         # Chooses data of sub-indices of each trajectory
+        print(self.dim_to_eval)
         data_eval = self.data[:,:,self.dim_to_eval]
 
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
-        print(np.shape(objective_vals))
+        # print(np.shape(objective_vals))
         mm_idx = self.argmm(objective_vals)
 
         return mm_idx
