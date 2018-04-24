@@ -1,13 +1,13 @@
 # Compatibility Python 2/3
 from __future__ import division, print_function, absolute_import
-from future.builtins import range
+# from future.builtins import range
 from builtins import range, super
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Start importing packages
 import numpy as np
 import math
-import dynamics as dynamics
+from dynamics import *
 
 # Original version inhereted from Somil Bansal - Tomlin Group
 __author__ = 'Somil Bansal'
@@ -32,7 +32,12 @@ class CrazyFlie(Dynamics):
         self.g = 9.81
 
         # Define equilibrium input for quadrotor around hover
-        # TODO
+        self.u_e = np.array([m*self.g, 0, 0, 0])
+
+        # Hover control matrices
+        self._hover_mats = [np.array([1, 0, 0, 0]),      # z
+                            np.array([0, 1, 0, 0]),   # pitch
+                            np.array([0, 0, 1, 0])]   # roll
 
     def pqr2rpy(self, x0, pqr):
         rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
@@ -40,7 +45,12 @@ class CrazyFlie(Dynamics):
                                 [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
         return rotn_matrix.dot(pqr)
 
-    def simulate(self, x, u, t=None):
+    def update(self, x, u, t=None):
+        # Input structure:
+        # u1 = thrust
+        # u2 = torque-wx
+        # u3 = torque-wy
+        # u4 = torque-wz
         self._enforce_dimension(x, u)
         dt = self.dt
         u0 = u

@@ -52,7 +52,7 @@ class IonoCraft(Dynamics):
     def _enforce_input_range(self, input, lowerbound = 0, upperbound = 500e-6):
         # enforces the max and min of an input to an ionocraft
         # input is a 4x1 vect
-        return np.clip(input, lowerbound, upperbound, out=arr)
+        return np.clip(input, lowerbound, upperbound)
 
     def force2thrust_torque(self, angle):
         # transformation matrix for ionocraft with XY thrusts

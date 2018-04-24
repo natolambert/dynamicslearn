@@ -52,8 +52,6 @@ class randController(Controller):
         # returns a random control sample
         return self.equil + np.random.normal(scale=self.var,size=(self.dim))
 
-    def setVar(self, newVar):
-        self.var = newVar
 
 class HoverPID(Controller):
     def __init__(self, dynamics, target = [0,0,0]):
@@ -96,7 +94,7 @@ class HoverPID(Controller):
 
         z_vect = z_cnst*self.z_transform
         pitch_vect = pitch_cnst*self.pitch_transform
-        roll_vect = roll_cnst*roll_transform
+        roll_vect = roll_cnst*self.roll_transform
         return z_vect + pitch_vect + roll_vect + self.equil
 
     # Methods for setting PID parameters
@@ -125,7 +123,7 @@ class PID:
         self.integral_min = integral_min
 
     # reset between runs for intergral error etc
-    def reset(self)
+    def reset(self):
         self.error = 0
         self.last_error = 0
         self.integral_error = 0
