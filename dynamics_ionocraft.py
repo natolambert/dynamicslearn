@@ -44,6 +44,16 @@ class IonoCraft(Dynamics):
         # Defines equilibrium control for the IonoCraft
         self.u_e = (m*self.g/4)*np.ones(4)
 
+        # Hover control matrices
+        self._hover_mats = [np.array([1, 1, 1, 1]),      # z
+                            np.array([-1, -1, 1, 1]),   # pitch
+                            np.array([1, -1, -1, 1])]   # roll
+
+    def _enforce_input_range(self, input, lowerbound = 0, upperbound = 500e-6):
+        # enforces the max and min of an input to an ionocraft
+        # input is a 4x1 vect
+        return np.clip(input, lowerbound, upperbound, out=arr)
+
     def force2thrust_torque(self, angle):
         # transformation matrix for ionocraft with XY thrusts
         # [Thrustx; Thrusty; Thrustz; Tauz; Tauy; Taux;] = M * [F4; F3; F2; F1]
@@ -87,6 +97,9 @@ class IonoCraft(Dynamics):
         # Add noise to input
         u_noise_vec = np.random.normal(loc=0, scale = self.u_noise, size=(self.u_dim))
         u = u+u_noise_vec
+
+        # enforce input range
+        u = self._enforce_input_range(u)
 
         # Transform the input into body frame forces
         T_tau_thrusters = np.zeros(6)

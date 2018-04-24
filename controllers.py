@@ -56,41 +56,58 @@ class randController(Controller):
         self.var = newVar
 
 class HoverPID(Controller):
-    def __init__(self, dynamics):
+    def __init__(self, dynamics, target = [0,0,0]):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control
         # acts by hovering around the z setpoint, and minimizing roll and pitch to 0
+        # target is a vector where
+        #   target[0] = target_z
+        #   target[1] = target_pitch
+        #   target[2] = target_roll
+
         dt = dynamics.get_dt
         dim = dynamics.get_dims[1]
         super().__init__(dt, dim=dim)
 
-        # equilibrium point is from dynamics
+        # equilibrium point is from dynamics. Add PID outputs to hover condition
         self.equil = dynamics.u_e
 
-        # Contorl Parameters
-        self.PIDroll = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
-        self.PIDpitch = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
-        self.PIDz = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
+        # set up three PID controllers
+        self.PIDz = PID(kP = 1, kI = 0, kD = 0, target = target[0])
+        self.PIDpitch = PID(kP = 1, kI = 0, kD = 0, target = target[1])
+        self.PIDroll = PID(kP = 1, kI = 0, kD = 0, target = target[2])
 
-        # Setpoint
-        self.z_pt = z_pt
+        # Grab control matrices from dynamics file
+        PIDmatrices = dynamics._hover_mats
+        self.z_transform = PIDmatrices[0]
+        self.pitch_transform = PIDmatrices[1]
+        self.roll_transform = PIDmatrices[2]
 
     def update(self, state):
-        # returns a random control sample
+        # Returns the sum of the PIDs as the controller
         z = state[2]
         pitch = state[4]
-        self.error
-        return self.equil + np.random.normal(scale=self.var,size=(self.dim))
+        roll = state[5]
 
-    def setkP(self,kPnew):
-        self.kP = kPnew
+        z_cnst = self.PIDz.update(z)
+        pitch_cnst = self.PIDpitch.update(pitch)
+        roll_cnst = self.PIDroll.update(roll)
 
-    def setkI(self,kInew):
-        self.kI = kInew
+        z_vect = z_cnst*self.z_transform
+        pitch_vect = pitch_cnst*self.pitch_transform
+        roll_vect = roll_cnst*roll_transform
+        return z_vect + pitch_vect + roll_vect
 
-    def setkD(self,kDnew):
-        self.kD = kDnew
+    # Methods for setting PID parameters
+    def setKrollPID(self,kPIDnew):
+        self.PIDroll.kPID(kPIDnew)
+
+    def setKpitchPID(self,kPIDnew):
+        self.PIDpith.kPID(kPIDnew)
+
+    def setKzPID(self,kPIDnew):
+        self.PIDpz.kPID(kPIDnew)
 
 class PID:
     # Class for 1d PID controller
@@ -107,6 +124,12 @@ class PID:
         self.integral_max =integral_max
         self.integral_min = integral_min
 
+    # reset between runs for intergral error etc
+    def reset(self)
+        self.error = 0
+        self.last_error = 0
+        self.integral_error = 0
+
 
     def update(self, val):
         # updates the PID value for a given Value
@@ -114,8 +137,8 @@ class PID:
         self.error = error
 
         # Caps integral error
-        self.integral_error = self.integral_error + error
-        if self.integral_error > self.integral_max:
+        self.integral_error = self.integral_error + error       # updates error
+        if self.integral_error > self.integral_max:             # capping error
             self.integral_error = self.integral_max
         elif self.integral_error < self.integral_min:
             self.integral_error = self.integral_min
@@ -140,7 +163,16 @@ class PID:
         self.kI = kPIDnew[1]
         self.kD = kPIDnew[2]
 
-# class PIDControl(Controller):
+    @property
+    def targetpoint(self):
+        # returns the PID values
+        return self.target
+
+    @targetpoint.setter
+    def targetpoint(self, targetnew):
+        # sets new target value
+        self.target = targetnew
+
 
 class MPController(Controller):
     # MPC control, there will be two types
