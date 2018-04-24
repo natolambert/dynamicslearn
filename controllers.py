@@ -56,7 +56,7 @@ class randController(Controller):
         self.var = newVar
 
 class HoverPID(Controller):
-    def __init__(self, dynamics, kP = 1, kI = 0, kD = 0, z_pt = 0):
+    def __init__(self, dynamics):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control
@@ -69,9 +69,9 @@ class HoverPID(Controller):
         self.equil = dynamics.u_e
 
         # Contorl Parameters
-        self.kP = kP
-        self.kI = kI
-        self.kD = kD
+        self.PIDroll = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
+        self.PIDpitch = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
+        self.PIDz = PID(kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100)
 
         # Setpoint
         self.z_pt = z_pt
