@@ -97,7 +97,7 @@ class HoverPID(Controller):
         z_vect = z_cnst*self.z_transform
         pitch_vect = pitch_cnst*self.pitch_transform
         roll_vect = roll_cnst*roll_transform
-        return z_vect + pitch_vect + roll_vect
+        return z_vect + pitch_vect + roll_vect + self.equil
 
     # Methods for setting PID parameters
     def setKrollPID(self,kPIDnew):
