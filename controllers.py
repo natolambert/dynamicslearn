@@ -195,6 +195,10 @@ class MPController(Controller):
             # append sequence to array
             X_sim.append(seq_sim)
 
+        print('checking shapes')
+        print(np.shape(X_sim))
+        print(np.shape(actions_seq))
+
         # Evaluate all the sequences with the objective function, get index of best action
 
         # Load objective with simulated data
@@ -202,6 +206,7 @@ class MPController(Controller):
 
         # Calculate best actions
         mm_idx = self.Objective.compute_ARGmm()
+        print(mm_idx)
         best_action = actions_seq[mm_idx]
         return best_action
 
