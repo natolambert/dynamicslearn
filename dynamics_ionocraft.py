@@ -1,13 +1,6 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
-'''
-UNDER CONSTRUCTION: linearized dynamics model around the hover point for the ionocraft
 
-Test cases passed:
-- gravity fall only
-- hover condition
-
-'''
 
 # Start importing packages
 import numpy as np
