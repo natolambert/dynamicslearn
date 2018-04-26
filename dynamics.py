@@ -68,7 +68,7 @@ def W_inv(ypr):
 def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
     if controller == 'random':
-        controller = randControl(dynam)
+        controller = randController(dynam)
 
     Seqs_X = []
     Seqs_U = []
@@ -79,7 +79,7 @@ def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
 
     return Seqs_X, Seqs_U
 
-def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random'):
+def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print = False):
     # Simulates a squence following the control sequence provided
     # returns the list of states and inputs as a large array
 
@@ -106,6 +106,10 @@ def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random'):
         U = np.append(U, [u], axis=0)
 
         # generate new u
-        u = controller.update()
+        u = controller.update(x_prev)
+        if to_print:
+            print('State is: ', x_prev)
+            print('Control is: ', u)
+
 
     return X, U

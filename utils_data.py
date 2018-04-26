@@ -58,7 +58,7 @@ def normalize_states(delta_states, ScaleType = StandardScaler, x_dim = 12):
     scaled = scaler.fit(delta_states)
     return scaled
 
-def sequencesXU2array(X, U, normalize = False):
+def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
     # Uses other functions to take in two arrays X,U that are 3d arrays of sequences of states and actions
     # n = num sequences
     # l = len(sequences)
@@ -66,13 +66,13 @@ def sequencesXU2array(X, U, normalize = False):
     if normalize:
         raise NotImplementedError('Have not implemented normalization')
 
-    n, l, dimx = np.shape(X)
-    _, _, dimu = np.shape(U)
+    n, l, dimx = np.shape(Seqs_X)
+    _, _, dimu = np.shape(Seqs_U)
 
     # # pre-allocates matrix to store all 3-tuples, n-1 because need delta state
     # data = np.zeros(((n-1)*l,dimx+dimu))
     seqs = []
-    for (seqX, seqU) in zip(X,U):
+    for (seqX, seqU) in zip(Seqs_X,Seqs_U):
         # generates the changes in states from raw data
         delta_states = states2delta(seqX)
 
