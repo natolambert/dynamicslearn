@@ -60,19 +60,19 @@ class NeuralNet(nn.Module):
     Layers is a list of layer sizes, first layer size should be input dimension, last layer size should be output dimension
     """
     def __init__(self, layers):
-        self.model = []
+        super(NeuralNet, self).__init__()
         for i in range(len(layers) - 1):
-            self.model.append(nn.Linear(layers[i], layers[i+1]))
-            self.model.append(nn.ReLU())
-        del(self.model[-1])
+            self.add_module(str(2*i), nn.Linear(layers[i], layers[i+1]))
+            if i != len(layers) - 2:
+                self.add_module(str(2*i+1), nn.ReLU())
 
 
     """
     Standard forward function necessary if extending nn.Module. Basically a copy of nn.Sequential
     """
     def forward(self, x):
-        for layer in self.model:
-            x = layer(x)
+        for module in self._modules.values():
+            x = module(x)
         return x
 
     """
@@ -82,18 +82,21 @@ class NeuralNet(nn.Module):
     Epochs is number of times to train on given training data, 
     batch_size is hyperparameter dicating how large of a batch to use for training, 
     optim is the optimizer to use (options are "Adam", "SGD")
+    split is train/test split ratio
     """
-    def train(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=nn.MSELoss()):
+    def train(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=nn.MSELoss(), split=0.9):
 
-        dataLoader = DataLoader(dataset, batch_size=batch_size)
+        trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
+        testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
+
         #Unclear if we should be using SGD or ADAM? Papers seem to say ADAM works better
         if(optim=="Adam"):
-            optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+            optimizer = torch.optim.Adam(super(NeuralNet, self).parameters(), lr=learning_rate)
         elif(optim=="SGD"):
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
+            optimizer = torch.optim.SGD(super(NeuralNet, self).parameters(), lr=learning_rate)
         else:
             raise ValueError(optim + " is not a valid optimizer type")
-        return _optimize(self.model, loss_fn, optimizer, epochs, batch_size, dataLoader)
+        return self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
     
     """
     Don't actually need this, but keeping it to be consistent with Least Squares class
@@ -103,16 +106,19 @@ class NeuralNet(nn.Module):
 
 
 
-    def _optimize(self, loss_fn, optim, epochs, batch_size, trainloader):
+    def _optimize(self, loss_fn, optim, epochs, batch_size, trainLoader, testLoader):
+        errors = []
         for epoch in range(epochs):
             avg_loss = Variable(torch.zeros(1))
-            num_batches = len(trainset)/batch_size
-            for i, (input, target) in enumerate(trainloader):
-                input = Variable(input.view(batch_size, -1))  # the input comes as a batch of 2d images which we flatten;
+            num_batches = len(trainLoader)/batch_size
+            for i, (input, target) in enumerate(trainLoader):
+                #input = Variable(input.view(batch_size, -1))  # the input comes as a batch of 2d images which we flatten;
                                                               # view(-1) tells pytorch to fill in a dimension; here it's 784
+                input = Variable(input)
+                target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
                 optim.zero_grad()                             # zero the gradient buffers
                 output = self.forward(input)                 # compute the output
-                loss = loss_fn(target, output)                # compute the loss
+                loss = loss_fn(output, target)                # compute the loss
                 loss.backward()                               # backpropagate from the loss to fill the gradient buffers
                 optim.step()                                  # do a gradient descent step
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
@@ -121,20 +127,20 @@ class NeuralNet(nn.Module):
                 avg_loss += loss/num_batches                  # update the overall average loss with this batch's loss
             
             
-            """
-            correct = 0
-            for input, target in testset:                     # compute the testing accuracy
-                input = Variable(input.view(1, -1))
-                output = prediction_fn(input)
-                pred_ind = torch.max(output, 1)[1]              
-                if pred_ind.data[0] == target:                # true/false Variables don't actually have a boolean value,
-                    correct += 1                              # so we have to unwrap it to see if it was correct
-            accuracy = correct/len(testset)
-            """
+            test_error = 0
+            for (input, target) in testLoader:                     # compute the testing test_error
+                input = Variable(input)
+                target = Variable(target, requires_grad=False)
+                output = self.forward(input)
+                loss = loss_fn(output, target)
+                test_error += loss.data[0]
+            test_error = test_error / len(testLoader)
+            
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
-            #          "accuracy={:.9f}".format(accuracy))
-            print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]))
-        return acc
+            #          "test_error={:.9f}".format(test_error))
+            print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))
+            errors.append(test_error)
+        return errors
 
 #
 # class GaussianProcess:
