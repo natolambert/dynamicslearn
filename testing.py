@@ -11,44 +11,76 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-dt = .005
-iono1 = IonoCraft(dt, x_noise = .0000)
+### EXAMPLE EXECUTION
 
-m = 67e-6
-g = 9.81
+################################ INITIALIZATION ################################
 
-mgo4 = m*g/4
+# initialize some variables
+dt = .0025
 
+# dynamics object
+iono1 = IonoCraft(dt, x_noise = .0001)
+
+# initial state is origin
 x0 = np.zeros(12)
 u0 = np.array([mgo4+.0001,mgo4,mgo4,mgo4]) #np.zeros(4)
 
+# good for unit testin dynamics
 x1 = iono1.simulate(x0,u0)
 # x1[x1 < .00001] = 0
 x2 = iono1.simulate(x1,u0)
 # x2[x2 < .00001] = 0
 x3 = iono1.simulate(x2,u0)
 
-printState(x0)
-printState(x1)
-printState(x2)
+# prints state in readible form
 printState(x3)
 
-hover = HoverPID(iono1)
-out = hover.update(x0)
-# print(out)
-# print(mgo4)
-# print('TESTING CRAZYFLIE')
-# quad = CrazyFlie(dt, x_noise = 0)
-# mgo4quad = quad.m*quad.g
-# u0 = np.array([mgo4quad,0,-.1,.1]) #np.zeros(4)
-# x1 = quad.update(x0,u0)
-# print(x1)
-# l = 100
-# X, U = sim_sequence(iono1,sequence_len = l)
-# print(np.shape(X))
-# # T = np.linspace(0,l*dt,l)
-# # plot12(X, T)
-#
+# Simulate data for training
+N = 500     # num sequneces
+
+# generate training data
+Seqs_X, Seqs_U = generate_data(iono1, sequence_len=50, num_iter = N)
+
+# converts data from list of trajectories of [next_states, states, inputs]
+#       to a large array of [next_states, states, inputs]
+data = sequencesXU2array(Seqs_X, Seqs_U)
+
+# Check shape of data
+# print(np.shape(data))
+
+################################ LEARNING ################################
+
+
+# create a learning model
+lin1 = LeastSquares()
+
+# train it like this
+lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
+
+################################ Obj Fnc ################################
+
+origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[0, 1, 2])
+
+################################ MPC ################################
+
+# initialize MPC object with objective function above
+mpc1 = MPController(lin1, iono1, origin_minimizer)
+
+
+################################ Sim Controlled ################################
+
+# Sim sequence off the trained controller
+x_controlled, _ = sim_sequence(iono1, controller = mpc1, sequence_len = 50, to_print = False)
+print(np.shape(x_controlled[0]))
+
+
+################################ PLot ################################
+
+# plot states and inputs of the trajectory if wanted
+# T = np.linspace(0,N*dt,N)
+# plot12(X, T)
 # plotInputs(U, T)
-# plotter1 = PlotFlight(X,.5)
-# plotter1.show()
+
+# Plots animation, change save to false to not save .gif
+plotter1 = PlotFlight(x_controlled,.5)
+plotter1.show(save=True)

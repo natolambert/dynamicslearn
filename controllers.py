@@ -48,7 +48,7 @@ class randController(Controller):
         self.equil = dynamics.u_e
         self.var = variance
 
-    def update(self):
+    def update(self, val):
         # returns a random control sample
         return self.equil + np.random.normal(scale=self.var,size=(self.dim))
 
@@ -198,7 +198,7 @@ class MPController(Controller):
         self.time_horiz = T             # time steps into future to look
         self.N = N                      # number of samples to try when random
 
-    def control(self, current_state):
+    def update(self, current_state):
         # function that returns desired control output
 
         if (self.method != 'Shooter'):
@@ -209,7 +209,7 @@ class MPController(Controller):
         T = self.time_horiz
         # Makes controller to generate some action
         rand_controller = randController(self.dynamics_true)
-        actions = [rand_controller.update() for i in range(N)]
+        actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
 
         # Extends control to the time horizon defined in init
         actions_list = []
@@ -225,9 +225,9 @@ class MPController(Controller):
             # append sequence to array
             X_sim.append(seq_sim)
 
-        print('checking shapes')
-        print(np.shape(X_sim))
-        print(np.shape(actions_seq))
+        # print('checking shapes')
+        # print(np.shape(X_sim))
+        # print(np.shape(actions_seq))
 
         # Evaluate all the sequences with the objective function, get index of best action
 
@@ -236,9 +236,10 @@ class MPController(Controller):
 
         # Calculate best actions
         mm_idx = self.Objective.compute_ARGmm()
-        print(mm_idx)
+        # print(mm_idx)
         best_action = actions_seq[mm_idx]
-        return best_action
+        
+        return best_action[0]
 
 class Objective():
     # class of objective functions to be used in MPC and maybe future implementations. Takes in sets of sequences when optimizing!
@@ -290,9 +291,9 @@ class Objective():
         # computes the ARGmax or min over the data
         if (self.data == []):
             raise AttributeError('Data Not Loaded')
-        print(np.shape(self.data))
+        # print(np.shape(self.data))
         # Chooses data of sub-indices of each trajectory
-        print(self.dim_to_eval)
+        # print(self.dim_to_eval)
         data_eval = self.data[:,:,self.dim_to_eval]
 
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
