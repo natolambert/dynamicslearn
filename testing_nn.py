@@ -44,50 +44,68 @@ print('\n')
 
 length = 50
 num_iter = 100
-rand1 = randControl(iono1, variance = .000005)
+rand1 = randController(iono1, variance = .000005)
 #[x y z xdot ydot zdot psi theta phi psi_dot theta_dot phi_dot]
 X, U = generate_data(iono1, sequence_len=length, num_iter=num_iter, controller = rand1)
 X = np.array(X)
 U = np.array(U)
 #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
-modX = np.concatenate((X[:, :, 0:3], np.sin(X[:, :, 3:6]), np.cos(X[:, :, 3:6]), X[:, :, 6:]), axis=2)
+# modX = np.concatenate((X[:, :, 0:3], np.sin(X[:, :, 3:6]), np.cos(X[:, :, 3:6]), X[:, :, 6:]), axis=2)
 
-#Getting output dX
-dX = np.array([states2delta(val) for val in modX])
+# #Getting output dX
+# dX = np.array([states2delta(val) for val in modX])
 
-#the last state isn't actually interesting to us for training, as we only need dX
-#Follow by flattening the matrices so they look like input/output pairs
-modX = modX[:, :-1, :]
-modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
+# #the last state isn't actually interesting to us for training, as we only need dX
+# #Follow by flattening the matrices so they look like input/output pairs
+# modX = modX[:, :-1, :]
+# modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
 
-modU = U[:, :-1, :]
-modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
+# modU = U[:, :-1, :]
+# modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
 
-dX = dX.reshape(dX.shape[0]*dX.shape[1], -1)
+# dX = dX.reshape(dX.shape[0]*dX.shape[1], -1)
 
-#at this point they should look like input output pairs
-if dX.shape != modX.shape:
-	raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
-
-
-#Getting standard scalars for X, U, dX
-scalarX = normalize_states(modX)
-scalarU = normalize_states(modU)
-scalardX = normalize_states(dX)
+# #at this point they should look like input output pairs
+# if dX.shape != modX.shape:
+# 	raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
 
 
-normX = scalarX.transform(modX)
-normU = scalarU.transform(modU)
-normdX = scalardX.transform(dX)
+# #Getting standard scalars for X, U, dX
+# scalarX = normalize_states(modX)
+# scalarU = normalize_states(modU)
+# scalardX = normalize_states(dX)
 
-inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
-outputs = torch.Tensor(dX)
 
-#creating neural network with 2 layers of 100 linearly connected ReLU units
-nn = NeuralNet([normX.shape[1] + normU.shape[1], 100, 100, dX.shape[1]])
+# normX = scalarX.transform(modX)
+# normU = scalarU.transform(modU)
+# normdX = scalardX.transform(dX)
 
-acc = nn.train(tuple(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
+# inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
+# outputs = torch.Tensor(dX)
+
+# #creating neural network with 2 layers of 100 linearly connected ReLU units
+
+nn = NeuralNet([19, 100, 100, 15])
+
+# acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
+
+acc = nn.train((X, U), learning_rate=1e-4, epochs=50)
+
+dx0 = nn.predict(x0, u0)
+print("x0=" + str(x0), "dx0 =" + str(dx0), "x1=" + str(x1))
+print("loss =" + str(sum((x1 - (x0 + dx0))**2)))
+
+print("\n \n \n ")
+
+dx1 = nn.predict(x1, u0)
+print("x1=" + str(x1), "dx1 =" + str(dx1), "x1=" + str(x2))
+print("loss =" + str(sum((x2 - (x1 + dx1))**2)))
+
+print("\n \n \n")
+
 plt.plot(acc) #plotting accuracy of neural net as a function of training
 plt.show()
+
+
 
 

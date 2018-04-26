@@ -1,12 +1,14 @@
 # Compatibility Python 3
 
 # Import project files
+import utils_data
 
 # Import External Packages
 import numpy as np
 import math
 from sklearn.model_selection import train_test_split
 from sklearn import linear_model
+from sklearn.preprocessing import StandardScaler
 
 # torch packages
 import torch
@@ -63,6 +65,12 @@ class NeuralNet(nn.Module):
     """
     def __init__(self, layers):
         super(NeuralNet, self).__init__()
+
+        #To keep track of what the mean and variance are at all times for transformations
+        self.scalarX = StandardScaler()
+        self.scalarU = StandardScaler()
+        self.scalardX = StandardScaler()
+
         for i in range(len(layers) - 1):
             self.add_module(str(2*i), nn.Linear(layers[i], layers[i+1]))
             if i != len(layers) - 2:
@@ -78,15 +86,74 @@ class NeuralNet(nn.Module):
         return x
 
     """
+    Preprocess X and U (as they would be outputted by dynamics.generate_data) so they can be passed into the neural network for training
+    X and U should be numpy arrays with dimensionality X.shape = (num_iter, sequence_len, 12) U.shape = (num_iter, sequence_len, 4)
+
+    return: A
+    """
+    def preprocess(self, X, U):
+        #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
+        modX = np.concatenate((X[:, :, 0:3], np.sin(X[:, :, 3:6]), np.cos(X[:, :, 3:6]), X[:, :, 6:]), axis=2)
+
+        #Getting output dX
+        dX = np.array([utils_data.states2delta(val) for val in modX])
+
+        #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
+        modX = modX[:, :-1, :]
+        modU = U[:, :-1, :]
+        
+        #Follow by flattening the matrices so they look like input/output pairs
+        modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
+        modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
+        dX = dX.reshape(dX.shape[0]*dX.shape[1], -1)
+
+        #at this point they should look like input output pairs
+        if dX.shape != modX.shape:
+            raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
+        
+        #update mean and variance of the dataset with each training pass
+        self.scalarX.partial_fit(modX)
+        self.scalarU.partial_fit(modU)
+        self.scalardX.partial_fit(dX)
+
+        #Normalizing to zero mean and unit variance
+        normX = self.scalarX.transform(modX)
+        normU = self.scalarU.transform(modU)
+        normdX = self.scalardX.transform(dX)
+
+        inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
+        outputs = torch.Tensor(dX)
+
+        return list(zip(inputs, outputs))
+
+
+
+    """
+    Given the raw output from the neural network, post process it by rescaling by the mean and variance of the dataset and converting from cos, sin
+    to actual angle
+    """
+    def postprocess(self, dX):
+        dX = self.scalardX.inverse_transform(dX)
+        if(len(dX.shape) > 1):
+            out = np.concatenate((dX[:, :3], np.arctan2(dX[:, 3:6], dX[:, 6:9]), dX[:, 9:12], dX[:, 12:]), axis=1)
+        else:
+            out = np.concatenate((dX[:3], np.arctan2(dX[3:6], dX[6:9]), dX[9:12], dX[12:]))
+        return out
+    """
     Train the neural network. 
-    dataset is a list of tuples to train on, where the first value in the tuple is the training data (should be implemented as a torch tensor), and the second value in the tuple
-    is the label/action taken
+    if preprocess = False
+        dataset is a list of tuples to train on, where the first value in the tuple is the training data (should be implemented as a torch tensor), and the second value in the tuple
+        is the label/action taken
+    if preprocess = True
+        dataset is simply the raw output of generate data (X, U)
     Epochs is number of times to train on given training data, 
     batch_size is hyperparameter dicating how large of a batch to use for training, 
     optim is the optimizer to use (options are "Adam", "SGD")
     split is train/test split ratio
     """
-    def train(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=nn.MSELoss(), split=0.9):
+    def train(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=nn.MSELoss(), split=0.9, preprocess=True):
+        if preprocess:
+            dataset = self.preprocess(dataset[0], dataset[1])
 
         trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
         testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
@@ -101,10 +168,22 @@ class NeuralNet(nn.Module):
         return self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
     
     """
-    Don't actually need this, but keeping it to be consistent with Least Squares class
+    Given a state X and input U, predict the change in state dX. This function does all pre and post processing for the neural net
     """
-    def predict(self, D_in):
-        return self.forward(D_in)
+    def predict(self, X, U):
+        #Converting to sin/cos form
+        X = np.concatenate((X[0:3], np.sin(X[3:6]), np.cos(X[3:6]), X[6:]))
+        
+        #normalizing and converting to single sample
+        normX = self.scalarX.transform(X.reshape(1, -1))
+        normU = self.scalarU.transform(U.reshape(1, -1))
+
+        input = Variable(torch.Tensor(np.concatenate((normX, normU), axis=1)))
+
+        merp = self.forward(input)
+        print(merp)
+
+        return self.postprocess(self.forward(input).data[0])
 
 
 
