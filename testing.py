@@ -21,6 +21,8 @@ dt = .0025
 # dynamics object
 iono1 = IonoCraft(dt, x_noise = .0001)
 
+mgo4 = iono1.m*iono1.g/4
+
 # initial state is origin
 x0 = np.zeros(12)
 u0 = np.array([mgo4+.0001,mgo4,mgo4,mgo4]) #np.zeros(4)
@@ -66,7 +68,8 @@ origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[0, 1, 2])
 # initialize MPC object with objective function above
 mpc1 = MPController(lin1, iono1, origin_minimizer)
 
-
+other_seq, U = sim_sequence(iono1, sequence_len = 30, controller = mpc1)
+compareTraj(U, np.zeros(12), iono1, lin1, show=True)
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
