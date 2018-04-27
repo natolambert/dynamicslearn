@@ -82,6 +82,56 @@ def printState(x):
     print('wz: \t', x[11])
     print()
 
+def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
+    # plots in 3d the learned and true dynamics to compare visualization
+    Xtrue = x0
+    Xlearn = x0
+
+    for u in Seq_U:
+        # Simulate Update Steps
+        Xtrue_next = dynamics_true.simulate(Xtrue[-1,:],u)
+        Xlearn_next = Xtrue[-1,:] + dynamics_learned.predict(Xtrue[-1,:], u)
+
+        # Append Data
+        Xtrue = np.append(Xtrue, Xtrue_next)
+        Xlearn = np.append(Xlearn, Xlearn_next)
+
+    # Plot ################################
+    fig_compare = plt.figure()
+
+    # 3D
+    ax = fig_compare.add_subplot(111, projection="3d")
+
+    # plot settings
+    plt.axis("equal")
+
+    # plot labels
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+
+    # plot limits + padding
+    plt_limits_true = np.array([[Xtrue[:, 0].min(), Xtrue[:, 0].max()],
+                           [Xtrue[:, 1].min(), Xtrue[:, 1].max()],
+                           [Xtrue[:, 2].min(), Xtrue[:,2].max()]])
+    for item in plt_limits:
+        if abs(item[1] - item[0]) < 2:
+            item[0] -= 1
+            item[1] += 1
+
+    ax.set_xlim3d(plt_limits[0])
+    ax.set_ylim3d(plt_limits[1])
+    ax.set_zlim3d(plt_limits[2])
+
+    # plot_trajectory
+    ax.plot(Xtrue[:,0],Xtrue[:,1],Xtrue[:,2], 'k-', label='True Dynamics' )
+    ax.plot(Xlearn[:,0],Xlearn[:,1],Xlearn[:,2], 'r--', label='Learned Dynamics' )
+    ax.legend()
+
+    if show:
+        plt.show()
+    return fig_compare
+
 
 # PlotFlight class adapted from: https://github.com/nikhilkalige/quadrotor/blob/master/plotter.py
 
