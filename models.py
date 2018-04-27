@@ -92,11 +92,15 @@ class NeuralNet(nn.Module):
     return: A
     """
     def preprocess(self, X, U):
-        #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
-        modX = np.concatenate((X[:, :, 0:3], np.sin(X[:, :, 3:6]), np.cos(X[:, :, 3:6]), X[:, :, 6:]), axis=2)
-
+        
         #Getting output dX
-        dX = np.array([utils_data.states2delta(val) for val in modX])
+        dX = np.array([utils_data.states2delta(val) for val in X])
+
+        #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
+        modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
+        dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
+        
+        
 
         #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
         modX = modX[:, :-1, :]
@@ -122,7 +126,7 @@ class NeuralNet(nn.Module):
         normdX = self.scalardX.transform(dX)
 
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
-        outputs = torch.Tensor(dX)
+        outputs = torch.Tensor(normdX)
 
         return list(zip(inputs, outputs))
 
@@ -135,9 +139,9 @@ class NeuralNet(nn.Module):
     def postprocess(self, dX):
         dX = self.scalardX.inverse_transform(dX)
         if(len(dX.shape) > 1):
-            out = np.concatenate((dX[:, :3], np.arctan2(dX[:, 3:6], dX[:, 6:9]), dX[:, 9:12], dX[:, 12:]), axis=1)
+            out = np.concatenate((dX[:, :6], np.arctan2(dX[:, 6:9], dX[:, 9:12]), dX[:, 12:]), axis=1)
         else:
-            out = np.concatenate((dX[:3], np.arctan2(dX[3:6], dX[6:9]), dX[9:12], dX[12:]))
+            out = np.concatenate((dX[:6], np.arctan2(dX[6:9], dX[9:12]), dX[12:]))
         return out
     """
     Train the neural network. 
@@ -172,16 +176,13 @@ class NeuralNet(nn.Module):
     """
     def predict(self, X, U):
         #Converting to sin/cos form
-        X = np.concatenate((X[0:3], np.sin(X[3:6]), np.cos(X[3:6]), X[6:]))
+        X = np.concatenate((X[0:6], np.sin(X[6:9]), np.cos(X[6:9]), X[9:]))
         
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
         normU = self.scalarU.transform(U.reshape(1, -1))
 
         input = Variable(torch.Tensor(np.concatenate((normX, normU), axis=1)))
-
-        merp = self.forward(input)
-        print(merp)
 
         return self.postprocess(self.forward(input).data[0])
 
@@ -205,7 +206,7 @@ class NeuralNet(nn.Module):
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
                     print("loss is NaN")                       # This is helpful: it'll catch that when it happens,
                     return output, input, loss                 # and give the output and input that made the loss NaN
-                avg_loss += loss/num_batches                  # update the overall average loss with this batch's loss
+                avg_loss += loss.data[0]/num_batches                  # update the overall average loss with this batch's loss
             
             
             test_error = 0

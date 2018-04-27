@@ -92,17 +92,23 @@ nn = NeuralNet([19, 100, 100, 15])
 acc = nn.train((X, U), learning_rate=1e-4, epochs=50)
 
 dx0 = nn.predict(x0, u0)
-print("x0=" + str(x0), "dx0 =" + str(dx0), "x1=" + str(x1))
+print("x0 + dx0=" + str(x0 + dx0), "\n x1=" + str(x1))
 print("loss =" + str(sum((x1 - (x0 + dx0))**2)))
+print("x0 + dx0 - x1=" + str(x0 + dx0 - x1))
 
 print("\n \n \n ")
 
 dx1 = nn.predict(x1, u0)
-print("x1=" + str(x1), "dx1 =" + str(dx1), "x1=" + str(x2))
+print("x1 + dx1=" + str(x1 + dx1), "\n x2=" + str(x2))
 print("loss =" + str(sum((x2 - (x1 + dx1))**2)))
+print("x1 + dx1 - x2=" + str(x1 + dx1 - x2))
+
 
 print("\n \n \n")
 
+plt.plot((x2 - (x1 + dx1))**2, 'bo')
+
+plt.figure()
 plt.plot(acc) #plotting accuracy of neural net as a function of training
 plt.show()
 
