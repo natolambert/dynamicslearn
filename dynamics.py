@@ -70,7 +70,7 @@ def W_inv(ypr):
 def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
     if controller == 'random':
-        controller = randController(dynam, .001)
+        controller = randController(dynam, dt_control)
 
     Seqs_X = []
     Seqs_U = []
@@ -81,12 +81,12 @@ def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller =
 
     return Seqs_X, Seqs_U
 
-def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print = False):
+def sim_sequence(dynam, dt_u, sequence_len=10, x0=[], controller = 'random', to_print = False):
     # Simulates a squence following the control sequence provided
     # returns the list of states and inputs as a large array
 
     if controller == 'random':
-        controller = randController(dynam, variance=.0001)
+        controller = randController(dynam, dt_u, variance=.0001)
         print('Running Random control for designated dynamics...')
     if (x0 == []):
         x0 = np.zeros(dynam.get_dims[0])
@@ -103,12 +103,13 @@ def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print 
         x_prev = X[-1]
         x = dynam.simulate(x_prev,u)
 
+        # generate new u
+        u = controller.update(x_prev)
+        
         # contstruct array
         X = np.append(X, [x], axis=0)
         U = np.append(U, [u], axis=0)
 
-        # generate new u
-        u = controller.update(x_prev)
         if to_print:
             print('State is: ', x_prev)
             print('Control is: ', u)

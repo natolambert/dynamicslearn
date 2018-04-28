@@ -20,7 +20,7 @@ print('---begin--------------------------------------------------------------')
 # initialize some variables
 dt_x = .0025
 dt_u = .01
-print('Simulation update step is: ', dt_x, ' and contorl update is: ', dt_u)
+print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 # dynamics object
 iono1 = IonoCraft(dt_x, x_noise = .0001)
 
@@ -38,7 +38,7 @@ x2 = iono1.simulate(x1,u0)
 x3 = iono1.simulate(x2,u0)
 
 # prints state in readible form
-printState(x3)
+# printState(x3)
 
 # Simulate data for training
 N = 250     # num sequneces
@@ -78,7 +78,7 @@ origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[0, 1, 2])
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-x_controlled, u_seq = sim_sequence(iono1, controller = randController(iono1, dt_u), sequence_len = 100, to_print = False)
+x_controlled, u_seq = sim_sequence(iono1, dt_u, sequence_len = 100, to_print = False)
 print(u_seq)
 
 ################################ PLot ################################

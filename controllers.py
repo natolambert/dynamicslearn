@@ -52,18 +52,26 @@ class randController(Controller):
         # equilibrium point is from dynamics
         self.equil = dynamics.u_e       # this is an input
         self.var = variance
+        self.control = self.equil        # initialize equilibrium control
 
-    def update(self, val):
+        # Index to track timing of controller / dynamics update
+        self.i = 0
+
+    def update(self, _):
         # returns a random control sample around equilibrium
         # Create index to repeat control when below control update rates
+        # ___ to take a start variable in general use, other contorllers use state info
 
-        Rdt = self.dt_dynam/self.dt_control    # number of dynamics updates per new control update
-        i = 0
-        if ((i % Rdt) == 0):
-            control = self.equil + np.random.normal(scale=self.var,size=(self.dim))
-            i += 1
+        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
+        # print('Ratio is: ', Rdt, ' Index is: ', self.i)
 
-        return control
+        if ((self.i % Rdt) == 0):
+            self.control = self.equil + np.random.normal(scale=self.var,size=(self.dim))
+
+        # update index
+        self.i += 1
+
+        return self.control
 
 
 class HoverPID(Controller):
@@ -83,6 +91,8 @@ class HoverPID(Controller):
 
         # equilibrium point is from dynamics. Add PID outputs to hover condition
         self.equil = dynamics.u_e
+        self.control = self.equil
+        self.i = 0
 
         # set up three PID controllers
         self.PIDz = PID(kP = 1, kI = 0, kD = 0, target = target[0])
@@ -99,10 +109,9 @@ class HoverPID(Controller):
 
         # initialize some variables for only updating control at correct
         # if dt_u == dt_x R = 1, so always updates
-        Rdt = self.dt_dynam/self.dt_control    # number of dynamics updates per new control update
-        idx_c_update = 0
+        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
 
-        if ((idx_c_update % Rdt) == 0):
+        if ((self.i % Rdt) == 0):
             # Returns the sum of the PIDs as the controller
             z = state[2]
             pitch = state[4]
@@ -116,9 +125,11 @@ class HoverPID(Controller):
             pitch_vect = pitch_cnst*self.pitch_transform
             roll_vect = roll_cnst*self.roll_transform
 
-            control = z_vect + pitch_vect + roll_vect + self.equil
+            self.control = z_vect + pitch_vect + roll_vect + self.equil
 
-        return control
+        self.i += 1
+
+        return self.control
 
     # Methods for setting PID parameters
     def setKrollPID(self,kPIDnew):
@@ -216,6 +227,10 @@ class MPController(Controller):
         self.dynamics_model = dynamics_learned
         self.dynamics_true = dynamics_true
 
+        # time variance of control variable intialization
+        self.i = 0
+        self.control = np.zeros(4)
+
         # opt Parameters
         self.Objective = Objective   # function passed in to be min'd or max'd. Of class Objective
         self.method = 'Shooter'         # default to random shooting MPC
@@ -230,14 +245,13 @@ class MPController(Controller):
 
         # initialize some variables for only updating control at correct
         # if dt_u == dt_x R = 1, so always updates
-        Rdt = self.dt_dynam/self.dt_control    # number of dynamics updates per new control update
-        idx_c_update = 0
+        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
 
         # Simulate a bunch of random actions and then need a way to evaluate reward
         N = self.N
         T = self.time_horiz
 
-        if ((idx_c_update % Rdt) == 0):
+        if ((self.i % Rdt) == 0):
             # Makes controller to generate some action
             rand_controller = randController(self.dynamics_true)
             actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
@@ -269,9 +283,11 @@ class MPController(Controller):
             mm_idx = self.Objective.compute_ARGmm()
             # print(mm_idx)
             best_action = actions_seq[mm_idx]
-            control = best_action[0]
+            self.control = best_action[0]
 
-        return control
+        self.i += 1
+
+        return self.control
 
 class Objective():
     # class of objective functions to be used in MPC and maybe future implementations. Takes in sets of sequences when optimizing!
