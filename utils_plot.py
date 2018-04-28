@@ -4,9 +4,10 @@ from matplotlib import animation
 from mpl_toolkits import mplot3d
 
 def plot_trajectory(X,T):
-    # plots a trajectory given a list of state vectors
-    # plots a flying X with a colored axis representing the body frame on it
-    # plots trajectory over time
+    '''
+    plots a trajectory given a list of state vectors
+    plots trajectory over time
+    '''
     plot_size = 10
     iono_size = 1
 
@@ -35,7 +36,12 @@ def plot_trajectory(X,T):
     plt.show()
 
 def plot12(X,T):
-    # Plots all state variables over time
+    '''
+    Plots all state variables over time. Use this to debug state variables and dynamics files. ONLY WORKS FOR 12 DIM FREE BODY DYNAMICS
+    '''
+    if (np.shape(X)[1] != 12):
+        raise ValueError('X dimension does not match, not equal 12')
+
     titles = ['X', 'Y', 'Z', 'xdot', 'ydot', 'zdot', 'yaw', 'pitch', 'roll', 'omega_x', 'omega_y', 'omega_z']
     y_lab = ['(m)', '(m)', '(m)', '(m/s)', '(m/s)', '(m/s)', '(rad)', '(rad)', '(rad)', '(rad/s)', '(rad/s)', '(rad/s)']
     states_fig = plt.figure()
@@ -50,7 +56,12 @@ def plot12(X,T):
     return states_fig
 
 def plotInputs(U,T):
-    # Plots all state variables over time
+    '''
+    Plots all control variables over time. Use this to visualize the forces from a quadrotor or ionocraft. THIS DOES NOT WORK FOR OTHER ROBOTS.
+    '''
+    if (np.shape(U)[1] != 4):
+        raise ValueError('U dimension does not match, not equal 4')
+
 
     titles = ['U1', 'U2', 'U3', 'U4']
     y_lab = ['F (N)', 'F (N)', 'F (N)', 'F (N)']
@@ -66,7 +77,9 @@ def plotInputs(U,T):
     return inputs_fig
 
 def printState(x):
-    # prints out the states with what they are, so it does not get cluttered
+    '''
+    Prints out the states with what they are, so it does not get cluttered.
+    '''
     print('var:\t CURRENT STATE')
     print('X: \t', x[0])
     print('Y: \t', x[1])
@@ -83,7 +96,9 @@ def printState(x):
     print()
 
 def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
-    # plots in 3d the learned and true dynamics to compare visualization
+    '''
+    Plots in 3d the learned and true dynamics to compare visualization.
+    '''
     Xtrue = np.array([x0])
     Xlearn = np.array([x0])
 
@@ -92,8 +107,6 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
         Xtrue_next = np.array([dynamics_true.simulate(Xtrue[-1,:],u)])
         Xlearn_next = np.array([Xtrue[-1,:] + dynamics_learned.predict(Xtrue[-1,:], u)])
 
-        # printState(Xtrue_next[0])
-        # printState(Xlearn_next[0])
 
         # Append Data
         Xtrue = np.append(Xtrue, Xtrue_next, axis=0)
@@ -109,7 +122,7 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
     # plot settings
     plt.axis("equal")
     ax.set_title('True Vs Learned Dynamics - Visualization')
-    
+
     # plot labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
@@ -121,10 +134,10 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
                            [Xtrue[:, 2].min(), Xtrue[:,2].max()]])
 
 
-    # for item in plt_limits:
-    #     if abs(item[1] - item[0]) < 1:
-    #         item[0] -= .25
-    #         item[1] += .25
+    for item in plt_limits:
+        if abs(item[1] - item[0]) < 1:
+            item[0] -= .25
+            item[1] += .25
 
     ax.set_xlim3d(plt_limits[0])
     ax.set_ylim3d(plt_limits[1])
@@ -140,10 +153,13 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
     return fig_compare
 
 
-# PlotFlight class adapted from: https://github.com/nikhilkalige/quadrotor/blob/master/plotter.py
+
 
 
 class PlotFlight(object):
+    '''
+    PlotFlight class adapted from: https://github.com/nikhilkalige/quadrotor/blob/master/plotter.py
+    '''
     def __init__(self, state, arm_length):
         self.state = state
         self.length = len(state)

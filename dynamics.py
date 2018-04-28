@@ -11,6 +11,8 @@ __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
 class Dynamics:
+    # Primary basis of this class is to check variable dimensions and time steps for dynamics.
+
     # init class
     def __init__(self, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
         self.dt = dt
@@ -35,7 +37,7 @@ class Dynamics:
             raise ValueError('u dimension passed into dynamics does not align with initiated value - given: ' + str(np.size(u)) + ', desired: ' + str(self.u_dim) )
 
 def Q_BI(ypr):
-    # returns the Q body to inertial frame transformation matrix
+    # returns the Q body to inertial frame transformation matrix. Used int dynamics simulations
     psi = ypr[0] % (2*pi)       # yaw
     theta = ypr[1] % (2*pi)     # pitch
     phi = ypr[2]  % (2*pi)      # roll
@@ -45,7 +47,7 @@ def Q_BI(ypr):
     return Q
 
 def Q_IB(ypr):
-    # returns the Q inertial to body frame transformation matrix
+    # returns the Q inertial to body frame transformation matrix. Used in dynamics simulations
     psi = ypr[0] % (2*pi)       # yaw
     theta = ypr[1] % (2*pi)     # pitch
     phi = ypr[2] % (2*pi)       # roll
@@ -65,10 +67,10 @@ def W_inv(ypr):
 
     return W_inv
 
-def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
+def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
     if controller == 'random':
-        controller = randController(dynam)
+        controller = randController(dynam, .001)
 
     Seqs_X = []
     Seqs_U = []

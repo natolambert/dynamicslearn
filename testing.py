@@ -14,12 +14,15 @@ from mpl_toolkits.mplot3d import Axes3D
 ### EXAMPLE EXECUTION
 
 ################################ INITIALIZATION ################################
+print('\n')
+print('---begin--------------------------------------------------------------')
 
 # initialize some variables
-dt = .0025
-
+dt_x = .0025
+dt_u = .01
+print('Simulation update step is: ', dt_x, ' and contorl update is: ', dt_u)
 # dynamics object
-iono1 = IonoCraft(dt, x_noise = .0001)
+iono1 = IonoCraft(dt_x, x_noise = .0001)
 
 mgo4 = iono1.m*iono1.g/4
 
@@ -41,7 +44,7 @@ printState(x3)
 N = 250     # num sequneces
 
 # generate training data
-Seqs_X, Seqs_U = generate_data(iono1, sequence_len=25, num_iter = N)
+Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=25, num_iter = N)
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
@@ -65,19 +68,18 @@ origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[0, 1, 2])
 
 ################################ MPC ################################
 
-# initialize MPC object with objective function above
-mpc1 = MPController(lin1, iono1, origin_minimizer)
-
-x0 = np.zeros(12)
-new_seq, Us = sim_sequence(iono1, sequence_len = 50, x0=x0, controller = mpc1)
-
-compareTraj(Us, x0, iono1, lin1, show=True)
+# # initialize MPC object with objective function above
+# mpc1 = MPController(lin1, iono1, origin_minimizer)
+#
+# x0 = np.zeros(12)
+# new_seq, Us = sim_sequence(iono1, sequence_len = 50, x0=x0, controller = mpc1)
+#
+# compareTraj(Us, x0, iono1, lin1, show=True)
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-x_controlled, _ = sim_sequence(iono1, controller = mpc1, sequence_len = 100, to_print = False)
-print(np.shape(x_controlled[0]))
-
+x_controlled, u_seq = sim_sequence(iono1, controller = randController(iono1, dt_u), sequence_len = 100, to_print = False)
+print(u_seq)
 
 ################################ PLot ################################
 
@@ -89,3 +91,6 @@ print(np.shape(x_controlled[0]))
 # Plots animation, change save to false to not save .gif
 # plotter1 = PlotFlight(x_controlled,.5)
 # plotter1.show(save=True)
+
+
+print('---------------------------------------------------------end run-----')
