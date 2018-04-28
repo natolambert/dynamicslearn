@@ -84,17 +84,21 @@ def printState(x):
 
 def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
     # plots in 3d the learned and true dynamics to compare visualization
-    Xtrue = x0
-    Xlearn = x0
+    Xtrue = np.array([x0])
+    Xlearn = np.array([x0])
 
     for u in Seq_U:
         # Simulate Update Steps
-        Xtrue_next = dynamics_true.simulate(Xtrue[-1,:],u)
-        Xlearn_next = Xtrue[-1,:] + dynamics_learned.predict(Xtrue[-1,:], u)
+        Xtrue_next = np.array([dynamics_true.simulate(Xtrue[-1,:],u)])
+        Xlearn_next = np.array([Xtrue[-1,:] + dynamics_learned.predict(Xtrue[-1,:], u)])
+
+        # printState(Xtrue_next[0])
+        # printState(Xlearn_next[0])
 
         # Append Data
-        Xtrue = np.append(Xtrue, Xtrue_next)
-        Xlearn = np.append(Xlearn, Xlearn_next)
+        Xtrue = np.append(Xtrue, Xtrue_next, axis=0)
+        Xlearn = np.append(Xlearn, Xlearn_next, axis=0)
+
 
     # Plot ################################
     fig_compare = plt.figure()
@@ -104,28 +108,31 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
 
     # plot settings
     plt.axis("equal")
-
+    ax.set_title('True Vs Learned Dynamics - Visualization')
+    
     # plot labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
 
     # plot limits + padding
-    plt_limits_true = np.array([[Xtrue[:, 0].min(), Xtrue[:, 0].max()],
+    plt_limits = np.array([[Xtrue[:, 0].min(), Xtrue[:, 0].max()],
                            [Xtrue[:, 1].min(), Xtrue[:, 1].max()],
                            [Xtrue[:, 2].min(), Xtrue[:,2].max()]])
-    for item in plt_limits:
-        if abs(item[1] - item[0]) < 2:
-            item[0] -= 1
-            item[1] += 1
+
+
+    # for item in plt_limits:
+    #     if abs(item[1] - item[0]) < 1:
+    #         item[0] -= .25
+    #         item[1] += .25
 
     ax.set_xlim3d(plt_limits[0])
     ax.set_ylim3d(plt_limits[1])
     ax.set_zlim3d(plt_limits[2])
 
     # plot_trajectory
-    ax.plot(Xtrue[:,0],Xtrue[:,1],Xtrue[:,2], 'k-', label='True Dynamics' )
-    ax.plot(Xlearn[:,0],Xlearn[:,1],Xlearn[:,2], 'r--', label='Learned Dynamics' )
+    ax.plot(Xtrue[:,0], Xtrue[:,1], Xtrue[:,2], 'k-', label='True Dynamics' )
+    ax.plot(Xlearn[:,0], Xlearn[:,1], Xlearn[:,2], 'r--', label='Learned Dynamics' )
     ax.legend()
 
     if show:

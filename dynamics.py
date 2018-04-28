@@ -84,7 +84,7 @@ def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print 
     # returns the list of states and inputs as a large array
 
     if controller == 'random':
-        controller = randController(dynam)
+        controller = randController(dynam, variance=.0001)
         print('Running Random control for designated dynamics...')
     if (x0 == []):
         x0 = np.zeros(dynam.get_dims[0])
