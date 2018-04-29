@@ -143,6 +143,7 @@ class NeuralNet(nn.Module):
         else:
             out = np.concatenate((dX[:6], np.arctan2(dX[6:9], dX[9:12]), dX[12:]))
         return out
+    
     """
     Train the neural network. 
     if preprocess = False
@@ -223,6 +224,12 @@ class NeuralNet(nn.Module):
             print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))
             errors.append(test_error)
         return errors
+
+    def save_model(self, filepath):
+        torch.save(self.state_dict(), filepath)
+
+    def load_model(self, filepath):
+        self.load_state_dict(torch.load(filepath))    
 
 #
 # class GaussianProcess:
