@@ -4,7 +4,7 @@ Working directory for my final project in EECS289a: Intro to Machine Learning an
 -------------
 
 # Project Goal
-This project is exploring the functionality of different machine learning structures to model unknown dynamics. In simulation, we can rapidly collect data and test on different pre-made dynamics models. This code-base is meant to serve as the foundation for testing in experiment.
+This project is exploring the functionality of different machine learning structures to model unknown dynamics. In simulation, we can rapidly collect data and test on different pre-made dynamics models. This code-base is meant to serve as the foundation for testing in experiment. Below is an example of an ionocraft hovering off of learned dynamics and model predictive control.
 
 ![Alt Text](https://github.com/natolambert/dynamics-learn/blob/master/ex.gif)
 
