@@ -6,6 +6,9 @@ Working directory for my final project in EECS289a: Intro to Machine Learning an
 # Project Goal
 This project is exploring the functionality of different machine learning structures to model unknown dynamics. In simulation, we can rapidly collect data and test on different pre-made dynamics models. This code-base is meant to serve as the foundation for testing in experiment.
 
+![Alt Text](https://github.com/natolambert/dynamics-learn/blob/master/ex.gif)
+
+
 # Desired Workflow: 
 The plan would be for a user to come in with a dynamics files in the structure of the two given, intitialize a controller of the class given, then explore the environment and gather dynamics data. With this data the user will be able to try multiple learning techniques to model the dynamics. Once a sufficient model of dynamics is acquired, the user can simulate trajectories on controllers that only know the learned dynamics, which is a model-based controller.
 
