@@ -92,7 +92,7 @@ def sim_sequence(dynam, dt_u, sequence_len=10, x0=[], controller = 'random', to_
         x0 = np.zeros(dynam.get_dims[0])
 
     # inititialize initial control to be equilibrium amount
-    u = controller.get_equil
+    u = controller.control
 
     # intitialize arrays to append the sequences
     U = np.array([u])
@@ -105,7 +105,7 @@ def sim_sequence(dynam, dt_u, sequence_len=10, x0=[], controller = 'random', to_
 
         # generate new u
         u = controller.update(x_prev)
-        
+
         # contstruct array
         X = np.append(X, [x], axis=0)
         U = np.append(U, [u], axis=0)

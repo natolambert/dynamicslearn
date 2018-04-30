@@ -111,7 +111,3 @@ plt.plot((x2 - (x1 + dx1))**2, 'bo')
 plt.figure()
 plt.plot(acc) #plotting accuracy of neural net as a function of training
 plt.show()
-
-
-
-

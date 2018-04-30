@@ -276,6 +276,6 @@ class PlotFlight(object):
                                        frames=self.length, interval=1,
                                        blit=True)
         plt.gca().set_aspect("equal", adjustable="box")
-        plt.show()
         if save:
-            anim.save('FhightPath Anim.gif', writer='imagemagick', fps=30)
+            anim.save('Flight Path Anim.gif', writer='imagemagick', fps=30)
+        plt.show()

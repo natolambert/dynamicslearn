@@ -16,7 +16,6 @@ class Controller:
 
         self.dim = dim
         self.var = [0]
-        self.equil = np.zeros(dim)
 
     # dimension check raises error if incorrect
     def _enforce_dimension(self, u):
@@ -220,16 +219,17 @@ class MPController(Controller):
         # T is time horizon
 
         # time step to be used inthe future when control update rate != dynamics update rate
-        dt_dynam = dynamics_true.get_dt
+        self.dt_dynam = dynamics_true.get_dt
+        self.dt_control = dt_control
         dim = dynamics_true.get_dims[1]
-        super().__init__(dt_dynam, dt_control, dim=dim)
+        super().__init__(self.dt_dynam, self.dt_control, dim=dim)
 
         self.dynamics_model = dynamics_learned
         self.dynamics_true = dynamics_true
 
         # time variance of control variable intialization
         self.i = 0
-        self.control = np.zeros(4)
+        self.control = dynamics_true.u_e
 
         # opt Parameters
         self.Objective = Objective   # function passed in to be min'd or max'd. Of class Objective
@@ -253,7 +253,7 @@ class MPController(Controller):
 
         if ((self.i % Rdt) == 0):
             # Makes controller to generate some action
-            rand_controller = randController(self.dynamics_true)
+            rand_controller = randController(self.dynamics_true, self.dt_control)
             actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
 
             # Extends control to the time horizon defined in init
