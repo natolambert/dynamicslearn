@@ -21,6 +21,8 @@ from torch.utils.data import Dataset, DataLoader
 class LeastSquares:
     # fits gathered data to the form
     # x_(t+1) = Ax + Bu
+    # .train() to train the fit
+    # .predict() to predict the next state from the current state and inputs
 
     def __init__(self, x_dim = 12, u_dim = 4):
         self.reg = linear_model.LinearRegression()
@@ -92,20 +94,20 @@ class NeuralNet(nn.Module):
     return: A
     """
     def preprocess(self, X, U):
-        
+
         #Getting output dX
         dX = np.array([utils_data.states2delta(val) for val in X])
 
         #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
         modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
         dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
-        
-        
+
+
 
         #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
         modX = modX[:, :-1, :]
         modU = U[:, :-1, :]
-        
+
         #Follow by flattening the matrices so they look like input/output pairs
         modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
         modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
@@ -114,7 +116,7 @@ class NeuralNet(nn.Module):
         #at this point they should look like input output pairs
         if dX.shape != modX.shape:
             raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
-        
+
         #update mean and variance of the dataset with each training pass
         self.scalarX.partial_fit(modX)
         self.scalarU.partial_fit(modU)
@@ -145,14 +147,14 @@ class NeuralNet(nn.Module):
         return out
     
     """
-    Train the neural network. 
+    Train the neural network.
     if preprocess = False
         dataset is a list of tuples to train on, where the first value in the tuple is the training data (should be implemented as a torch tensor), and the second value in the tuple
         is the label/action taken
     if preprocess = True
         dataset is simply the raw output of generate data (X, U)
-    Epochs is number of times to train on given training data, 
-    batch_size is hyperparameter dicating how large of a batch to use for training, 
+    Epochs is number of times to train on given training data,
+    batch_size is hyperparameter dicating how large of a batch to use for training,
     optim is the optimizer to use (options are "Adam", "SGD")
     split is train/test split ratio
     """
@@ -171,14 +173,14 @@ class NeuralNet(nn.Module):
         else:
             raise ValueError(optim + " is not a valid optimizer type")
         return self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
-    
+
     """
     Given a state X and input U, predict the change in state dX. This function does all pre and post processing for the neural net
     """
     def predict(self, X, U):
         #Converting to sin/cos form
         X = np.concatenate((X[0:6], np.sin(X[6:9]), np.cos(X[6:9]), X[9:]))
-        
+
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
         normU = self.scalarU.transform(U.reshape(1, -1))
@@ -208,8 +210,8 @@ class NeuralNet(nn.Module):
                     print("loss is NaN")                       # This is helpful: it'll catch that when it happens,
                     return output, input, loss                 # and give the output and input that made the loss NaN
                 avg_loss += loss.data[0]/num_batches                  # update the overall average loss with this batch's loss
-            
-            
+
+
             test_error = 0
             for (input, target) in testLoader:                     # compute the testing test_error
                 input = Variable(input)
@@ -218,7 +220,7 @@ class NeuralNet(nn.Module):
                 loss = loss_fn(output, target)
                 test_error += loss.data[0]
             test_error = test_error / len(testLoader)
-            
+
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
             print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))

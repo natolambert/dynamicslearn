@@ -11,6 +11,8 @@ __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
 class Dynamics:
+    # Primary basis of this class is to check variable dimensions and time steps for dynamics.
+
     # init class
     def __init__(self, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
         self.dt = dt
@@ -35,7 +37,7 @@ class Dynamics:
             raise ValueError('u dimension passed into dynamics does not align with initiated value - given: ' + str(np.size(u)) + ', desired: ' + str(self.u_dim) )
 
 def Q_BI(ypr):
-    # returns the Q body to inertial frame transformation matrix
+    # returns the Q body to inertial frame transformation matrix. Used int dynamics simulations
     psi = ypr[0] % (2*pi)       # yaw
     theta = ypr[1] % (2*pi)     # pitch
     phi = ypr[2]  % (2*pi)      # roll
@@ -45,7 +47,7 @@ def Q_BI(ypr):
     return Q
 
 def Q_IB(ypr):
-    # returns the Q inertial to body frame transformation matrix
+    # returns the Q inertial to body frame transformation matrix. Used in dynamics simulations
     psi = ypr[0] % (2*pi)       # yaw
     theta = ypr[1] % (2*pi)     # pitch
     phi = ypr[2] % (2*pi)       # roll
@@ -65,10 +67,10 @@ def W_inv(ypr):
 
     return W_inv
 
-def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
+def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
     if controller == 'random':
-        controller = randController(dynam)
+        controller = randController(dynam, dt_control)
 
     Seqs_X = []
     Seqs_U = []
@@ -79,18 +81,18 @@ def generate_data(dynam, sequence_len=10, num_iter=100, controller = 'random'):
 
     return Seqs_X, Seqs_U
 
-def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print = False):
+def sim_sequence(dynam, dt_u, sequence_len=10, x0=[], controller = 'random', to_print = False):
     # Simulates a squence following the control sequence provided
     # returns the list of states and inputs as a large array
 
     if controller == 'random':
-        controller = randController(dynam)
+        controller = randController(dynam, dt_u, variance=.0001)
         print('Running Random control for designated dynamics...')
     if (x0 == []):
         x0 = np.zeros(dynam.get_dims[0])
 
     # inititialize initial control to be equilibrium amount
-    u = controller.get_equil
+    u = controller.control
 
     # intitialize arrays to append the sequences
     U = np.array([u])
@@ -101,12 +103,13 @@ def sim_sequence(dynam, sequence_len=10, x0=[], controller = 'random', to_print 
         x_prev = X[-1]
         x = dynam.simulate(x_prev,u)
 
+        # generate new u
+        u = controller.update(x_prev)
+
         # contstruct array
         X = np.append(X, [x], axis=0)
         U = np.append(U, [u], axis=0)
 
-        # generate new u
-        u = controller.update(x_prev)
         if to_print:
             print('State is: ', x_prev)
             print('Control is: ', u)

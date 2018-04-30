@@ -3,8 +3,10 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 def stack_pairs(states, actions):
-    # returns a list of 2-tuples of state vectors with action vectors
-    # works with change states as well
+    '''
+    Returns a list of 2-tuples of state vectors with action vectors
+    works with change states as well.  inputs are [(n by dx), (n by du)] and the output is [(n)] where each element is an array of an state and action
+    '''
     dim_states = np.shape(states)
     dim_actions = np.shape(actions)
     if (dim_states[0] != dim_actions[0]):
@@ -17,7 +19,9 @@ def stack_pairs(states, actions):
     return np.array(lst)
 
 def stack_trios(change_states, states, actions):
-    # returns a list of 3-tuples of change in state, state vectors, and action vectors
+    '''
+    Returns a list of 3-tuples of change in state, state vectors, and action vectors. inputs are of shape [(n by dx), (n by dx), (n by du)] and the output is an array of arrays of shape [(n)] each element is a 1x3 arrary of states etc
+    '''
     dim_change = np.shape(change_states)
     dim_states = np.shape(states)
     dim_actions = np.shape(actions)
@@ -34,9 +38,11 @@ def stack_trios(change_states, states, actions):
     return np.array(lst)
 
 def states2delta(states):
-    # takes in a array of states, and reurns a array of states that is the     #   difference between the current state and next state.
-    # NOTE: Does not return a value for the first point given
-    # Above is bevause we are trying to model x_t+1 = f(x_t,a_t)
+    '''
+    Takes in a array of states, and reurns a array of states that is the    difference between the current state and next state.
+    NOTE: Does not return a value for the first point given
+    Above is bevause we are trying to model x_t+1 = f(x_t,a_t). Input is of shape [n by dx], output is [n-1 by dx]
+    '''
 
     dim = np.shape(states)
     delta = np.zeros((dim[0]-1,dim[1]))
@@ -47,10 +53,12 @@ def states2delta(states):
     return delta
 
 def normalize_states(delta_states, ScaleType = StandardScaler, x_dim = 12):
-    # normalizes states to standard scalars
-    # delta states should be a n by x_dim array
-    # NOTE: I chose to implement this function because there may be a time when
-    #   we want to scale different states differently, and this is the place to do it
+    '''
+    normalizes states to standard scalars
+    delta states should be a n by x_dim array
+    NOTE: I chose to implement this function because there may be a time when
+      we want to scale different states differently, and this is the place to do it. Could be used for least squares, NN has its own implementation
+      '''
 
     if (x_dim != 12):
         raise ValueError('normalize_states not designed for this state vector')
@@ -59,10 +67,12 @@ def normalize_states(delta_states, ScaleType = StandardScaler, x_dim = 12):
     return scaled
 
 def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
-    # Uses other functions to take in two arrays X,U that are 3d arrays of sequences of states and actions
-    # n = num sequences
-    # l = len(sequences)
-    # dimx, dimu easy
+    '''
+    Uses other functions to take in two arrays X,U that are 3d arrays of sequences of states and actions (nseqs, idx_sed, idx_state). Returns an array of trios for training of size (nseqs*(l-1), 3) the 3 corresponds to arrays of change state, curstate, input arrays
+    n = num sequences
+    l = len(sequences)
+    dimx, dimu easy
+    '''
     if normalize:
         raise NotImplementedError('Have not implemented normalization')
 
@@ -88,7 +98,9 @@ def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
     return data
 
 def l2array(list_arrays):
-    # 2-tuple list to array. Needed for all the trios of data that return columns where each column is a list of states and not a 2d array of states etc. This may be slightly poor practice.
+    '''
+    2-tuple list to array. Needed for all the trios of data that return columns where each column is a list of states and not a 2d array of states etc. This may be slightly poor practice. Use this to convert one of the above functions returns an (nx3) array of arrays. For example, call l2array(data[:,0]) to generate a 2d numpy array of the next state data of generated sequences.
+    '''
     arr = []
     for l in list_arrays:
         arr.append(l)

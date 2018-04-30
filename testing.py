@@ -14,12 +14,19 @@ from mpl_toolkits.mplot3d import Axes3D
 ### EXAMPLE EXECUTION
 
 ################################ INITIALIZATION ################################
+print('\n')
+print('---begin--------------------------------------------------------------')
 
 # initialize some variables
-dt = .0025
+dt_x = .001
+dt_u = .01
+print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
-iono1 = IonoCraft(dt, x_noise = .0001)
+iono1 = IonoCraft(dt_x, x_noise = .0001)
+print('...Initializing Dynamics Object')
+
+mgo4 = iono1.m*iono1.g/4
 
 mgo4 = iono1.m*iono1.g/4
 
@@ -35,13 +42,14 @@ x2 = iono1.simulate(x1,u0)
 x3 = iono1.simulate(x2,u0)
 
 # prints state in readible form
-printState(x3)
+# printState(x3)
 
 # Simulate data for training
-N = 500     # num sequneces
+N = 250     # num sequneces
 
 # generate training data
-Seqs_X, Seqs_U = generate_data(iono1, sequence_len=50, num_iter = N)
+print('...Generating Training Data')
+Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=100, num_iter = N)
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
@@ -52,38 +60,58 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 
 ################################ LEARNING ################################
 
+# #creating neural network with 2 layers of 100 linearly connected ReLU units
+print('...Training Model')
+nn = NeuralNet([19, 100, 100, 15])
 
+# acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
+Seqs_X = np.array(Seqs_X)
+Seqs_U = np.array(Seqs_U)
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
 # create a learning model
-lin1 = LeastSquares()
-
-# train it like this
-lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
+# lin1 = LeastSquares()
+#
+# # train it like this
+# lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-
-origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[0, 1, 2])
+origin_minimizer = Objective(np.linalg.norm, 'max', 1, dim_to_eval=[2])
+print('...Objective Function Initialized')
 
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
+<<<<<<< HEAD
 mpc1 = MPController(lin1, iono1, origin_minimizer)
 
 other_seq, U = sim_sequence(iono1, sequence_len = 30, controller = mpc1)
 compareTraj(U, np.zeros(12), iono1, lin1, show=True)
+=======
+mpc1 = MPController(nn, iono1, dt_u, origin_minimizer)
+print('...MPC Running')
+x0 = np.zeros(12)
+new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
+#
+# compareTraj(Us, x0, iono1, nn, show=True)
+>>>>>>> documentation
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-x_controlled, _ = sim_sequence(iono1, controller = mpc1, sequence_len = 50, to_print = False)
-print(np.shape(x_controlled[0]))
-
-
+new_len = 500
+x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
+print(u_seq)
+print('Simulated Learned.')
 ################################ PLot ################################
-
+print('...Plotting')
 # plot states and inputs of the trajectory if wanted
-# T = np.linspace(0,N*dt,N)
-# plot12(X, T)
-# plotInputs(U, T)
+T = np.linspace(0,new_len*dt_x,new_len)
+plot12(x_controlled, T)
+plotInputs(u_seq, T)
 
 # Plots animation, change save to false to not save .gif
 plotter1 = PlotFlight(x_controlled,.5)
 plotter1.show(save=True)
+print('Saved Gif')
+
+
+print('---------------------------------------------------------end run-----')

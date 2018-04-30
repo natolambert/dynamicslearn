@@ -112,7 +112,3 @@ print("element-wise loss:" + str((x2 - (x1 + dx1))**2))
 plt.figure()
 plt.plot(acc) #plotting accuracy of neural net as a function of training
 plt.show()
-
-
-
-
