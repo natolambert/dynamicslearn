@@ -18,11 +18,13 @@ print('\n')
 print('---begin--------------------------------------------------------------')
 
 # initialize some variables
-dt_x = .0001
-dt_u = .005
+dt_x = .001
+dt_u = .01
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
+
 # dynamics object
 iono1 = IonoCraft(dt_x, x_noise = .0001)
+print('...Initializing Dynamics Object')
 
 mgo4 = iono1.m*iono1.g/4
 
@@ -44,6 +46,7 @@ x3 = iono1.simulate(x2,u0)
 N = 250     # num sequneces
 
 # generate training data
+print('...Generating Training Data')
 Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=100, num_iter = N)
 
 # converts data from list of trajectories of [next_states, states, inputs]
@@ -56,7 +59,7 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 ################################ LEARNING ################################
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
-
+print('...Training Model')
 nn = NeuralNet([19, 100, 100, 15])
 
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
@@ -70,14 +73,14 @@ acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-
-origin_minimizer = Objective(np.linalg.norm, 'min', 5, dim_to_eval=[0, 1, 2, 4, 5])
+origin_minimizer = Objective(np.linalg.norm, 'max', 1, dim_to_eval=[2])
+print('...Objective Function Initialized')
 
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
 mpc1 = MPController(nn, iono1, dt_u, origin_minimizer)
-
+print('...MPC Running')
 x0 = np.zeros(12)
 new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
 #
@@ -85,20 +88,21 @@ new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = 
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-new_len = 1000
+new_len = 500
 x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
 print(u_seq)
-
+print('Simulated Learned.')
 ################################ PLot ################################
-
+print('...Plotting')
 # plot states and inputs of the trajectory if wanted
 T = np.linspace(0,new_len*dt_x,new_len)
-# plot12(x_controlled, T)
-# plotInputs(u_seq, T)
+plot12(x_controlled, T)
+plotInputs(u_seq, T)
 
 # Plots animation, change save to false to not save .gif
 plotter1 = PlotFlight(x_controlled,.5)
 plotter1.show(save=True)
+print('Saved Gif')
 
 
 print('---------------------------------------------------------end run-----')

@@ -39,7 +39,7 @@ class Controller:
         return self.equil
 
 class randController(Controller):
-    def __init__(self, dynamics, dt_control, variance = .00001):
+    def __init__(self, dynamics, dt_control, variance = .000025):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control
