@@ -107,6 +107,7 @@ print("x1 + dx1 - x2=" + str(x1 + dx1 - x2))
 print("\n \n \n")
 
 plt.plot((x2 - (x1 + dx1))**2, 'bo')
+print("element-wise loss:" + str((x2 - (x1 + dx1))**2))
 
 plt.figure()
 plt.plot(acc) #plotting accuracy of neural net as a function of training
