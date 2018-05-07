@@ -81,19 +81,12 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-<<<<<<< HEAD
-mpc1 = MPController(lin1, iono1, origin_minimizer)
-
-other_seq, U = sim_sequence(iono1, sequence_len = 30, controller = mpc1)
-compareTraj(U, np.zeros(12), iono1, lin1, show=True)
-=======
 mpc1 = MPController(nn, iono1, dt_u, origin_minimizer)
 print('...MPC Running')
 x0 = np.zeros(12)
 new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
 #
 # compareTraj(Us, x0, iono1, nn, show=True)
->>>>>>> documentation
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
