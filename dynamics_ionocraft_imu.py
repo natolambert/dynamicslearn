@@ -1,4 +1,4 @@
-# ----------------------------------------------------------------------------------------------------------------------
+# File to simulate the ionocraft with the 9-axis IMU ----------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -10,15 +10,16 @@ from dynamics import *
 __author__ = 'Nathan Lambert'
 __version__ = '0.1'
 
-class IonoCraft(Dynamics):
+class IonoCraft_IMU(Dynamics):
     def __init__(self, dt, m=67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09, angle = 0, x_noise = .0001, u_noise=0, linear = False):
-        super().__init__(dt, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
+        super().__init__(dt, x_dim=15, u_dim=4, x_noise = x_noise, u_noise=u_noise)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
         self.idx_xyz_dot = [3, 4, 5]
         self.idx_ptp = [6, 7, 8]
         self.idx_ptp_dot = [9, 10, 11]
+        self.idx_xyz_ddot = [12, 13, 14]
 
         # Setup the parameters
         self.m = m
@@ -74,6 +75,7 @@ class IonoCraft(Dynamics):
         idx_xyz_dot = self.idx_xyz_dot
         idx_ptp = self.idx_ptp
         idx_ptp_dot = self.idx_ptp_dot
+        idx_xyz_ddot = self.idx_xyz_ddot
 
         m = self.m
         L = self.L
@@ -86,6 +88,9 @@ class IonoCraft(Dynamics):
 
         # Easy access to yawpitchroll vector
         ypr = x0[idx_ptp]
+
+        # set accelerations to 0 (accelerations need force to continue)
+        x0[idx_xyz_ddot] = 0        # not acutally used, but nice for clarification
 
         # Add noise to input
         u_noise_vec = np.random.normal(loc=0, scale = self.u_noise, size=(self.u_dim))
@@ -105,13 +110,17 @@ class IonoCraft(Dynamics):
         Taux = T_tau_thrusters[5]
         Tau = np.array([Taux, Tauy, Tauz])
 
+        # Project force vectors for acceleration measurements
+        T_global = np.zeros(3)
+        T_global = np.matmul(Q_BI(ypr),T_tau_thrusters[0:3])
+
         # External forces acting on robot
         F_ext = np.zeros(3)
         F_ext = np.matmul(Q_IB(ypr),np.array([0, 0, m*g])) - np.array([Tx,Ty,Tz])
 
         # Implement free body dynamics
-        x1 = np.zeros(12)
-        xdot = np.zeros(12)
+        x1 = np.zeros(self.x_dim)
+        xdot = np.zeros(self.x_dim)
 
         # global position derivative
         xdot[idx_xyz] = np.matmul(Q_BI(ypr),x0[idx_xyz_dot])
@@ -130,6 +139,9 @@ class IonoCraft(Dynamics):
 
         # angular velocity derivative
         xdot[idx_ptp_dot] = np.matmul(np.linalg.inv(Ib),Tau) - np.matmul(np.matmul(np.linalg.inv(Ib),omega_mat),np.matmul(Ib,x0[idx_ptp_dot]))
+
+        # Calculate accelerations
+        x1[idx_xyz_ddot] = T_global/m
 
         # State update
         x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim))
