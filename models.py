@@ -59,19 +59,22 @@ class LeastSquares:
         print('Not Implemented lol')
 
 class NeuralNet(nn.Module):
-    # NOTE
-
     """
     Assumes standard Linear input + output and ReLU activations for all hidden layers
-    Layers is a list of layer sizes, first layer size should be input dimension, last layer size should be output dimension
+    layer_sizes is a list of layer sizes, first layer size should be input dimension, last layer size should be output dimension
+    layer_types is a list of activation functions for the middle layers
+    learn_list is a list of state variables to use in training the dynamics. The model will learn and predict this variables.
     """
-    def __init__(self, layers):
+    def __init__(self, layer_sizes, layer_types, learn_list):
         super(NeuralNet, self).__init__()
 
         #To keep track of what the mean and variance are at all times for transformations
         self.scalarX = StandardScaler()
         self.scalarU = StandardScaler()
         self.scalardX = StandardScaler()
+
+        # list of states to learn dynamics from
+        self.learn_list = learn_list
 
         for i in range(len(layers) - 1):
             self.add_module(str(2*i), nn.Linear(layers[i], layers[i+1]))
@@ -101,7 +104,6 @@ class NeuralNet(nn.Module):
         #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
         modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
         dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
-
 
 
         #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
@@ -145,7 +147,7 @@ class NeuralNet(nn.Module):
         else:
             out = np.concatenate((dX[:6], np.arctan2(dX[6:9], dX[9:12]), dX[12:]))
         return out
-    
+
     """
     Train the neural network.
     if preprocess = False
@@ -231,11 +233,8 @@ class NeuralNet(nn.Module):
         torch.save(self.state_dict(), filepath)
 
     def load_model(self, filepath):
-        self.load_state_dict(torch.load(filepath))    
+        self.load_state_dict(torch.load(filepath))
 
-#
-# class GaussianProcess:
-#     # TODO
 
 def simulate_learned(model, actions, x0=[]):
     # returns a array of the states predicted by the learned dynamics model given states and the inputs

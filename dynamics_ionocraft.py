@@ -12,7 +12,33 @@ __version__ = '0.1'
 
 class IonoCraft(Dynamics):
     def __init__(self, dt, m=67e-6, L=.01, Ixx = 5.5833e-10, Iyy = 5.5833e-10, Izz = 1.1167e-09, angle = 0, x_noise = .0001, u_noise=0, linear = False):
-        super().__init__(dt, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
+
+        # manually declares the state dicts for these options
+
+        # Each state correspondends to the instance in the state updates. The type of state will correspond to the normalization and how it is passed into the neural net. This is mostly so the NN class can automatically scale the angles and add elements of sin and cosine of each element. In the future, may help other things as well.
+        _state_dict = {
+                    'X': [0, 'pos'],
+                    'Y': [1, 'pos'],
+                    'Z': [2, 'pos'],
+                    'vx': [3, 'vel'],
+                    'vy': [4, 'vel'],
+                    'vz': [5, 'vel'],
+                    'yaw': [6, 'angle'],
+                    'pitch': [7, 'angle'],
+                    'roll': [8, 'angle'],
+                    'w_z': [9, 'omega'],
+                    'w_x': [10, 'omega'],
+                    'w_y': [11, 'omega']
+        }
+
+        _input_dict = {
+                    'F1': 'force',
+                    'F2': 'force',
+                    'F3': 'force',
+                    'F4': 'force'
+        }
+
+        super().__init__(dt, _state_dict, _input_dict, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
