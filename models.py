@@ -60,12 +60,11 @@ class LeastSquares:
 
 class NeuralNet(nn.Module):
     """
-    Assumes standard Linear input + output and ReLU activations for all hidden layers
-    layer_sizes is a list of layer sizes, first layer size should be input dimension, last layer size should be output dimension
-    layer_types is a list of activation functions for the middle layers
-    learn_list is a list of state variables to use in training the dynamics. The model will learn and predict this variables.
+    - layer_sizes is a list of layer sizes, first layer size should be input dimension, last layer size should be output dimension
+    - layer_types is a list of activation functions for the middle layers. Note that current implementation sets the first layer to be linear regardless.
+    - learn_list is a list of state variables to use in training the dynamics. The model will learn and predict this variables.
     """
-    def __init__(self, layer_sizes, layer_types, learn_list):
+    def __init__(self, layer_sizes, layer_types, dynam, state_learn_list, input_learn_list):
         super(NeuralNet, self).__init__()
 
         #To keep track of what the mean and variance are at all times for transformations
@@ -73,14 +72,31 @@ class NeuralNet(nn.Module):
         self.scalarU = StandardScaler()
         self.scalardX = StandardScaler()
 
-        # list of states to learn dynamics from
-        self.learn_list = learn_list
+        # list of states and inputs to learn dynamics from
+        self.state_learn_list = state_learn_list
+        self.input_learn_list = input_learn_list
 
+        # dynam file for reference
+        self.dynam = dynam
+
+        if (len(layer_sizes) != len(layer_types)):
+            raise ValueError('Number of layer sizes does not match number of layer types passed.')
+
+        if ((len(state_learn_list)+len(input_learn_list)) != layer_sizes[0]):
+            raise ValueError('Dimension of states and inputs to learn from does not match the first layer dimension.')
+
+        # Add linear layer with activations
+        l=0             # label iterator
         for i in range(len(layers) - 1):
-            self.add_module(str(2*i), nn.Linear(layers[i], layers[i+1]))
-            if i != len(layers) - 2:
-                self.add_module(str(2*i+1), nn.ReLU())
 
+            # add linear layers of size [n_in, n_out]
+            self.add_module(str(l), nn.Linear(layer_sizes[i], layer_sizes[i+1]))
+            l+= 1
+
+            # for all but last layer add activation function
+            if (layer_types[i] != 'linear'):
+                self.add_module(str(l), nn.layer_types[i]())
+                l =+ 1
 
     """
     Standard forward function necessary if extending nn.Module. Basically a copy of nn.Sequential
@@ -105,10 +121,37 @@ class NeuralNet(nn.Module):
         modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
         dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
 
+        # Adds the desired variables to the X data to learn
+        modX = np.array([])
+        dX = np.array([])
+        for state in self.state_learn_list:
+
+            # grabs state information from dictionary
+            key = self.dynam._state_dict[state]
+
+            # concatenate required variables for states
+            if (key[1] != 'angle'):
+                modX = np.concatenate((modX, X[:,:, key[0]]))
+                dX = np.concatenate((dX, dX[:,:, key[0]]))
+            else:
+                modX = np.concatenate((modX, np.sin(X[:,:, key[0]]),np.cos(X[:,:, key[0]]) ))
+                dX = np.concatenate((dX, np.sin(X[:,:, key[0]]), np.cos(X[:,:, key[0]]) ))
+
+        # Adds the desired inputs to the U data to learn X with
+        modU = np.array([])
+        for inp in self.input_learn_list:
+
+            # grabs state information from dictionary
+            key = self.dynam._input_dict[inp]
+
+            # concatenate required variables for states
+            modU = np.concatenate((modX, U[:,:, key[0]]))
+
 
         #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
         modX = modX[:, :-1, :]
         modU = U[:, :-1, :]
+        # modU = modU[:, :-1, :]
 
         #Follow by flattening the matrices so they look like input/output pairs
         modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
