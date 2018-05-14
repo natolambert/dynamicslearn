@@ -30,15 +30,17 @@ class IonoCraft(Dynamics):
                     'w_x': [10, 'omega'],
                     'w_y': [11, 'omega']
         }
+        # user can pass a list of items they want to train on in the neural net, eg learn_list = ['vx', 'vy', 'vz', 'yaw'] and iterate through with this dictionary to easily stack data
 
+        # input dictionary less likely to be used because one will not likely do control without a type of acutation. Could be interesting though
         _input_dict = {
-                    'F1': 'force',
-                    'F2': 'force',
-                    'F3': 'force',
-                    'F4': 'force'
+                    'F1': [0, 'force'],
+                    'F2': [1, 'force'],
+                    'F3': [2, 'force'],
+                    'F4': [3, 'force']
         }
 
-        super().__init__(dt, _state_dict, _input_dict, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
+        super().__init__(_state_dict, _input_dict, dt, x_dim=len(_state_dict), u_dim=len(_input_dict), x_noise = x_noise, u_noise=u_noise)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]

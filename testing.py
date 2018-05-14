@@ -7,6 +7,9 @@ from utils_plot import *
 from utils_data import *
 from models import LeastSquares
 
+import torch.nn as nn
+
+
 # Plotting
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -24,7 +27,7 @@ dt_u = .01
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
-iono1 = IonoCraft_IMU(dt_x, x_noise = .0001)
+iono1 = IonoCraft(dt_x, x_noise = .0001)
 print('...Initializing Dynamics Object')
 
 mgo4 = iono1.m*iono1.g/4
@@ -32,7 +35,7 @@ mgo4 = iono1.m*iono1.g/4
 mgo4 = iono1.m*iono1.g/4
 
 # initial state is origin
-x0 = np.zeros(15)
+x0 = np.zeros(12)
 u0 = np.array([mgo4+.0001,mgo4,mgo4,mgo4]) #np.zeros(4)
 
 # good for unit testin dynamics
@@ -63,7 +66,11 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-nn = NeuralNet([19, 100, 100, 15])
+layer_sizes = [16, 100, 100, 12]
+layer_types = ['nn.Linear()', 'nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
+states_learn = ['vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
+forces_learn = ['F1', 'F2', 'F3', 'F4']
+nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)

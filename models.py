@@ -82,20 +82,24 @@ class NeuralNet(nn.Module):
         if (len(layer_sizes) != len(layer_types)):
             raise ValueError('Number of layer sizes does not match number of layer types passed.')
 
-        if ((len(state_learn_list)+len(input_learn_list)) != layer_sizes[0]):
+        num_angles = sum(1 for x in dynam.x_dict.values() if x[1] == 'angle')
+        if ((len(state_learn_list)+len(input_learn_list)+num_angles) != layer_sizes[0]):
             raise ValueError('Dimension of states and inputs to learn from does not match the first layer dimension.')
 
         # Add linear layer with activations
         l=0             # label iterator
-        for i in range(len(layers) - 1):
+        for i in range(len(layer_sizes) - 1):
 
             # add linear layers of size [n_in, n_out]
             self.add_module(str(l), nn.Linear(layer_sizes[i], layer_sizes[i+1]))
             l+= 1
 
             # for all but last layer add activation function
-            if (layer_types[i] != 'linear'):
-                self.add_module(str(l), nn.layer_types[i]())
+            if (layer_types[i] != 'nn.Linear()'):
+                if (layer_types[i] == 'nn.ReLU()'):
+                    self.add_module(str(l), nn.ReLU())
+                else:
+                    raise ValueError('Layer Type Not Implemented')
                 l =+ 1
 
     """
@@ -117,60 +121,87 @@ class NeuralNet(nn.Module):
         #Getting output dX
         dX = np.array([utils_data.states2delta(val) for val in X])
 
+        # Ignore last element of X and U sequences because do not see next state
+        X = X[:,:-1,:]
+        U = U[:,:-1,:]
+
         #translating from [psi theta phi] to [sin(psi)  sin(theta) sin(phi) cos(psi) cos(theta) cos(phi)]
-        modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
-        dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
+        # modX = np.concatenate((X[:, :, 0:6], np.sin(X[:, :, 6:9]), np.cos(X[:, :, 6:9]), X[:, :, 9:]), axis=2)
+        # dX = np.concatenate((dX[:, :, 0:6], np.sin(dX[:, :, 6:9]), np.cos(dX[:, :, 6:9]), dX[:, :, 9:]), axis=2)
 
         # Adds the desired variables to the X data to learn
-        modX = np.array([])
-        dX = np.array([])
-        for state in self.state_learn_list:
-
-            # grabs state information from dictionary
-            key = self.dynam._state_dict[state]
-
-            # concatenate required variables for states
-            if (key[1] != 'angle'):
-                modX = np.concatenate((modX, X[:,:, key[0]]))
-                dX = np.concatenate((dX, dX[:,:, key[0]]))
-            else:
-                modX = np.concatenate((modX, np.sin(X[:,:, key[0]]),np.cos(X[:,:, key[0]]) ))
-                dX = np.concatenate((dX, np.sin(X[:,:, key[0]]), np.cos(X[:,:, key[0]]) ))
+        modX = []
+        moddX = []
 
         # Adds the desired inputs to the U data to learn X with
-        modU = np.array([])
-        for inp in self.input_learn_list:
+        modU = []
+        for i in range(np.shape(X)[0]):
+            seqX = X[i,:,:]
+            seqdX = dX[i,:,:]
+            seqU = U[i,:,:]
 
-            # grabs state information from dictionary
-            key = self.dynam._input_dict[inp]
+            # intialize empty arrays to amke slicing easier
+            arr_X = []
+            arr_dX = []
+            arr_U = []
+            for state in self.state_learn_list:
+                # grabs state information from dictionary
+                key = self.dynam.x_dict[state]
 
-            # concatenate required variables for states
-            modU = np.concatenate((modX, U[:,:, key[0]]))
+                # concatenate required variables for states
+                if (key[1] != 'angle'):
+                    arr_X.append(seqX[:, key[0]])
+                    arr_dX.append(seqdX[:, key[0]])
+                else:
+                    arr_X.append(np.sin(seqX[:, key[0]]) )
+                    arr_X.append(np.cos(seqX[:, key[0]]) )
+                    arr_dX.append(np.sin(seqdX[:, key[0]]))
+                    arr_dX.append(np.cos(seqdX[:, key[0]]) )
 
+            for inp in self.input_learn_list:
 
-        #the last state isn't actually interesting to us for training, as we only train (X, U) --> dX
-        modX = modX[:, :-1, :]
-        modU = U[:, :-1, :]
-        # modU = modU[:, :-1, :]
+                # grabs state information from dictionary
+                key = self.dynam.u_dict[inp]
+
+                # concatenate required variables for states
+                arr_U.append(seqU[:, key[0]])
+
+            # append the slice onto the array
+            modX.append(arr_X)
+            moddX.append(arr_dX)
+            modU.append(arr_U)
+
+        # cast to numpy arrays
+        modX = np.array(modX)
+        moddX = np.array(moddX)
+        modU = np.array(modU)
+
+        # swap axes for easy flatten & tensor
+        modX = np.swapaxes(modX, 1, 2)
+        moddX = np.swapaxes(moddX, 1, 2)
+        modU = np.swapaxes(modU, 1, 2)
 
         #Follow by flattening the matrices so they look like input/output pairs
         modX = modX.reshape(modX.shape[0]*modX.shape[1], -1)
         modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
-        dX = dX.reshape(dX.shape[0]*dX.shape[1], -1)
+        moddX = moddX.reshape(dX.shape[0]*dX.shape[1], -1)
 
+        print(np.shape(modX))
+        print(np.shape(moddX))
+        print(np.shape(modU))
         #at this point they should look like input output pairs
-        if dX.shape != modX.shape:
+        if moddX.shape != modX.shape:
             raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
 
         #update mean and variance of the dataset with each training pass
         self.scalarX.partial_fit(modX)
         self.scalarU.partial_fit(modU)
-        self.scalardX.partial_fit(dX)
+        self.scalardX.partial_fit(moddX)
 
         #Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(modX)
         normU = self.scalarU.transform(modU)
-        normdX = self.scalardX.transform(dX)
+        normdX = self.scalardX.transform(moddX)
 
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
@@ -185,10 +216,70 @@ class NeuralNet(nn.Module):
     """
     def postprocess(self, dX):
         dX = self.scalardX.inverse_transform(dX)
-        if(len(dX.shape) > 1):
-            out = np.concatenate((dX[:, :6], np.arctan2(dX[:, 6:9], dX[:, 9:12]), dX[:, 12:]), axis=1)
-        else:
-            out = np.concatenate((dX[:6], np.arctan2(dX[6:9], dX[9:12]), dX[12:]))
+
+        print(np.shape(dX))
+
+        out = np.array([])
+        ang_idx = 0
+
+        # out = np.concatenate((dX[:, :6], np.arctan2(dX[:, 6:9], dX[:, 9:12]), dX[:, 12:]), axis=1)
+
+        # Again needs to remove cos/sin of the correct variables the desired variables to the X data to learn
+        for state in self.state_learn_list:
+
+            # grabs state information from dictionary
+            key = self.dynam._state_dict[state]
+
+            # concatenate required variables for states
+            if(len(dX.shape) > 1):          # Need this check for shaping
+                if (key[1] != 'angle'):
+                    out = np.concatenate((out, dX[:,:, key[0]]), axis =1)
+                else:
+                    out = np.concatenate((out, np.arctan2(dX[:,:, key[0]+ang_idx], dX[:,:, key[0]+1+ang_idx])), axis=1)
+                    ang_idx += 1
+            else:
+                if (key[1] != 'angle'):
+                    out = np.concatenate((out, dX[:,:, key[0]]))
+                else:
+                    out = np.concatenate((out, np.arctan2(dX[:,:, key[0]+ang_idx], dX[:,:, key[0]+1+ang_idx])))
+                    ang_idx += 1
+
+        for i in range(np.shape(X)[0]):
+            seqX = X[i,:,:]
+            seqdX = dX[i,:,:]
+            seqU = U[i,:,:]
+
+            # intialize empty arrays to amke slicing easier
+            arr_X = []
+            arr_dX = []
+            arr_U = []
+            for state in self.state_learn_list:
+                # grabs state information from dictionary
+                key = self.dynam.x_dict[state]
+
+                # concatenate required variables for states
+                if (key[1] != 'angle'):
+                    arr_X.append(seqX[:, key[0]])
+                    arr_dX.append(seqdX[:, key[0]])
+                else:
+                    arr_X.append(np.sin(seqX[:, key[0]]) )
+                    arr_X.append(np.cos(seqX[:, key[0]]) )
+                    arr_dX.append(np.sin(seqdX[:, key[0]]))
+                    arr_dX.append(np.cos(seqdX[:, key[0]]) )
+
+            for inp in self.input_learn_list:
+
+                # grabs state information from dictionary
+                key = self.dynam.u_dict[inp]
+
+                # concatenate required variables for states
+                arr_U.append(seqU[:, key[0]])
+
+            # append the slice onto the array
+            modX.append(arr_X)
+            moddX.append(arr_dX)
+            modU.append(arr_U)
+
         return out
 
     """

@@ -14,7 +14,7 @@ class Dynamics:
     # Primary basis of this class is to check variable dimensions and time steps for dynamics.
 
     # init class
-    def __init__(self, dt=.01, state_dict, input_dict, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
+    def __init__(self, state_dict, input_dict, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
         self.dt = dt                # time update step
         self.x_dim = x_dim          # x dimension, can be derived from the state_dict
         self.u_dim = u_dim          # u dimension
@@ -77,7 +77,7 @@ def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller =
     Seqs_X = []
     Seqs_U = []
     for i in range(num_iter):
-        X, U = sim_sequence(dynam, sequence_len, x0= [], controller=controller)
+        X, U = sim_sequence(dynam, dt_control, sequence_len, x0= [], controller=controller)
         Seqs_X.append(X)
         Seqs_U.append(U)
 
