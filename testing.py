@@ -66,7 +66,7 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-layer_sizes = [16, 100, 100, 12]
+layer_sizes = [19, 100, 100, 15]
 layer_types = ['nn.Linear()', 'nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
 states_learn = ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['F1', 'F2', 'F3', 'F4']
@@ -75,7 +75,7 @@ nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)
 Seqs_U = np.array(Seqs_U)
-acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=5e-4, epochs=250, batch_size = 150, optim="SGD")
 # create a learning model
 # lin1 = LeastSquares()
 #
@@ -83,7 +83,7 @@ acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[0,1,2,3,4,5])
+origin_minimizer = Objective(np.linalg.norm, 'min', 12, dim_to_eval=[0,1,2,3,4,5,6,7,8,9,10,11])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
@@ -111,7 +111,7 @@ plotInputs(u_seq, T)
 
 # Plots animation, change save to false to not save .gif
 plotter1 = PlotFlight(x_controlled,.5)
-plotter1.show(save=True)
+plotter1.show(save=False)
 print('Saved Gif')
 
 
