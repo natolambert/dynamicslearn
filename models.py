@@ -24,10 +24,11 @@ class LeastSquares:
     # .train() to train the fit
     # .predict() to predict the next state from the current state and inputs
 
-    def __init__(self, x_dim = 12, u_dim = 4):
+    def __init__(self, dt_x, x_dim = 12, u_dim = 4):
         self.reg = linear_model.LinearRegression()
         self.x_dim = x_dim
         self.u_dim = u_dim
+        self.dt_x = dt_x
 
     def train(self, change_states, states_prev, actions_prev):
         # need to make sure data here is normalized AND the states are all
@@ -51,7 +52,7 @@ class LeastSquares:
         # forces one dimensional vector, transpose to allign with .fit dimensions
         vect = np.hstack((state, action)).reshape(-1,1).T
         pred = self.reg.predict(vect)
-        return pred[0]
+        return self.dt_x*pred[0]
 
     @property
     def A_B(self):
@@ -186,9 +187,6 @@ class NeuralNet(nn.Module):
         modU = modU.reshape(modU.shape[0]*modU.shape[1], -1)
         moddX = moddX.reshape(dX.shape[0]*dX.shape[1], -1)
 
-        print(np.shape(modX))
-        print(np.shape(moddX))
-        print(np.shape(modU))
         #at this point they should look like input output pairs
         if moddX.shape != modX.shape:
             raise ValueError('Something went wrong, modified X shape:' + str(modX.shape) + ' dX shape:' + str(dX.shape))
@@ -215,72 +213,42 @@ class NeuralNet(nn.Module):
     to actual angle
     """
     def postprocess(self, dX):
+        # de-normalize so to say
         dX = self.scalardX.inverse_transform(dX)
 
-        print(np.shape(dX))
-
-        out = np.array([])
+        out = []
         ang_idx = 0
 
-        # out = np.concatenate((dX[:, :6], np.arctan2(dX[:, 6:9], dX[:, 9:12]), dX[:, 12:]), axis=1)
+        def NNout2State(dX):
+            # helper function for transforming the output of the NN back to useable state information
 
-        # Again needs to remove cos/sin of the correct variables the desired variables to the X data to learn
-        for state in self.state_learn_list:
+            out = []
+            # Again needs to remove cos/sin of the correct variables the desired variables to the X data to learn
 
+            l = 0
             # grabs state information from dictionary
-            key = self.dynam._state_dict[state]
-
-            # concatenate required variables for states
-            if(len(dX.shape) > 1):          # Need this check for shaping
-                if (key[1] != 'angle'):
-                    out = np.concatenate((out, dX[:,:, key[0]]), axis =1)
-                else:
-                    out = np.concatenate((out, np.arctan2(dX[:,:, key[0]+ang_idx], dX[:,:, key[0]+1+ang_idx])), axis=1)
-                    ang_idx += 1
-            else:
-                if (key[1] != 'angle'):
-                    out = np.concatenate((out, dX[:,:, key[0]]))
-                else:
-                    out = np.concatenate((out, np.arctan2(dX[:,:, key[0]+ang_idx], dX[:,:, key[0]+1+ang_idx])))
-                    ang_idx += 1
-
-        for i in range(np.shape(X)[0]):
-            seqX = X[i,:,:]
-            seqdX = dX[i,:,:]
-            seqU = U[i,:,:]
-
-            # intialize empty arrays to amke slicing easier
-            arr_X = []
-            arr_dX = []
-            arr_U = []
-            for state in self.state_learn_list:
+            for (i,state) in enumerate(self.state_learn_list):
                 # grabs state information from dictionary
                 key = self.dynam.x_dict[state]
 
                 # concatenate required variables for states
                 if (key[1] != 'angle'):
-                    arr_X.append(seqX[:, key[0]])
-                    arr_dX.append(seqdX[:, key[0]])
+                    out.append(dX[i+l])
                 else:
-                    arr_X.append(np.sin(seqX[:, key[0]]) )
-                    arr_X.append(np.cos(seqX[:, key[0]]) )
-                    arr_dX.append(np.sin(seqdX[:, key[0]]))
-                    arr_dX.append(np.cos(seqdX[:, key[0]]) )
+                    out.append(np.arctan2(dX[i+l], dX[1+i+l]))
+                    l+= 1
+            return out
 
-            for inp in self.input_learn_list:
+        # Call normalization on each state predicted
+        if len(np.shape(dX)) > 1:
+            for state in dX:
+                out.append(NNout2State(state))
+        else:
+            out = NNout2State(dX)
 
-                # grabs state information from dictionary
-                key = self.dynam.u_dict[inp]
+        return np.array(out)
+        # out = np.concatenate((dX[:, :6], np.arctan2(dX[:, 6:9], dX[:, 9:12]), dX[:, 12:]), axis=1)
 
-                # concatenate required variables for states
-                arr_U.append(seqU[:, key[0]])
-
-            # append the slice onto the array
-            modX.append(arr_X)
-            moddX.append(arr_dX)
-            modU.append(arr_U)
-
-        return out
 
     """
     Train the neural network.
@@ -315,15 +283,52 @@ class NeuralNet(nn.Module):
     """
     def predict(self, X, U):
         #Converting to sin/cos form
-        X = np.concatenate((X[0:6], np.sin(X[6:9]), np.cos(X[6:9]), X[9:]))
+        # state_in = np.concatenate((X[0:6], np.sin(X[6:9]), np.cos(X[6:9]), X[9:]))
+
+        state_in = []
+        input_in = []
+
+        for state in self.state_learn_list:
+            # grabs state information from dictionary
+            key = self.dynam.x_dict[state]
+
+            # concatenate required variables for states
+            if (key[1] != 'angle'):
+                state_in.append(X[key[0]])
+            else:
+                state_in.append(np.sin(X[key[0]]) )
+                state_in.append(np.cos(X[key[0]]) )
+
+
+        for inp in self.input_learn_list:
+
+            # grabs state information from dictionary
+            key = self.dynam.u_dict[inp]
+
+            # concatenate required variables for states
+            input_in.append(U[key[0]])
+
+        # make numpy array
+        state_in = np.array(state_in)
+        input_in = np.array(input_in)
 
         #normalizing and converting to single sample
-        normX = self.scalarX.transform(X.reshape(1, -1))
-        normU = self.scalarU.transform(U.reshape(1, -1))
+        normX = self.scalarX.transform(state_in.reshape(1, -1))
+        normU = self.scalarU.transform(input_in.reshape(1, -1))
 
         input = Variable(torch.Tensor(np.concatenate((normX, normU), axis=1)))
 
-        return self.postprocess(self.forward(input).data[0])
+        NNout = self.postprocess(self.forward(input).data[0])
+
+        # need to make it so you can still simulate sequences on the learned sequences of not all variables. Our definition is for now that prediction is set to 0 for states we did not learn
+        out = np.zeros(self.dynam.x_dim)
+        idx_out = 0
+        for state in self.dynam.x_dict:
+            key = self.dynam.x_dict[state]
+            if state in self.state_learn_list:
+                out[key[0]] = NNout[idx_out]
+                idx_out += 1
+        return out
 
 
 

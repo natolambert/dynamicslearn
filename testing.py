@@ -68,7 +68,7 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 print('...Training Model')
 layer_sizes = [16, 100, 100, 12]
 layer_types = ['nn.Linear()', 'nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
-states_learn = ['vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
+states_learn = ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['F1', 'F2', 'F3', 'F4']
 nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
@@ -83,7 +83,7 @@ acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'max', 1, dim_to_eval=[2])
+origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[0,1,2,3,4,5])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
