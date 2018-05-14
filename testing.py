@@ -20,11 +20,11 @@ print('---begin--------------------------------------------------------------')
 
 # initialize some variables
 dt_x = .001
-dt_u = .01
+dt_u = .001
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
-iono1 = IonoCraft_IMU(dt_x, x_noise = .0001)
+iono1 = IonoCraft(dt_x, x_noise = .0001)
 print('...Initializing Dynamics Object')
 
 mgo4 = iono1.m*iono1.g/4
@@ -32,7 +32,7 @@ mgo4 = iono1.m*iono1.g/4
 mgo4 = iono1.m*iono1.g/4
 
 # initial state is origin
-x0 = np.zeros(15)
+x0 = np.zeros(12)
 u0 = np.array([mgo4+.0001,mgo4,mgo4,mgo4]) #np.zeros(4)
 
 # good for unit testin dynamics
@@ -76,7 +76,7 @@ acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'max', 1, dim_to_eval=[2])
+origin_minimizer = Objective(np.linalg.norm, 'min', 12, dim_to_eval=[0,1,2,3,4,5,6,7,8,9,10,11])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################

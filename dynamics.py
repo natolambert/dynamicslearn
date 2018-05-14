@@ -75,7 +75,7 @@ def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller =
     Seqs_X = []
     Seqs_U = []
     for i in range(num_iter):
-        X, U = sim_sequence(dynam, sequence_len, x0= [], controller=controller)
+        X, U = sim_sequence(dynam, dt_control, sequence_len, x0= [], controller=controller)
         Seqs_X.append(X)
         Seqs_U.append(U)
 
