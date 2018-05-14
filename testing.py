@@ -7,6 +7,9 @@ from utils_plot import *
 from utils_data import *
 from models import LeastSquares
 
+import torch.nn as nn
+
+
 # Plotting
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -20,7 +23,7 @@ print('---begin--------------------------------------------------------------')
 
 # initialize some variables
 dt_x = .001
-dt_u = .001
+dt_u = .005
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
@@ -49,12 +52,13 @@ x3 = iono1.simulate(x2,u0)
 N = 250     # num sequneces
 
 # generate training data
+crazy = CrazyFlie(dt_x, x_noise = .0001)
 print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=100, num_iter = N)
+Seqs_X, Seqs_U = generate_data(crazy, dt_control = dt_u, sequence_len=25, num_iter = N)
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
-data = sequencesXU2array(Seqs_X, Seqs_U)
+# data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # Check shape of data
 # print(np.shape(data))
@@ -63,12 +67,22 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-nn = NeuralNet([19, 100, 100, 15])
+layer_sizes = [19, 100, 100, 15]
+layer_types = ['nn.Linear()', 'nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
+states_learn = ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
+# ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
+forces_learn = ['Thrust', 'taux', 'tauy', 'tauz']
+# ['F1', 'F2', 'F3', 'F4']
+nn = NeuralNet(layer_sizes, layer_types, crazy, states_learn, forces_learn)
 
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)
 Seqs_U = np.array(Seqs_U)
-acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-4, epochs=250)
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-3, epochs=500, batch_size = 200, optim="SGD")
+
+plt.plot(acc)
+plt.show()
+
 # create a learning model
 # lin1 = LeastSquares()
 #
@@ -82,17 +96,17 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_u, origin_minimizer)
+mpc1 = MPController(nn, crazy, dt_u, origin_minimizer)
 print('...MPC Running')
 x0 = np.zeros(12)
-new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
+new_seq, Us = sim_sequence(crazy, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
 #
 # compareTraj(Us, x0, iono1, nn, show=True)
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
 new_len = 500
-x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
+x_controlled, u_seq = sim_sequence(crazy, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
 print(u_seq)
 print('Simulated Learned.')
 ################################ PLot ################################
@@ -102,9 +116,9 @@ T = np.linspace(0,new_len*dt_x,new_len)
 plot12(x_controlled, T)
 plotInputs(u_seq, T)
 
-# Plots animation, change save to false to not save .gif
+# # Plots animation, change save to false to not save .gif
 plotter1 = PlotFlight(x_controlled,.5)
-plotter1.show(save=True)
+plotter1.show(save=False)
 print('Saved Gif')
 
 

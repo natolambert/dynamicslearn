@@ -14,12 +14,14 @@ class Dynamics:
     # Primary basis of this class is to check variable dimensions and time steps for dynamics.
 
     # init class
-    def __init__(self, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
-        self.dt = dt
-        self.x_dim = x_dim
-        self.u_dim = u_dim
+    def __init__(self, state_dict, input_dict, dt=.01, x_dim=12, u_dim = 4, x_noise = .0001, u_noise=0):
+        self.dt = dt                # time update step
+        self.x_dim = x_dim          # x dimension, can be derived from the state_dict
+        self.u_dim = u_dim          # u dimension
         self.x_noise = x_noise
         self.u_noise = u_noise
+        self.x_dict = state_dict
+        self.u_dict = input_dict
 
     @property
     def get_dims(self):
