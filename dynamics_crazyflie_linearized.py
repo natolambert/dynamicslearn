@@ -15,7 +15,30 @@ __version__ = '0.1'
 
 class CrazyFlie(Dynamics):
     def __init__(self, dt, m=.035, L=.065, Ixx = 2.3951e-5, Iyy = 2.3951e-5, Izz = 3.2347e-5, x_noise = .0001, u_noise=0):
-        super().__init__(dt, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
+        _state_dict = {
+                    'X': [0, 'pos'],
+                    'Y': [1, 'pos'],
+                    'Z': [2, 'pos'],
+                    'vx': [3, 'vel'],
+                    'vy': [4, 'vel'],
+                    'vz': [5, 'vel'],
+                    'yaw': [6, 'angle'],
+                    'pitch': [7, 'angle'],
+                    'roll': [8, 'angle'],
+                    'w_z': [9, 'omega'],
+                    'w_x': [10, 'omega'],
+                    'w_y': [11, 'omega']
+        }
+        # user can pass a list of items they want to train on in the neural net, eg learn_list = ['vx', 'vy', 'vz', 'yaw'] and iterate through with this dictionary to easily stack data
+
+        # input dictionary less likely to be used because one will not likely do control without a type of acutation. Could be interesting though
+        _input_dict = {
+                    'Thrust': [0, 'force'],
+                    'taux': [1, 'torque'],
+                    'tauy': [2, 'torque'],
+                    'tauz': [3, 'torque']
+        }
+        super().__init__(_state_dict, _input_dict, dt, x_dim=12, u_dim=4, x_noise = x_noise, u_noise=u_noise)
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
@@ -45,7 +68,7 @@ class CrazyFlie(Dynamics):
                                 [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
         return rotn_matrix.dot(pqr)
 
-    def update(self, x, u, t=None):
+    def simulate(self, x, u, t=None):
         # Input structure:
         # u1 = thrust
         # u2 = torque-wx

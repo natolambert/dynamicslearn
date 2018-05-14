@@ -83,7 +83,12 @@ class NeuralNet(nn.Module):
         if (len(layer_sizes) != len(layer_types)):
             raise ValueError('Number of layer sizes does not match number of layer types passed.')
 
-        num_angles = sum(1 for x in dynam.x_dict.values() if x[1] == 'angle')
+        # num_angles = sum(1 for x in dynam.x_dict.values() if x[1] == 'angle')
+        num_angles = 0
+        for state in state_learn_list:
+            key = dynam.x_dict[state]
+            if key[1] == 'angle':
+                num_angles +=1
         if ((len(state_learn_list)+len(input_learn_list)+num_angles) != layer_sizes[0]):
             raise ValueError('Dimension of states and inputs to learn from does not match the first layer dimension.')
 
