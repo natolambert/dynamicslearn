@@ -210,7 +210,7 @@ class MPController(Controller):
     # 1. random shooting control, with best reward being taken
     # 2. convext optimization solution on finite time horizon
 
-    def __init__(self, dynamics_learned, dynamics_true, dt_control, Objective, N = 50, T=5, method = 'Shooter'):
+    def __init__(self, dynamics_learned, dynamics_true, dt_control, Objective, N = 100, T=10, method = 'Shooter'):
         # initialize some variables
         # dynamics learned will be a model from models.py
         # dynamcis true is the dynamics file for getting some parameters

@@ -161,6 +161,8 @@ class PlotFlight(object):
     PlotFlight class adapted from: https://github.com/nikhilkalige/quadrotor/blob/master/plotter.py
     '''
     def __init__(self, state, arm_length):
+        state[:,[6, 8]] = state[:,[8, 6]]
+
         self.state = state
         self.length = len(state)
         self.arm_length = arm_length
