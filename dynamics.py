@@ -69,10 +69,10 @@ def W_inv(ypr):
 
     return W_inv
 
-def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, controller = 'random'):
+def generate_data(dynam, dt_control, sequence_len=10, num_iter=100, variance = .000001, controller = 'random'):
     # generates a batch of data sequences for learning. Will be an array of (sequence_len x 2) sequences with state and inputs
     if controller == 'random':
-        controller = randController(dynam, dt_control)
+        controller = randController(dynam, dt_control, variance = variance)
 
     Seqs_X = []
     Seqs_U = []

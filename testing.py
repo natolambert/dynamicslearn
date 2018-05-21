@@ -75,17 +75,17 @@ x_controlled, u_seq = sim_sequence(iono1, dt_u, sequence_len = new_len, to_print
 #
 
 # Simulate data for training
-N = 250     # num sequneces
+N = 400     # num sequneces
 
 
 # generate training data
 print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=50, num_iter = N)
+Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=25, num_iter = N, variance = .0003)
 print(np.shape(Seqs_U))
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
-# data = sequencesXU2array(Seqs_X, Seqs_U)
+data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # Check shape of data
 # print(np.shape(data))
@@ -95,7 +95,7 @@ print(np.shape(Seqs_U))
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-layer_sizes = [18, 200, 200, 15]
+layer_sizes = [18, 166, 166, 15]
 layer_types = ['nn.Linear()','nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
 states_learn = ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
@@ -106,34 +106,34 @@ nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)
 Seqs_U = np.array(Seqs_U)
-acc = nn.train((Seqs_X, Seqs_U), learning_rate=1e-3, epochs=500, batch_size = 300, optim="SGD")
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=5e-3, epochs=400, batch_size = 100, optim="SGD")
 
 plt.plot(acc)
-# plt.show()
-
-# create a learning model
-# lin1 = LeastSquares()
+plt.show()
+#
+# # create a learning model
+# lin1 = LeastSquares(dt_x, u_dim = 3)
 #
 # # train it like this
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 12, dim_to_eval=[0,1,2,3,4,5,6,7,8,9,10,11])
+origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,9,10,11])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_u, origin_minimizer)
+mpc1 = MPController(nn, iono1, dt_u, origin_minimizer, N=100, T=10, variance = .00005)
 print('...MPC Running')
-x0 = np.zeros(12)
-new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
+# x0 = np.zeros(12)
+# new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
 #
 # compareTraj(Us, x0, iono1, nn, show=True)
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-new_len = 1000
+new_len = 500
 x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
 print(u_seq)
 print('Simulated Learned.')
@@ -143,9 +143,15 @@ print('...Plotting')
 T = np.linspace(0,new_len*dt_x,new_len)
 plot12(x_controlled, T)
 # plotInputs(u_seq, T)
-
+fig_inputs = plt.figure()
+plt.title('Three Inputs')
+plt.plot(T, u_seq[:,0],label='Thrust')
+plt.plot(T, u_seq[:,1],label='taux')
+plt.plot(T, u_seq[:,2],label='tauy')
+plt.legend()
+plt.show()
 # # Plots animation, change save to false to not save .gif
-plotter1 = PlotFlight(x_controlled,.5)
+plotter1 = PlotFlight(x_controlled[::10,:],.5)
 plotter1.show(save=False)
 print('Saved Gif')
 

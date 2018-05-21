@@ -210,7 +210,7 @@ class MPController(Controller):
     # 1. random shooting control, with best reward being taken
     # 2. convext optimization solution on finite time horizon
 
-    def __init__(self, dynamics_learned, dynamics_true, dt_control, Objective, N = 100, T=10, method = 'Shooter'):
+    def __init__(self, dynamics_learned, dynamics_true, dt_control, Objective, N = 100, T=10, variance = .00001, method = 'Shooter'):
         # initialize some variables
         # dynamics learned will be a model from models.py
         # dynamcis true is the dynamics file for getting some parameters
@@ -236,6 +236,7 @@ class MPController(Controller):
         self.method = 'Shooter'         # default to random shooting MPC
         self.time_horiz = T             # time steps into future to look
         self.N = N                      # number of samples to try when random
+        self.var = variance
 
     def update(self, current_state):
         # function that returns desired control output
@@ -253,7 +254,7 @@ class MPController(Controller):
 
         if ((self.i % Rdt) == 0):
             # Makes controller to generate some action
-            rand_controller = randController(self.dynamics_true, self.dt_control)
+            rand_controller = randController(self.dynamics_true, self.dt_control, variance = self.var)
             actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
 
             # Extends control to the time horizon defined in init
