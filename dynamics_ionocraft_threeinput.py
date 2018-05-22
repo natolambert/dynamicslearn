@@ -154,7 +154,7 @@ class IonoCraft_3u(Dynamics):
         omega = x0[idx_ptp_dot]
         omega_mat = np.array([  [0, -omega[2], omega[1]],
                                 [omega[2], 0, -omega[0]],
-                                [-omega[2], omega[0], 0]
+                                [-omega[1], omega[0], 0]
                                 ])
 
         xdot[idx_xyz_dot] = (1/m)*F_ext - np.matmul(omega_mat, x0[idx_xyz_dot])

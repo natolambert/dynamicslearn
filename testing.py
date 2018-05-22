@@ -28,7 +28,7 @@ dt_u = .005
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
-iono1 = IonoCraft_3u(dt_x, x_noise = 0) #.0000001)
+iono1 = IonoCraft_IMU(dt_x, x_noise = 0) #.0000001)
 crazy = CrazyFlie(dt_x, x_noise = .000)
 print('...Initializing Dynamics Object')
 
@@ -37,8 +37,8 @@ mgo4 = iono1.m*iono1.g/4
 mgo4 = iono1.m*iono1.g/4
 
 # initial state is origin
-x0 = np.zeros(12)
-u0 = np.array([iono1.m*iono1.g,.010,0.00]) #np.zeros(4)
+x0 = np.zeros(15)
+u0 = np.array([mgo4, mgo4,mgo4,mgo4]) #np.array([iono1.m*iono1.g,.010,0.00]) #np.zeros(4)
 
 # good for unit testin dynamics
 x1 = iono1.simulate(x0,u0)
@@ -47,7 +47,8 @@ printState(x1)
 x2 = iono1.simulate(x1,u0)
 # x2[x2 < .00001] = 0
 x3 = iono1.simulate(x2,u0)
-#
+
+quit()
 # for i in range(100):
 #     print(' -- Update -- :', i)
 #     x1 = iono1.simulate(x1,u0)
@@ -80,7 +81,7 @@ N = 400     # num sequneces
 
 # generate training data
 print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=25, num_iter = N, variance = .0003)
+Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=25, num_iter = N, variance = .0005)
 print(np.shape(Seqs_U))
 
 # converts data from list of trajectories of [next_states, states, inputs]
@@ -95,18 +96,18 @@ data = sequencesXU2array(Seqs_X, Seqs_U)
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-layer_sizes = [18, 166, 166, 15]
+layer_sizes = [13, 100, 100, 9]
 layer_types = ['nn.Linear()','nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
-states_learn = ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
+states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az']
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
-forces_learn = ['Thrust', 'taux', 'tauy']
+forces_learn = ['F1', 'F2', 'F3', 'F4'] #['Thrust', 'taux', 'tauy']
 # ['F1', 'F2', 'F3', 'F4']
 nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)
 Seqs_U = np.array(Seqs_U)
-acc = nn.train((Seqs_X, Seqs_U), learning_rate=5e-3, epochs=400, batch_size = 100, optim="SGD")
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=250, batch_size = 1500, optim="Adam")
 
 plt.plot(acc)
 plt.show()
@@ -118,7 +119,7 @@ plt.show()
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,9,10,11])
+origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,12,13,14])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
@@ -133,7 +134,7 @@ print('...MPC Running')
 ################################ Sim Controlled ################################
 
 # Sim sequence off the trained controller
-new_len = 500
+new_len = 250
 x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
 print(u_seq)
 print('Simulated Learned.')
@@ -142,18 +143,18 @@ print('...Plotting')
 # plot states and inputs of the trajectory if wanted
 T = np.linspace(0,new_len*dt_x,new_len)
 plot12(x_controlled, T)
-# plotInputs(u_seq, T)
-fig_inputs = plt.figure()
-plt.title('Three Inputs')
-plt.plot(T, u_seq[:,0],label='Thrust')
-plt.plot(T, u_seq[:,1],label='taux')
-plt.plot(T, u_seq[:,2],label='tauy')
-plt.legend()
-plt.show()
+plotInputs(u_seq, T)
+# fig_inputs = plt.figure()
+# plt.title('Three Inputs')
+# plt.plot(T, u_seq[:,0],label='Thrust')
+# plt.plot(T, u_seq[:,1],label='taux')
+# plt.plot(T, u_seq[:,2],label='tauy')
+# plt.legend()
+# plt.show()
 # # Plots animation, change save to false to not save .gif
-plotter1 = PlotFlight(x_controlled[::10,:],.5)
+plotter1 = PlotFlight(x_controlled[::1,:],.5)
 plotter1.show(save=False)
-print('Saved Gif')
+# print('Saved Gif')
 
 
 print('---------------------------------------------------------end run-----')

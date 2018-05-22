@@ -1,6 +1,6 @@
 # File containing controllers for both collecting data and for on learned dynamics
 import numpy as np
-import cvxopt           # convex opt package
+# import cvxopt           # convex opt package
 
 # Import models files for MPC controller
 from models import *

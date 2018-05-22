@@ -40,7 +40,10 @@ def plot12(X,T):
     Plots all state variables over time. Use this to debug state variables and dynamics files. ONLY WORKS FOR 12 DIM FREE BODY DYNAMICS
     '''
     if (np.shape(X)[1] != 12):
-        raise ValueError('X dimension does not match, not equal 12')
+        if (np.shape(X)[1] == 15):
+            X = X[:,0:12]
+        else:
+            raise ValueError('X dimension does not match, not equal 12')
 
     titles = ['X', 'Y', 'Z', 'xdot', 'ydot', 'zdot', 'yaw', 'pitch', 'roll', 'omega_x', 'omega_y', 'omega_z']
     y_lab = ['(m)', '(m)', '(m)', '(m/s)', '(m/s)', '(m/s)', '(rad)', '(rad)', '(rad)', '(rad/s)', '(rad/s)', '(rad/s)']
