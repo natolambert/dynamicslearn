@@ -9,10 +9,10 @@ class Controller:
     # Class controller is for forcing dimensions and certain properties.
 
     # init class
-    def __init__(self, dt_dynam, dt_control, dim=4):
-        self.dt_dynam = dt_dynam
+    def __init__(self, dt_update, dt_control, dim=4):
+        self.dt_update = dt_update
         self.dt_control = dt_control
-        # dt_control/dt_dynam must be an integer. This integer refers to the number of actions that the controller will take before an update. The controller update rate should be much slower than the dynamics update rate.
+        # dt_control/dt_update must be an integer. This integer refers to the number of actions that the controller will take before an update. The controller update rate should be much slower than the dynamics update rate.
 
         self.dim = dim
         self.var = [0]
@@ -39,14 +39,14 @@ class Controller:
         return self.equil
 
 class randController(Controller):
-    def __init__(self, dynamics, dt_control, variance = .00025):
+    def __init__(self, dynamics, dt_update, dt_control, variance = .00025):
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control
         # variance is the divergence from the equilibrium point. The variance variable is important, because when it is too low it will not stray from equilibrium, but too high it will diverge rapidly
         dt_dynam = dynamics.get_dt
         dim = dynamics.get_dims[1]
-        super().__init__(dt_dynam, dt_control, dim=dim)
+        super().__init__(dt_update, dt_control, dim=dim)
 
         # equilibrium point is from dynamics
         self.equil = dynamics.u_e       # this is an input
@@ -61,7 +61,7 @@ class randController(Controller):
         # Create index to repeat control when below control update rates
         # ___ to take a start variable in general use, other contorllers use state info
 
-        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
+        Rdt = int(self.dt_control/self.dt_update)    # number of dynamics updates per new control update
         # print('Ratio is: ', Rdt, ' Index is: ', self.i)
 
         if ((self.i % Rdt) == 0):
@@ -210,7 +210,7 @@ class MPController(Controller):
     # 1. random shooting control, with best reward being taken
     # 2. convext optimization solution on finite time horizon
 
-    def __init__(self, dynamics_learned, dynamics_true, dt_control, Objective, N = 100, T=10, variance = .00001, method = 'Shooter'):
+    def __init__(self, dynamics_learned, dynamics_true, dt_update, dt_control, Objective, N = 100, T=10, variance = .00001, method = 'Shooter'):
         # initialize some variables
         # dynamics learned will be a model from models.py
         # dynamcis true is the dynamics file for getting some parameters
@@ -220,9 +220,8 @@ class MPController(Controller):
 
         # time step to be used inthe future when control update rate != dynamics update rate
         self.dt_dynam = dynamics_true.get_dt
-        self.dt_control = dt_control
         dim = dynamics_true.get_dims[1]
-        super().__init__(self.dt_dynam, self.dt_control, dim=dim)
+        super().__init__(dt_update, dt_control, dim=dim)
 
         self.dynamics_model = dynamics_learned
         self.dynamics_true = dynamics_true
@@ -246,7 +245,7 @@ class MPController(Controller):
 
         # initialize some variables for only updating control at correct
         # if dt_u == dt_x R = 1, so always updates
-        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
+        Rdt = int(self.dt_control/self.dt_update)    # number of dynamics updates per new control update
 
         # Simulate a bunch of random actions and then need a way to evaluate reward
         N = self.N
@@ -254,7 +253,8 @@ class MPController(Controller):
 
         if ((self.i % Rdt) == 0):
             # Makes controller to generate some action
-            rand_controller = randController(self.dynamics_true, self.dt_control, variance = self.var)
+            # passes the dt_control twice so that every call of .update() generates a unique random action. When dimulating a sequence at a specific rate, the randController has a built in ticker that tracks whether this dynamics update it should give a new control or not.
+            rand_controller = randController(self.dynamics_true, self.dt_control, self.dt_control, variance = self.var)
             actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
 
             # Extends control to the time horizon defined in init
@@ -285,6 +285,7 @@ class MPController(Controller):
             # print(mm_idx)
             best_action = actions_seq[mm_idx]
             self.control = best_action[0]
+            # print(self.control)
 
         self.i += 1
 

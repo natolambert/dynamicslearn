@@ -165,6 +165,8 @@ class PlotFlight(object):
     '''
     def __init__(self, state, arm_length):
         state[:,[6, 8]] = state[:,[8, 6]]
+        state[:,7] = -state[:,7]
+        # state[:,8] = -state[:,8]
 
         self.state = state
         self.length = len(state)
