@@ -72,7 +72,7 @@ class IonoCraft_IMU(Dynamics):
         # Hover control matrices
         self._hover_mats = [np.array([1, 1, 1, 1]),      # z
                             np.array([-1, -1, 1, 1]),   # pitch
-                            np.array([1, -1, -1, 1])]   # roll
+                            np.array([-1, 1, 1, -1])]   # roll
 
     def _enforce_input_range(self, input, lowerbound = 0, upperbound = 500e-6):
         # enforces the max and min of an input to an ionocraft
@@ -177,5 +177,8 @@ class IonoCraft_IMU(Dynamics):
         # State update
         x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim))
         x1 = x0+dt*xdot+x_noise_vec
+
+        # makes states less than 1e-12 = 0
+        x1[x1< 1e-12] = 0
 
         return x1

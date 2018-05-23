@@ -118,6 +118,9 @@ class CrazyFlie(Dynamics):
 
         # Add noise component
         x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim))
+        
+        # makes states less than 1e-12 = 0
+        x1[x1< 1e-12] = 0
         return x1+x_noise_vec
 
     @property

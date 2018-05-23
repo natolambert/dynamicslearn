@@ -23,8 +23,8 @@ print('\n')
 print('---begin--------------------------------------------------------------')
 
 # initialize some variables
-dt_x = .001
-dt_u = .005
+dt_x = .00005
+dt_u = .001
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
@@ -48,7 +48,6 @@ x2 = iono1.simulate(x1,u0)
 # x2[x2 < .00001] = 0
 x3 = iono1.simulate(x2,u0)
 
-quit()
 # for i in range(100):
 #     print(' -- Update -- :', i)
 #     x1 = iono1.simulate(x1,u0)
@@ -76,12 +75,12 @@ x_controlled, u_seq = sim_sequence(iono1, dt_u, sequence_len = new_len, to_print
 #
 
 # Simulate data for training
-N = 400     # num sequneces
+N = 200     # num sequneces
 
 
 # generate training data
 print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=25, num_iter = N, variance = .0005)
+Seqs_X, Seqs_U = generate_data(iono1, dt_control = dt_u, sequence_len=50, num_iter = N, variance = .0005)
 print(np.shape(Seqs_U))
 
 # converts data from list of trajectories of [next_states, states, inputs]
@@ -107,7 +106,7 @@ nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 Seqs_X = np.array(Seqs_X)
 Seqs_U = np.array(Seqs_U)
-acc = nn.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=250, batch_size = 1500, optim="Adam")
+acc = nn.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=350, batch_size = 1500, optim="Adam")
 
 plt.plot(acc)
 plt.show()
@@ -119,13 +118,13 @@ plt.show()
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,12,13,14])
+origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[6,7,8])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_u, origin_minimizer, N=100, T=10, variance = .00005)
+mpc1 = MPController(nn, iono1, dt_u, origin_minimizer, N=100, T=3, variance = .00005)
 print('...MPC Running')
 # x0 = np.zeros(12)
 # new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
@@ -136,7 +135,7 @@ print('...MPC Running')
 # Sim sequence off the trained controller
 new_len = 250
 x_controlled, u_seq = sim_sequence(iono1, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
-print(u_seq)
+print(x_controlled[:,[6,7,8]])
 print('Simulated Learned.')
 ################################ PLot ################################
 print('...Plotting')

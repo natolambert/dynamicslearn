@@ -26,9 +26,9 @@ class IonoCraft_3u(Dynamics):
                     'yaw': [6, 'angle'],
                     'pitch': [7, 'angle'],
                     'roll': [8, 'angle'],
-                    'w_z': [9, 'omega'],
-                    'w_x': [10, 'omega'],
-                    'w_y': [11, 'omega']
+                    'w_x': [9, 'omega'],
+                    'w_y': [10, 'omega'],
+                    'w_z': [11, 'omega']
         }
         # user can pass a list of items they want to train on in the neural net, eg learn_list = ['vx', 'vy', 'vz', 'yaw'] and iterate through with this dictionary to easily stack data
 
@@ -166,4 +166,6 @@ class IonoCraft_3u(Dynamics):
         x_noise_vec = np.random.normal(loc=0, scale = self.x_noise, size=(self.x_dim))
         x1 = x0+dt*xdot+x_noise_vec
 
+        # makes states less than 1e-12 = 0
+        x1[x1< 1e-12] = 0
         return x1
