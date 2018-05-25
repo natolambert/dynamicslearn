@@ -4,6 +4,7 @@ import numpy as np
 
 # Import models files for MPC controller
 from models import *
+import time
 
 class Controller:
     # Class controller is for forcing dimensions and certain properties.
@@ -55,16 +56,17 @@ class randController(Controller):
 
         # Index to track timing of controller / dynamics update
         self.i = 0
+        self.Rdt = int(self.dt_control/self.dt_update)    # number of dynamics updates per new control update
 
     def update(self, _):
         # returns a random control sample around equilibrium
         # Create index to repeat control when below control update rates
         # ___ to take a start variable in general use, other contorllers use state info
 
-        Rdt = int(self.dt_control/self.dt_update)    # number of dynamics updates per new control update
+
         # print('Ratio is: ', Rdt, ' Index is: ', self.i)
 
-        if ((self.i % Rdt) == 0):
+        if ((self.i % self.Rdt) == 0):
             self.control = self.equil + np.random.normal(scale=self.var,size=(self.dim))
 
         # update index
@@ -237,6 +239,11 @@ class MPController(Controller):
         self.N = N                      # number of samples to try when random
         self.var = variance
 
+        self.rand_controller = randController(self.dynamics_true, self.dt_control, self.dt_control, variance = self.var)
+
+        self.zeros = np.zeros(12)
+
+
     def update(self, current_state):
         # function that returns desired control output
 
@@ -252,10 +259,10 @@ class MPController(Controller):
         T = self.time_horiz
 
         if ((self.i % Rdt) == 0):
+            start_time = time.time()
             # Makes controller to generate some action
             # passes the dt_control twice so that every call of .update() generates a unique random action. When dimulating a sequence at a specific rate, the randController has a built in ticker that tracks whether this dynamics update it should give a new control or not.
-            rand_controller = randController(self.dynamics_true, self.dt_control, self.dt_control, variance = self.var)
-            actions = [rand_controller.update(np.zeros(12)) for i in range(N)]
+            actions = [self.rand_controller.update(self.zeros) for i in range(N)]
 
             # Extends control to the time horizon defined in init
             actions_list = []
@@ -286,6 +293,8 @@ class MPController(Controller):
             best_action = actions_seq[mm_idx]
             self.control = best_action[0]
             # print(self.control)
+
+            print(time.time()-start_time)
 
         self.i += 1
 
@@ -339,8 +348,8 @@ class Objective():
 
     def compute_ARGmm(self):
         # computes the ARGmax or min over the data
-        if (self.data == []):
-            raise AttributeError('Data Not Loaded')
+        # if (self.data == []):
+        #     raise AttributeError('Data Not Loaded')
         # print(np.shape(self.data))
         # Chooses data of sub-indices of each trajectory
         # print(self.dim_to_eval)

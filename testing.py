@@ -8,8 +8,9 @@ from utils_plot import *
 from utils_data import *
 from models import LeastSquares
 
-import torch.nn as nn
-
+import torch
+# import torch.nn as nn
+import time
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -21,7 +22,7 @@ from mpl_toolkits.mplot3d import Axes3D
 ################################ INITIALIZATION ################################
 print('\n')
 print('---begin--------------------------------------------------------------')
-
+start_time = time.time()
 # initialize some variables
 dt_x = .0002        # 5khz dynam update
 dt_m = .002         # 500 hz measurement update
@@ -51,19 +52,19 @@ N = 200     # num sequneces
 
 
 # generate training data
-print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=500, num_iter = N, variance = .00010)
-
-# for redundancy
-Seqs_X = np.array(Seqs_X)
-Seqs_U = np.array(Seqs_U)
-
-np.savez('testingfile', Seqs_X, Seqs_U)
+# print('...Generating Training Data')
+# Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=500, num_iter = N, variance = .00010)
 #
-# print('.... loading training data')
-# npzfile = np.load('testingfile.npz')
-# Seqs_X = npzfile['arr_0']
-# Seqs_U = npzfile['arr_1']
+# # for redundancy
+# Seqs_X = np.array(Seqs_X)
+# Seqs_U = np.array(Seqs_U)
+#
+# np.savez('testingfile', Seqs_X, Seqs_U)
+#
+print('.... loading training data')
+npzfile = np.load('testingfile.npz')
+Seqs_X = npzfile['arr_0']
+Seqs_U = npzfile['arr_1']
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
@@ -89,7 +90,7 @@ nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
 # Create New model
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
-acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=300, batch_size = 1500, optim="Adam")
+# acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=300, batch_size = 1500, optim="Adam")
 # plt.plot(acc)
 # plt.show()
 
@@ -97,7 +98,7 @@ acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, e
 
 # Or load model
 # nn.load_model('testingnn.pth')
-
+nn = torch.load('testingnn.pth')
 
 #
 # # create a learning model
@@ -113,7 +114,7 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_x, dt_u, origin_minimizer, N=75, T=3, variance = .00003)
+mpc1 = MPController(nn, iono1, dt_x, dt_u, origin_minimizer, N=25, T=5, variance = .00003)
 print('...MPC Running')
 # x0 = np.zeros(12)
 # new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)

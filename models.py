@@ -374,7 +374,9 @@ class NeuralNet(nn.Module):
         return errors
 
     def save_model(self, filepath):
-        torch.save(self.state_dict(), filepath)
+        # torch.save(self.state_dict(), filepath)   # only param
+        torch.save(self, filepath)                  # full model state
+        # print(self.scalarX.get_params())
 
     def load_model(self, filepath):
         self.load_state_dict(torch.load(filepath))
