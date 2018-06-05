@@ -294,7 +294,7 @@ class MPController(Controller):
             self.control = best_action[0]
             # print(self.control)
 
-            print(time.time()-start_time)
+            # print(time.time()-start_time)
 
         self.i += 1
 

@@ -58,13 +58,13 @@ N = 200     # num sequneces
 # # for redundancy
 # Seqs_X = np.array(Seqs_X)
 # Seqs_U = np.array(Seqs_U)
-#
+# #
 # np.savez('testingfile', Seqs_X, Seqs_U)
 #
-print('.... loading training data')
-npzfile = np.load('testingfile.npz')
-Seqs_X = npzfile['arr_0']
-Seqs_U = npzfile['arr_1']
+# print('.... loading training data')
+# npzfile = np.load('testingfile.npz')
+# Seqs_X = npzfile['arr_0']
+# Seqs_U = npzfile['arr_1']
 
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
@@ -88,17 +88,22 @@ forces_learn = ['Thrust', 'taux', 'tauy']
 # ['F1', 'F2', 'F3', 'F4']
 nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
+num_ensemble = 4
+nn_ens = EnsembleNN(nn, num_ensemble)
+
 # Create New model
 # acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
-# acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=300, batch_size = 1500, optim="Adam")
-# plt.plot(acc)
+# acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
+# acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=300, batch_size = 1500, optim="SGD")
+# plt.plot(np.transpose(acc))
 # plt.show()
 
-# nn.save_model('testingnn.pth')
+# nn.save_model('testingnn_ens.pth')
 
 # Or load model
 # nn.load_model('testingnn.pth')
-nn = torch.load('testingnn.pth')
+# nn = torch.load('testingnn.pth')
+nn_ens = torch.load('testingnn_ens.pth')
 
 #
 # # create a learning model
@@ -114,7 +119,7 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_x, dt_u, origin_minimizer, N=25, T=5, variance = .00003)
+mpc1 = MPController(nn_ens, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
 print('...MPC Running')
 # x0 = np.zeros(12)
 # new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
