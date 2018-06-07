@@ -48,24 +48,25 @@ printState(x1)
 
 ################################ DATA ################################
 # Simulate data for training
-N = 200     # num sequneces
+N = 100     # num sequneces
 
 
 # generate training data
-# print('...Generating Training Data')
-# Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=500, num_iter = N, variance = .00010)
-#
+print('...Generating Training Data')
+Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=200, num_iter = N, variance = .02)
+
 # # for redundancy
-# Seqs_X = np.array(Seqs_X)
-# Seqs_U = np.array(Seqs_U)
+Seqs_X = np.array(Seqs_X)
+Seqs_U = np.array(Seqs_U)
 # #
-# np.savez('testingfile', Seqs_X, Seqs_U)
+np.savez('testingfile_new', Seqs_X, Seqs_U)
 #
 # print('.... loading training data')
-# npzfile = np.load('testingfile.npz')
+# npzfile = np.load('testingfile_new.npz')
 # Seqs_X = npzfile['arr_0']
 # Seqs_U = npzfile['arr_1']
-
+# print(samp)
+# print(np.shape(Seqs_X))
 # converts data from list of trajectories of [next_states, states, inputs]
 #       to a large array of [next_states, states, inputs]
 # downsamples by a factor of samp. This is normalizing the differnece betweem dt_x and dt_measure
@@ -80,30 +81,38 @@ N = 200     # num sequneces
 
 # #creating neural network with 2 layers of 100 linearly connected ReLU units
 print('...Training Model')
-layer_sizes = [12, 100, 100, 9]
-layer_types = ['nn.Linear()','nn.ReLU()', 'nn.ReLU()', 'nn.Linear()']
-states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az']
+layer_sizes = [12, 400, 400, 9]
+layer_types = ['nn.Linear()','nn.ReLU()', 'nn.Linear()', 'nn.Linear()']
+states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #['yaw', 'pitch', 'roll', 'ax', 'ay', 'az']
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
 # ['F1', 'F2', 'F3', 'F4']
 nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
-num_ensemble = 4
-nn_ens = EnsembleNN(nn, num_ensemble)
+# num_ensemble = 4
+# nn_ens = EnsembleNN(nn, num_ensemble)
+
+data = sequencesXU2array(Seqs_X[:,::samp,:], Seqs_U[:,::samp,:])
+# print(np.shape(data))
+# print(np.shape(data[:,0]))
+print(data[:,0])
+# print(np.shape(np.vstack(data[:,0])))
+# quit()
 
 # Create New model
-# acc = nn.train(list(zip(inputs, outputs)), learning_rate=1e-4, epochs=100)
 # acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
-# acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=300, batch_size = 1500, optim="SGD")
-# plt.plot(np.transpose(acc))
-# plt.show()
+acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=5e-6, epochs=200, batch_size = 100, optim="Adam")
+plt.plot(np.transpose(acc))
+plt.show()
 
-# nn.save_model('testingnn_ens.pth')
+# nn.save_model('testingnn_new.pth')
 
 # Or load model
 # nn.load_model('testingnn.pth')
-# nn = torch.load('testingnn.pth')
-nn_ens = torch.load('testingnn_ens.pth')
+# nn = torch.load('testingnn_new.pth')
+
+plot_model(data, nn, 7)
+# nn_ens = torch.load('testingnn_ens.pth')
 
 #
 # # create a learning model
@@ -112,6 +121,8 @@ nn_ens = torch.load('testingnn_ens.pth')
 # # train it like this
 # lin1.train(l2array(data[:,0]),l2array(data[:,1]),l2array(data[:,2]))
 
+quit()
+
 ################################ Obj Fnc ################################
 origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,12,13,14])
 print('...Objective Function Initialized')
@@ -119,8 +130,13 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn_ens, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
+mpc1 = MPController(nn, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
 print('...MPC Running')
+
+new_len = 500
+x_controlled, u_seq = sim_sequence(iono1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
+
+
 # x0 = np.zeros(12)
 # new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
 #

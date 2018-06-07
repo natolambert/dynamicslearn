@@ -5,7 +5,7 @@ from math import cos
 from math import sin
 from math import pi
 from controllers import *
-
+import random
 
 __author__ = 'Nathan Lambert'
 __version__ = '0.1'
@@ -76,8 +76,12 @@ def generate_data(dynam, dt_m, dt_control, sequence_len=10, num_iter=100, varian
 
     Seqs_X = []
     Seqs_U = []
+    x0 = np.zeros(15)
     for i in range(num_iter):
-        X, U = sim_sequence(dynam, dynam.dt, dt_control, sequence_len, x0= [], variance = variance, controller=controller)
+        x0[6] = random.random()
+        x0[7] = random.random()
+        x0[8] = random.random()
+        X, U = sim_sequence(dynam, dynam.dt, dt_control, sequence_len, x0= x0, variance = variance, controller=controller)
         Seqs_X.append(X)
         Seqs_U.append(U)
 

@@ -8,7 +8,7 @@ import numpy as np
 import math
 from sklearn.model_selection import train_test_split
 from sklearn import linear_model
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 # torch packages
 import torch
@@ -70,9 +70,12 @@ class NeuralNet(nn.Module):
         super(NeuralNet, self).__init__()
 
         #To keep track of what the mean and variance are at all times for transformations
-        self.scalarX = StandardScaler()
-        self.scalarU = StandardScaler()
-        self.scalardX = StandardScaler()
+        # self.scalarX = StandardScaler()
+        # self.scalarU = StandardScaler()
+        # self.scalardX = StandardScaler()
+        self.scalarX = MinMaxScaler(feature_range=(-1, 1))
+        self.scalarU = MinMaxScaler(feature_range=(-1, 1))
+        self.scalardX = MinMaxScaler(feature_range=(-1, 1))
 
         # list of states and inputs to learn dynamics from
         self.state_learn_list = state_learn_list
@@ -104,16 +107,18 @@ class NeuralNet(nn.Module):
             # for all but last layer add activation function
             if (layer_types[i] != 'nn.Linear()'):
                 if (layer_types[i] == 'nn.ReLU()'):
-                    self.add_module(str(l), nn.ReLU())
+                    self.add_module(str(l), nn.LeakyReLU())
+                    l =+ 1
                 else:
                     raise ValueError('Layer Type Not Implemented')
-                l =+ 1
+
 
     """
     Standard forward function necessary if extending nn.Module. Basically a copy of nn.Sequential
     """
     def forward(self, x):
-        for module in self._modules.values():
+        for module in self._modules.values(): #.values():
+            # print(module)
             x = module(x)
         return x
 
@@ -127,6 +132,7 @@ class NeuralNet(nn.Module):
 
         #Getting output dX
         dX = np.array([utils_data.states2delta(val) for val in X])
+
 
         # Ignore last element of X and U sequences because do not see next state
         X = X[:,:-1,:]
@@ -147,7 +153,7 @@ class NeuralNet(nn.Module):
             seqdX = dX[i,:,:]
             seqU = U[i,:,:]
 
-            # intialize empty arrays to amke slicing easier
+            # intialize empty arrays to make slicing easier
             arr_X = []
             arr_dX = []
             arr_U = []
@@ -164,6 +170,7 @@ class NeuralNet(nn.Module):
                     arr_X.append(np.cos(seqX[:, key[0]]) )
                     arr_dX.append(np.sin(seqdX[:, key[0]]))
                     arr_dX.append(np.cos(seqdX[:, key[0]]) )
+
 
             for inp in self.input_learn_list:
 
@@ -206,6 +213,23 @@ class NeuralNet(nn.Module):
         normX = self.scalarX.transform(modX)
         normU = self.scalarU.transform(modU)
         normdX = self.scalardX.transform(moddX)
+        print(np.shape(normX))
+        print(np.shape(normU))
+        print(np.shape(normdX))
+
+        # quit()
+        # print(self.scalarX.mean_)
+        # print(self.scalarU.mean_)
+        # print(self.scalardX.mean_)
+        # print(self.scalarX.var_)
+        # print(self.scalarU.var_)
+        # print(self.scalardX.var_)
+        # print(self.scalarX.n_samples_seen_)
+        # print(self.scalarU.n_samples_seen_)
+        # print(self.scalardX.n_samples_seen_)
+        # print(np.mean(normX))
+        # print(np.mean(normU))
+        # print(np.mean(normdX))
 
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
@@ -220,8 +244,9 @@ class NeuralNet(nn.Module):
     """
     def postprocess(self, dX):
         # de-normalize so to say
-        dX = self.scalardX.inverse_transform(dX)
-
+        dX = self.scalardX.inverse_transform(dX.reshape(1, -1))
+        dX = dX.ravel()
+        # print(np.shape(dX))
         out = []
         ang_idx = 0
 
@@ -241,6 +266,7 @@ class NeuralNet(nn.Module):
                 if (key[1] != 'angle'):
                     out.append(dX[i+l])
                 else:
+                    # out.append(np.arctan2(dX[1+i+l], dX[i+l]))
                     out.append(np.arctan2(dX[i+l], dX[1+i+l]))
                     l+= 1
             return out
@@ -334,6 +360,13 @@ class NeuralNet(nn.Module):
             if state in self.state_learn_list:
                 out[key[0]] = NNout[idx_out]
                 idx_out += 1
+
+
+        # Debug
+        # print(np.shape(X))
+        # print(np.shape(U))
+        # print(np.shape(out))
+        # print(out)
         return out
 
 
@@ -351,6 +384,7 @@ class NeuralNet(nn.Module):
                 optim.zero_grad()                             # zero the gradient buffers
                 output = self.forward(input)                 # compute the output
                 loss = loss_fn(output, target)                # compute the loss
+
                 loss.backward()                               # backpropagate from the loss to fill the gradient buffers
                 optim.step()                                  # do a gradient descent step
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
@@ -358,6 +392,11 @@ class NeuralNet(nn.Module):
                     return output, input, loss                 # and give the output and input that made the loss NaN
                 avg_loss += loss.data[0]/num_batches                  # update the overall average loss with this batch's loss
 
+            # Debugging:
+            # print('NN Output: ', output)
+            # print('Target: ', target)
+            # print(np.shape(output))
+            # print(np.shape(target))
 
             test_error = 0
             for (input, target) in testLoader:                     # compute the testing test_error
@@ -729,8 +768,6 @@ class EnsembleNN(nn.Module):
             avg_loss = Variable(torch.zeros(1))
             num_batches = len(trainLoader)/batch_size
             for i, (input, target) in enumerate(trainLoader):
-                #input = Variable(input.view(batch_size, -1))  # the input comes as a batch of 2d images which we flatten;
-                                                              # view(-1) tells pytorch to fill in a dimension; here it's 784
                 input = Variable(input)
                 target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
                 optim.zero_grad()                             # zero the gradient buffers
