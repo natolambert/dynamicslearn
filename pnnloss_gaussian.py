@@ -1,5 +1,7 @@
 # Implementation of the loss function from the following paper: https://arxiv.org/abs/1805.12114
 
+import torch
+import numpy as np
 
 class PNNLoss_Gaussian(torch.nn.Module):
     '''
@@ -19,21 +21,47 @@ class PNNLoss_Gaussian(torch.nn.Module):
     def __init__(self):
         super(PNNLoss_Gaussian,self).__init__()
 
-    def forward(self, mean, var, target):
+    def forward(self, output, target):
         '''
+        output is a vector of length 2d
         mean is a vector of length d, which is the first set of outputs of the PNN
         var is a vector of variances for each of the respective means
-        target is a vector of the target values for each of the means
+        target is a vector of the target values for each of the mean
         '''
-
+        d2 = output.size()[1]
+        d = torch.tensor(d2/2, dtype=torch.int32)
+        # print(d)
+        # print(d2)
+        mean = output[:,:d]
+        # print(np.shape(mean))
+        logvar = output[:,d:]
+        var = torch.exp(logvar)
+        # print(var)
         b_s = mean.size()[0]    # batch size
 
         # NEED TO MAKE THIS WORK WHEN mean, var, target, ARE 2D ie batch mode
-
-        Cov = torch.diag(var)
+        eps = 1e-8              # Add to variance for NaN issues
+        # Cov = torch.diag(var)
         A = mean - target.expand_as(mean)
-        B = torch.div(mean - target.expand_as(mean), var)
-        loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)+torch.log(torch.prod(var,1)))
+        B = torch.div(mean - target.expand_as(mean), var.add(eps))
+        # print('A----------------')
+        # print(A)
+        # print('B-----------------')
+        # print(B)
+        # print('Target----------')
+        # print(target)
+        # temp = torch.log(torch.prod(var,1)).reshape(-1,1)
+        # temp2 = torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)
+        # loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)))
+        # print(temp)
+        # print(temp2)
+        # print(np.shape(temp))
+        # print(np.shape(temp2))
+        # quit()
+        loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+torch.log(torch.prod(var.add(eps),1)).reshape(-1,1))
+        # print('Loss------------')
+        # print(loss)
+        # quit()
         return loss
 
         '''

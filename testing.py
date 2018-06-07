@@ -7,6 +7,7 @@ from dynamics_crazyflie_linearized import CrazyFlie
 from utils_plot import *
 from utils_data import *
 from models import LeastSquares
+from pnn import PNeuralNet
 
 import torch
 # import torch.nn as nn
@@ -48,12 +49,12 @@ printState(x1)
 
 ################################ DATA ################################
 # Simulate data for training
-N = 100     # num sequneces
+N = 30     # num sequneces
 
 
 # generate training data
 print('...Generating Training Data')
-Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=200, num_iter = N, variance = .02)
+Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=500, num_iter = N, variance = .01)
 
 # # for redundancy
 Seqs_X = np.array(Seqs_X)
@@ -86,24 +87,28 @@ layer_types = ['nn.Linear()','nn.ReLU()', 'nn.Linear()', 'nn.Linear()']
 states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #['yaw', 'pitch', 'roll', 'ax', 'ay', 'az']
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
+
+pnn = PNeuralNet()
+
 # ['F1', 'F2', 'F3', 'F4']
-nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
+# nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
 # num_ensemble = 4
 # nn_ens = EnsembleNN(nn, num_ensemble)
-
+ypraccel = [6,7,8,12,13,14]
 data = sequencesXU2array(Seqs_X[:,::samp,:], Seqs_U[:,::samp,:])
 # print(np.shape(data))
 # print(np.shape(data[:,0]))
-print(data[:,0])
+# print(data[:,0])
 # print(np.shape(np.vstack(data[:,0])))
 # quit()
 
 # Create New model
 # acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
-acc = nn.train((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=5e-6, epochs=200, batch_size = 100, optim="Adam")
+acc = pnn.train((Seqs_X[:,::samp,ypraccel], Seqs_U[:,::samp,:]), learning_rate=7.5e-6, epochs=500, batch_size = 100, optim="Adam")
 plt.plot(np.transpose(acc))
 plt.show()
+# quit()
 
 # nn.save_model('testingnn_new.pth')
 
@@ -111,9 +116,9 @@ plt.show()
 # nn.load_model('testingnn.pth')
 # nn = torch.load('testingnn_new.pth')
 
-plot_model(data, nn, 7)
+plot_model(data, pnn, 7)
 # nn_ens = torch.load('testingnn_ens.pth')
-
+quit()
 #
 # # create a learning model
 # lin1 = LeastSquares(dt_x, u_dim = 3)
