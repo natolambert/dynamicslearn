@@ -77,6 +77,7 @@ class randController(Controller):
 
 class HoverPID(Controller):
     def __init__(self, dynamics, dt_control, target = [0,0,0]):
+        # TODO: Implement
         # dt is update rate desired, more important for future subclasses
         # dim is the dimension of the control output
         # dynamics is an istance of the dynamics that provides info used for control

@@ -96,7 +96,11 @@ ypraccel = [6,7,8,12,13,14]
 # plt.plot(np.transpose(acc))
 # plt.show()
 
-# pnn.save_model('pnn_moredata.pth')
+# Saves model with date string for sorting
+dir_str = str('/_models/')
+date_str = str(datetime.date.today())
+model_name = str('MODEL')
+# pnn.save_model(dir_str+date_str+model_name+'.pth')
 
 # Or load model
 pnn = torch.load('pnn_moredata.pth')

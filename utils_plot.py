@@ -7,6 +7,8 @@ def plot_trajectory(X,T):
     '''
     plots a trajectory given a list of state vectors
     plots trajectory over time
+    X: (n x 12+) 2d array of states over time
+    T: (n) 1d array of time
     '''
     plot_size = 10
     iono_size = 1
@@ -38,6 +40,8 @@ def plot_trajectory(X,T):
 def plot12(X,T):
     '''
     Plots all state variables over time. Use this to debug state variables and dynamics files. ONLY WORKS FOR 12 DIM FREE BODY DYNAMICS
+    X: (n x 12+) 2d array of states over time
+    T: (n) 1d array of time
     '''
     if (np.shape(X)[1] != 12):
         if (np.shape(X)[1] == 15):
@@ -179,6 +183,8 @@ def plot_trajectories_state(Seqs_X, dim):
 def plot_model(data, model, dim):
     '''
     Function that takes in data of the form (states, inputs) and plots a specific state variable's ground truth and it's one step prediction. Ground truth is the actual state that occured and prediction is f(x,u) from the learned model. Dimension is the dimension of the state to look at, for simplicity.
+
+    note this would work for 3-tuples of (next state, cur state, input) as well
     '''
 
     # Data of the form (dx, x, u) where dx, x, and u are sub arrays. Shape of data is (n_sample, 3).
@@ -203,7 +209,7 @@ def plot_model(data, model, dim):
         predictions = np.append(predictions, pred.reshape(1,-1),  axis=0)
 
     # Debug
-    print(np.shape(predictions))
+    # print(np.shape(predictions))
 
     # Grab correction dimension data
     ground_dim = dxs[:, dim]
@@ -228,6 +234,13 @@ def plot_model(data, model, dim):
 class PlotFlight(object):
     '''
     PlotFlight class adapted from: https://github.com/nikhilkalige/quadrotor/blob/master/plotter.py
+    This is used for saving gifs.
+
+    Functionality:
+    plotter1 = PlotFlight(sequence, arm_len)
+    plotter1.show(save=False)
+
+    - - saves a gift of "Flight Path Anim.gif"
     '''
     def __init__(self, state, arm_length):
         state[:,[6, 8]] = state[:,[8, 6]]

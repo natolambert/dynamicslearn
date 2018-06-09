@@ -30,38 +30,18 @@ class PNNLoss_Gaussian(torch.nn.Module):
         '''
         d2 = output.size()[1]
         d = torch.tensor(d2/2, dtype=torch.int32)
-        # print(d)
-        # print(d2)
+
         mean = output[:,:d]
-        # print(np.shape(mean))
         logvar = output[:,d:]
         var = torch.exp(logvar)
-        # print(var)
         b_s = mean.size()[0]    # batch size
 
-        # NEED TO MAKE THIS WORK WHEN mean, var, target, ARE 2D ie batch mode
-        eps = 1e-9              # Add to variance for NaN issues
-        # Cov = torch.diag(var)
+        eps = 1e-9              # Add to variance to avoid 1/0
+
         A = mean - target.expand_as(mean)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
-        # print('A----------------')
-        # print(A)
-        # print('B-----------------')
-        # print(B)
-        # print('Target----------')
-        # print(target)
-        # temp = torch.sum(torch.log(torch.prod(var,1)).reshape(-1,1))
-        # temp2 = torch.sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1))
-        # # loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)))
-        # print(temp)
-        # print(temp2)
-        # print(np.shape(temp))
-        # print(np.shape(temp2))
-        # quit()
+
         loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+.5*torch.log(torch.prod(var.add(eps),1)).reshape(-1,1))
-        # print('Loss------------')
-        # print(loss)
-        # quit()
         return loss
 
         '''
