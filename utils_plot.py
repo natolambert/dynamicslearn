@@ -155,6 +155,25 @@ def compareTraj(Seq_U, x0, dynamics_true, dynamics_learned, show = False):
         plt.show()
     return fig_compare
 
+def plot_trajectories_state(Seqs_X, dim):
+    '''
+    Takes in sequences and plots the trajectories along a given state over time. This is used for debugging data generation now, and in the future for visualizing the predicted states.
+    '''
+    n, l, dx = np.shape(Seqs_X)
+
+    data = Seqs_X[:,:,dim]
+
+    # Plot
+    modelacc_fig = plt.figure()
+    title = 'Comparing Ground Truth of Dynamics to Model, Dim:' + str(dim)
+    plt.title(title)
+    plt.xlabel('Time (samples)')
+    plt.ylabel('State Value')
+    [plt.plot(datum) for datum in data]
+    # plt.plot(data, label='Generated Data')
+    # plt.legend()
+    plt.show()
+    return modelacc_fig
 
 
 def plot_model(data, model, dim):
@@ -172,6 +191,9 @@ def plot_model(data, model, dim):
     dxs = np.vstack(dxs)
     xs = np.vstack(xs)
     us = np.vstack(us)
+
+    # print(np.shape(dxs))
+    # print(np.shape(xs))
 
     # Now need to iterate through all data and plot
     predictions = np.empty((0,np.shape(xs)[1]))

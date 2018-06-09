@@ -46,10 +46,8 @@ def states2delta(states):
 
     dim = np.shape(states)
     delta = np.zeros((dim[0]-1,dim[1]))
-
     for (i,s) in enumerate(states[1:,:]):
         delta[i-1,:] = states[i,:]-states[i-1,:]
-
     return delta
 
 def normalize_states(delta_states, ScaleType = StandardScaler, x_dim = 12):
@@ -82,7 +80,12 @@ def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
     # # pre-allocates matrix to store all 3-tuples, n-1 because need delta state
     # data = np.zeros(((n-1)*l,dimx+dimu))
     seqs = []
-    for (seqX, seqU) in zip(Seqs_X,Seqs_U):
+    Seqs_dX = Seqs_X[:,1:,:]-Seqs_X[:,:-1,:]
+    # print(np.shape(Seqs_dX))
+    # print(np.shape(Seqs_X))
+    # print(np.shape(Seqs_U))
+
+    for (seqdX, seqX, seqU) in zip(Seqs_dX, Seqs_X,Seqs_U):
         # generates the changes in states from raw data
         delta_states = states2delta(seqX)
 
@@ -90,7 +93,7 @@ def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
         # dx : change in state vector from time t
         # x : state vector at time t
         # u : input vector at time t
-        dx_x_u_t = stack_trios(delta_states,seqX[:-1,:], seqU[:-1,:])
+        dx_x_u_t = stack_trios(seqdX[:,:], seqX[:-1,:], seqU[:-1,:])
         seqs.append(dx_x_u_t)
 
     # reshape data into a long list of dx, x, u pairs for training

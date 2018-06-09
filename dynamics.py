@@ -78,13 +78,16 @@ def generate_data(dynam, dt_m, dt_control, sequence_len=10, num_iter=100, varian
     Seqs_U = []
     x0 = np.zeros(15)
     for i in range(num_iter):
-        x0[6] = random.random()
-        x0[7] = random.random()
-        x0[8] = random.random()
+        x0[6] = .2*np.random.normal()
+        x0[7] = .2*np.random.normal()
+        x0[8] = .2*np.random.normal()
         X, U = sim_sequence(dynam, dynam.dt, dt_control, sequence_len, x0= x0, variance = variance, controller=controller)
         Seqs_X.append(X)
         Seqs_U.append(U)
 
+    Seqs_X = np.array(Seqs_X)
+    Seqs_U = np.array(Seqs_U)
+    
     return Seqs_X, Seqs_U
 
 def sim_sequence(dynam, dt_m, dt_u, sequence_len=10, x0=[], variance = .0001, controller = 'random', to_print = False):

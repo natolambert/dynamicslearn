@@ -32,11 +32,11 @@ class PNeuralNet(nn.Module):
         # Sequential object of network
         # The last layer has double the output's to include a variance on the estimate for every variable
         self.features = nn.Sequential(
-            nn.Linear(12, 150),
+            nn.Linear(12, 300),
             nn.ReLU(),
-            nn.Linear(150, 150),
+            nn.Linear(300, 300),
             nn.ReLU(),
-            nn.Linear(150, 18)
+            nn.Linear(300, 18)
         )
 
 
@@ -56,8 +56,8 @@ class PNeuralNet(nn.Module):
         # [yaw, pitch, roll, x_ddot, y_ddot, z_ddot]  to
         # [sin(yaw), sin(pitch), sin(roll), cos(pitch), cos(yaw),  cos(roll), x_ddot, y_ddot, z_ddot]
         print(np.shape(X))
-        dX = np.array([utils_data.states2delta(val) for val in X])
-
+        # dX = np.array([utils_data.states2delta(val) for val in X])
+        dX = X[:,1:,:]-X[:,:-1,:]
         # Take cosine transformation. Let's try this.
         X = np.concatenate((np.sin(X[:, :, :3]), np.cos(X[:, :, :3]), X[:, :, 3:]), axis=2)
         print(np.shape(X))
