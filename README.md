@@ -11,3 +11,16 @@ Some potentially noteable implementations include:
 - probablistic nueral network in pytorch
 - gaussian loss function for said pytorch probablistic neural network
 - random shooting MPC implementation with customizable cost / reward function
+
+File Breakdown
+--------------
+- controllers.py: Location for model predictive control, other controllers, and objective functions
+- dynamics.py: Base class for dynamics and tools for simulating data
+- /dynamics_files: Location for robot dynamics files
+- loss_pnn_gaussian.py: Loss function for PNN
+- model.py: Deterministic neural net, location for other models to try such as linear regression or gaussian processes
+- model_pnn.py: Pobablistic neural net implementation
+- script_experiement.py: Script for controllign robot via serial communication
+- script_testing.py: Internal code testing, good walkthrough for figuring out how pieces work together
+- utils_plot.py: Visualization files
+- utils_data.py: Data processing files
