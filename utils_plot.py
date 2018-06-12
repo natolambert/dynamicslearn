@@ -180,7 +180,7 @@ def plot_trajectories_state(Seqs_X, dim):
     return modelacc_fig
 
 
-def plot_model(data, model, dim):
+def plot_model(data, model, dim, delta = True):
     '''
     Function that takes in data of the form (states, inputs) and plots a specific state variable's ground truth and it's one step prediction. Ground truth is the actual state that occured and prediction is f(x,u) from the learned model. Dimension is the dimension of the state to look at, for simplicity.
 
@@ -192,6 +192,11 @@ def plot_model(data, model, dim):
     dxs = data[:,0]
     xs = data[:,1]
     us = data[:,2]
+
+    if not delta:       # if trained for predicting raw state
+        dxs = xs[:]
+        # xs = xs[:-1]
+        # us = us[:-1]
 
     # make data into matrices for a little bit easier unpacking
     dxs = np.vstack(dxs)

@@ -7,11 +7,14 @@ from dynamics_crazyflie_linearized import CrazyFlie
 from utils_plot import *
 from utils_data import *
 from models import LeastSquares
-from pnn import PNeuralNet
+from model_pnn import PNeuralNet
+from model_pnn_truestate_ypr import PNeuralNet_ypr
+from model_dnn_truestate_ypr import NeuralNet_ypr
 
 import torch
 # import torch.nn as nn
 import time
+import datetime
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -59,7 +62,7 @@ print('...Generating Training Data')
 # np.savez('testingfile_new_LARGE', Seqs_X, Seqs_U)
 
 # print('.... loading training data')
-npzfile = np.load('testingfile_new_LARGE.npz')
+npzfile = np.load('_simmed_data/testingfile_new.npz')
 Seqs_X = npzfile['arr_0']
 Seqs_U = npzfile['arr_1']
 
@@ -81,32 +84,38 @@ states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #[
 forces_learn = ['Thrust', 'taux', 'tauy']
 
 pnn = PNeuralNet()
-
+pnn_ypr = PNeuralNet_ypr()
+dnn_ypr = NeuralNet_ypr()
 # ['F1', 'F2', 'F3', 'F4']
 # nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
 
 
 ypraccel = [6,7,8,12,13,14]
-
+ypr = [6,7,8]
 # Create New model
 # acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
 # acc = pnn.train((Seqs_X[:,::samp,ypraccel], Seqs_U[:,::samp,:]), learning_rate=7.5e-6, epochs=240, batch_size = 100, optim="Adam")
 
+acc = dnn_ypr.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=200, batch_size = 100, optim="Adam")
+
 # Plot accuracy #
-# plt.plot(np.transpose(acc))
-# plt.show()
+plt.plot(np.transpose(acc))
+plt.show()
 
 # Saves model with date string for sorting
-dir_str = str('/_models/')
-date_str = str(datetime.date.today())
-model_name = str('MODEL')
+# dir_str = str('_models/')
+# date_str = str(datetime.date.today())
+# model_name = str('_MODEL_absdet')
 # pnn.save_model(dir_str+date_str+model_name+'.pth')
 
 # Or load model
-pnn = torch.load('pnn_moredata.pth')
+# pnn = torch.load('pnn_moredata.pth')
 # nn = torch.load('testingnn_new.pth')
+print(np.shape(data))
+plot_model(data, dnn_ypr, 6, delta=False)
+plot_model(data, dnn_ypr, 7, delta=False)
+plot_model(data, dnn_ypr, 8, delta=False)
 
-plot_model(data, pnn, 7)
 plot_trajectories_state(Seqs_X, 7)
 
 quit()

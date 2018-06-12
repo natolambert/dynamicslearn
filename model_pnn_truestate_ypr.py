@@ -17,9 +17,9 @@ from torch.utils.data import Dataset, DataLoader
 
 from loss_pnn_gaussian import PNNLoss_Gaussian
 
-class PNeuralNet(nn.Module):
+class PNeuralNet_ypr(nn.Module):
     def __init__(self):
-        super(PNeuralNet, self).__init__()
+        super(PNeuralNet_ypr, self).__init__()
         """
         Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed.
         """
@@ -32,11 +32,11 @@ class PNeuralNet(nn.Module):
         # Sequential object of network
         # The last layer has double the output's to include a variance on the estimate for every variable
         self.features = nn.Sequential(
-            nn.Linear(12, 300),
+            nn.Linear(9, 300),
             nn.ReLU(),
             nn.Linear(300, 300),
             nn.ReLU(),
-            nn.Linear(300, 18)
+            nn.Linear(300, 12)
         )
 
 
@@ -57,11 +57,13 @@ class PNeuralNet(nn.Module):
         # [sin(yaw), sin(pitch), sin(roll), cos(pitch), cos(yaw),  cos(roll), x_ddot, y_ddot, z_ddot]
         print(np.shape(X))
         # dX = np.array([utils_data.states2delta(val) for val in X])
-        dX = X[:,1:,:]-X[:,:-1,:]
+
+        # NOTE: In this file, modeling true YPR only.Not change in state
+        dX = X[:,1:,:]#-X[:,:-1,:]
         # Take cosine transformation. Let's try this.
-        X = np.concatenate((np.sin(X[:, :, :3]), np.cos(X[:, :, :3]), X[:, :, 3:]), axis=2)
+        X = np.concatenate((np.sin(X[:, :, :3]), np.cos(X[:, :, :3])), axis=2)
         print(np.shape(X))
-        dX = np.concatenate((np.sin(dX[:, :, :3]), np.cos(dX[:, :, :3]), dX[:, :, 3:]), axis=2)
+        dX = np.concatenate((np.sin(dX[:, :, :3]), np.cos(dX[:, :, :3])), axis=2)
 
         n, l, dx = np.shape(X)
         _, _, du = np.shape(U)
@@ -134,9 +136,9 @@ class PNeuralNet(nn.Module):
 
         #Unclear if we should be using SGD or ADAM? Papers seem to say ADAM works better
         if(optim=="Adam"):
-            optimizer = torch.optim.Adam(super(PNeuralNet, self).parameters(), lr=learning_rate)
+            optimizer = torch.optim.Adam(super(PNeuralNet_ypr, self).parameters(), lr=learning_rate)
         elif(optim=="SGD"):
-            optimizer = torch.optim.SGD(super(PNeuralNet, self).parameters(), lr=learning_rate)
+            optimizer = torch.optim.SGD(super(PNeuralNet_ypr, self).parameters(), lr=learning_rate)
         else:
             raise ValueError(optim + " is not a valid optimizer type")
         return self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
@@ -149,8 +151,8 @@ class PNeuralNet(nn.Module):
 
         # [yaw, pitch, roll, x_ddot, y_ddot, z_ddot]  to
         # [sin(yaw), cos(yaw), sin(pitch), cos(pitch), sin(roll), cos(roll), x_ddot, y_ddot, z_ddot]
-        X = X[[6,7,8,12,13,14]]
-        X = np.concatenate((np.sin(X[:3]), np.cos(X[:3]), X[3:]))
+        X = X[[6,7,8]]
+        X = np.concatenate((np.sin(X[:3]), np.cos(X[:3])))
 
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
@@ -161,14 +163,15 @@ class PNeuralNet(nn.Module):
         NNout = self.forward(input).data[0]
 
         # Takes first nine outputs that are the means of the probablistic neural network
-        Means = self.postprocess(NNout[:9]).ravel()
+        Means = self.postprocess(NNout[:6]).ravel()
 
         # Transform to sine and cosine. Out here is a length 6 vector
         # [yaw, pitch, roll, x_ddot, y_ddot, z_ddot]
-        trans = np.concatenate((np.arctan2(Means[:3], Means[3:6]), Means[6:])).ravel()
+
+        trans = np.arctan2(Means[:3], Means[3:6]).ravel()
         out = np.zeros(15)
-        out[6:9] = trans[:3]
-        out[12:] = trans[3:]
+        out[6:9] = trans[:]
+        # out[12:] = trans[3:]
         return out
 
     def _optimize(self, loss_fn, optim, epochs, batch_size, trainLoader, testLoader):
