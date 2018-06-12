@@ -12,6 +12,13 @@ Some potentially noteable implementations include:
 - gaussian loss function for said pytorch probablistic neural network
 - random shooting MPC implementation with customizable cost / reward function
 
+Literature Breakdown:
+---------------------
+
+For current state of the art, as I said see [K. Chua et al.](https://arxiv.org/abs/1805.12114). This paper covers the design choices between deterministic and probablistic neural networks for learning, along with a discussion of ensemble learning. It then covers a new MPC technique needed for higher state systems coined Trajectory Sampling. Especially for our goal of implementing this on real robots, some other recent papers that cover their own implementations can prove more useful, such as [Bansal et al. learning trajectories on the CrazyFlie](https://ieeexplore.ieee.org/document/7798978/) or [Nagabundi et al. with millirobots](https://arxiv.org/abs/1708.02596). A more theoretical framework for model-based learning includes the [PILCO Algorithm](http://mlg.eng.cam.ac.uk/pub/pdf/DeiRas11.pdf) and .... will update with what I feel is relevant.
+
+For some general reinforcement learning references, see a [lecture series by Deepmind's David Silver](https://www.youtube.com/playlist?list=PLqYmG7hTraZDM-OYHWgPebj2MfCFzFObQ), the [Deep Learning Book from Goodfellow & MIT](https://www.deeplearningbook.org/), or [Berkeley's own Deep RL Course](http://rail.eecs.berkeley.edu/deeprlcourse/)(that I will be taking in the fall). 
+
 File Breakdown
 --------------
 - controllers.py: Location for model predictive control, other controllers, and objective functions
