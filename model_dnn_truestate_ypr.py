@@ -15,13 +15,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-from loss_pnn_gaussian import PNNLoss_Gaussian
 
 class NeuralNet_ypr(nn.Module):
     def __init__(self):
         super(NeuralNet_ypr, self).__init__()
         """
-        Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed.
+        Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed. This neural net takes in [ypr, u1 u2 u3] and predicts the next [ypr] of the vehicle with a DETERMINISTIC NN. Work is being done to combine all of the models into a single functional model with tunabel parameters.
         """
 
         #To keep track of what the mean and variance are at all times for transformations

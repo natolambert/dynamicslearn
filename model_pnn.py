@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-from loss_pnn_gaussian import PNNLoss_Gaussian
+from lossfnc_pnngaussian import PNNLoss_Gaussian
 
 class PNeuralNet(nn.Module):
     def __init__(self):

@@ -15,13 +15,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-from loss_pnn_gaussian import PNNLoss_Gaussian
+from lossfnc_pnngaussian import PNNLoss_Gaussian
 
 class PNeuralNet_ypr(nn.Module):
     def __init__(self):
         super(PNeuralNet_ypr, self).__init__()
         """
-        Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed.
+        Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed. This neural net takes in [ypr, u1 u2 u3] and predicts the next [ypr] of the vehicle with a PROBABLISTIC NN. Work is being done to combine all of the models into a single functional model with tunabel parameters.
         """
 
         #To keep track of what the mean and variance are at all times for transformations
@@ -32,11 +32,11 @@ class PNeuralNet_ypr(nn.Module):
         # Sequential object of network
         # The last layer has double the output's to include a variance on the estimate for every variable
         self.features = nn.Sequential(
-            nn.Linear(9, 300),
+            nn.Linear(9, 100),
             nn.ReLU(),
-            nn.Linear(300, 300),
+            nn.Linear(100, 100),
             nn.ReLU(),
-            nn.Linear(300, 12)
+            nn.Linear(100, 12)
         )
 
 

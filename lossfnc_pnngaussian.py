@@ -28,6 +28,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         var is a vector of variances for each of the respective means
         target is a vector of the target values for each of the mean
         '''
+
         d2 = output.size()[1]
         d = torch.tensor(d2/2, dtype=torch.int32)
 
@@ -41,7 +42,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         A = mean - target.expand_as(mean)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
 
-        loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+.5*torch.log(torch.prod(var.add(eps),1)).reshape(-1,1))
+        loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
         return loss
 
         '''

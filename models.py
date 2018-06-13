@@ -20,10 +20,12 @@ from torch.utils.data.sampler import WeightedRandomSampler
 import copy         # for copying models in ensembleNN
 
 class LeastSquares:
-    # fits gathered data to the form
-    # x_(t+1) = Ax + Bu
-    # .train() to train the fit
-    # .predict() to predict the next state from the current state and inputs
+    '''
+    fits gathered data to the form
+    x_(t+1) = Ax + Bu
+    .train() to train the fit
+    .predict() to predict the next state from the current state and inputs
+    '''
 
     def __init__(self, dt_x, x_dim = 12, u_dim = 4):
         self.reg = linear_model.LinearRegression()
@@ -453,58 +455,6 @@ class EnsembleNN(nn.Module):
         for i in range(num_nets):
             self.nets.append(copy.deepcopy(base_net))
 
-        # # initializes networks
-        # super(NeuralNet, self.net1).__init__()
-        # self.net1 = nn.Sequential(
-        #         nn.linear(12, 100),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 9)
-        #     )
-        #
-        # super(NeuralNet, self.net2).__init__()
-        # self.net2 = nn.Sequential(
-        #         nn.linear(12, 100),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 9)
-        #     )
-        #
-        # super(NeuralNet, self.net3).__init__()
-        # self.net3 = nn.Sequential(
-        #         nn.linear(12, 100),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 9)
-        #     )
-        #
-        # super(NeuralNet, self.net4).__init__()
-        # self.net4 = nn.Sequential(
-        #         nn.linear(12, 100),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 9)
-        #     )
-        #
-        # super(NeuralNet, self.net5).__init__()
-        # self.net5 = nn.Sequential(
-        #         nn.linear(12, 100),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 100),
-        #         nn.ReLU(inplace=True),
-        #         nn.linear(100, 9)
-        #     )
-
-
     def forward_ens(self, x):
         """
         Standard forward function necessary if extending nn.Module. Basically a copy of nn.Sequential. Updated for bootstrap method to pass each net once
@@ -799,13 +749,7 @@ class EnsembleNN(nn.Module):
     # TODO: Reimplement with pickle, getting issues with torch's built in with the save/load operations inheriting the wrong .predict() function on a loaded model. Running a model which was trained in loop worked.
     def save_model(self, filepath):
         # torch.save(self.state_dict(), filepath)   # only param
-        torch.save(self, filepath)                  # full model state
-        # print(self.scalarX.get_params())
-
-    # def load_model(self, filepath):
-    #     self.load_state_dict(torch.load(filepath))
-
-
+        torch.save(self, filepath)                  # full
 
 def simulate_learned(model, actions, x0=[]):
     # returns a array of the states predicted by the learned dynamics model given states and the inputs

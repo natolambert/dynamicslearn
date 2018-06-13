@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 from mpl_toolkits import mplot3d
+from model_general_nn import predict_nn
 
 def plot_trajectory(X,T):
     '''
@@ -180,7 +181,7 @@ def plot_trajectories_state(Seqs_X, dim):
     return modelacc_fig
 
 
-def plot_model(data, model, dim, delta = True):
+def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
     '''
     Function that takes in data of the form (states, inputs) and plots a specific state variable's ground truth and it's one step prediction. Ground truth is the actual state that occured and prediction is f(x,u) from the learned model. Dimension is the dimension of the state to look at, for simplicity.
 
@@ -210,7 +211,9 @@ def plot_model(data, model, dim, delta = True):
     predictions = np.empty((0,np.shape(xs)[1]))
     for (dx, x, u) in zip(dxs, xs, us):
         # grab prediction value
-        pred = model.predict(x,u)
+        # pred = model.predict(x,u)
+        pred = predict_nn(model,x,u, model_dims)
+        # print(np.shape(pred))
         predictions = np.append(predictions, pred.reshape(1,-1),  axis=0)
 
     # Debug

@@ -10,7 +10,7 @@ from models import LeastSquares
 from model_pnn import PNeuralNet
 from model_pnn_truestate_ypr import PNeuralNet_ypr
 from model_dnn_truestate_ypr import NeuralNet_ypr
-
+from model_general_nn import GeneralNN, predict_nn
 import torch
 # import torch.nn as nn
 import time
@@ -36,7 +36,7 @@ samp = int(dt_m/dt_x)     # effective sample rate of simulated data
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
 # dynamics object
-iono1 = IonoCraft(dt_x, x_noise = 1e-9)
+iono1 = IonoCraft(dt_x, threeinput = True, x_noise = 1e-9)
 # crazy = CrazyFlie(dt_x, x_noise = .000)
 print('...Initializing Dynamics Object')
 
@@ -52,17 +52,18 @@ printState(x1)
 
 ################################ DATA ################################
 # Simulate data for training
-N = 30     # num sequneces
+N = 150     # num sequneces
 
 
 # generate training data
 print('...Generating Training Data')
-# Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=500, num_iter = N, variance = .01)
-
-# np.savez('testingfile_new_LARGE', Seqs_X, Seqs_U)
+# Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=200, num_iter = N, variance = .007)
+#
+#
+# np.savez('_simmed_data/testingfile_generalnn.npz', Seqs_X, Seqs_U)
 
 # print('.... loading training data')
-npzfile = np.load('_simmed_data/testingfile_new.npz')
+npzfile = np.load('_simmed_data/testingfile_generalnn.npz')
 Seqs_X = npzfile['arr_0']
 Seqs_U = npzfile['arr_1']
 
@@ -83,24 +84,36 @@ states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #[
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
 
-pnn = PNeuralNet()
-pnn_ypr = PNeuralNet_ypr()
-dnn_ypr = NeuralNet_ypr()
-# ['F1', 'F2', 'F3', 'F4']
-# nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
-
-
+newNN = GeneralNN(n_in_input = 3, n_in_state =3, n_out = 3, pred_mode = 'Next State')
 ypraccel = [6,7,8,12,13,14]
 ypr = [6,7,8]
-# Create New model
-# acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
-# acc = pnn.train((Seqs_X[:,::samp,ypraccel], Seqs_U[:,::samp,:]), learning_rate=7.5e-6, epochs=240, batch_size = 100, optim="Adam")
-
-acc = dnn_ypr.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=200, batch_size = 100, optim="Adam")
+print(np.shape(Seqs_U))
+acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=150, batch_size = 100, optim="Adam")
 
 # Plot accuracy #
 plt.plot(np.transpose(acc))
 plt.show()
+
+# quit()
+#
+# pnn = PNeuralNet()
+# pnn_ypr = PNeuralNet_ypr()
+# dnn_ypr = NeuralNet_ypr()
+# # ['F1', 'F2', 'F3', 'F4']
+# # nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
+#
+#
+# ypraccel = [6,7,8,12,13,14]
+# ypr = [6,7,8]
+# # Create New model
+# # acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
+# # acc = pnn.train((Seqs_X[:,::samp,ypraccel], Seqs_U[:,::samp,:]), learning_rate=7.5e-6, epochs=240, batch_size = 100, optim="Adam")
+#
+# acc = pnn_ypr.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=200, batch_size = 100, optim="Adam")
+#
+# # Plot accuracy #
+# plt.plot(np.transpose(acc))
+# plt.show()
 
 # Saves model with date string for sorting
 # dir_str = str('_models/')
@@ -112,9 +125,9 @@ plt.show()
 # pnn = torch.load('pnn_moredata.pth')
 # nn = torch.load('testingnn_new.pth')
 print(np.shape(data))
-plot_model(data, dnn_ypr, 6, delta=False)
-plot_model(data, dnn_ypr, 7, delta=False)
-plot_model(data, dnn_ypr, 8, delta=False)
+plot_model(data, newNN, 6, model_dims = ypr, delta=False)
+plot_model(data, newNN, 7, model_dims = ypr, delta=False)
+plot_model(data, newNN, 8, model_dims = ypr, delta=False)
 
 plot_trajectories_state(Seqs_X, 7)
 
