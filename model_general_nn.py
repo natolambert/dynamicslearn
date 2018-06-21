@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 # torch packages
 import torch
 from torch.autograd import Variable
+from torch.nn import MSELoss
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -203,13 +204,16 @@ class GeneralNN(nn.Module):
         """
         # de-normalize so to say
         dX = self.scalardX.inverse_transform(dX.reshape(1,-1))
-
+        dX = dX.ravel()
         # If there are angles to transform, do that now after re normalization in post processing
         if (len(self.ang_trans_idx) > 0):
-            for i in self.ang_trans_idx:
-                dX_angled = [np.arctan2(dX[idx+ j], dX[idx+j+1]) for j,idx in enumerate(self.ang_trans_idx)]
+            # for i in self.ang_trans_idx:
+            dX_angled = [np.arctan2(dX[idx+j], dX[idx+j+1]) for (j,idx) in enumerate(self.ang_trans_idx)]
+            if len(dX)/2 > 2*len(self.ang_trans_idx):
                 dX_not = dX[2*len(self.ang_trans_idx):]
-                dX = np.concatenate((dX_angled,dX_not),axis=1)
+                dX = np.concatenate((dX_angled,dX_not))
+            else:
+                dX = dX_angled
 
         return np.array(dX)
 
@@ -239,6 +243,11 @@ class GeneralNN(nn.Module):
             dataset = self.preprocess(dataset[0], dataset[1])
             # print('Shape of dataset is:', len(dataset))
 
+        if self.prob:
+            loss_fn = PNNLoss_Gaussian()
+        else:
+            loss_fn = MSELoss()
+
         # makes sure loss fnc is correct
         if loss_fn == PNNLoss_Gaussian() and not self.prob:
             raise ValueError('Check NN settings. Training a deterministic net with pnnLoss. Pass MSELoss() to train()')
@@ -260,6 +269,16 @@ class GeneralNN(nn.Module):
         """
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
+        dx = len(X)
+        # angle transforms
+        if (len(self.ang_trans_idx) > 0):
+            X_angled_part = np.concatenate((
+                np.sin(X[self.ang_trans_idx]), np.cos(X[self.ang_trans_idx])))
+            X_no_trans = np.array([X[i] for i in range(dx) if i not in self.ang_trans_idx])
+            if len(self.ang_trans_idx) == dx:
+                X = X_angled_part
+            else:
+                X = np.concatenate((X_angled_part,X_no_trans.T))
 
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
@@ -294,7 +313,7 @@ class GeneralNN(nn.Module):
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
                     print("loss is NaN")                       # This is helpful: it'll catch that when it happens,
                     return output, input, loss                 # and give the output and input that made the loss NaN
-                avg_loss += loss.data[0]/num_batches                  # update the overall average loss with this batch's loss
+                avg_loss += loss.item()/num_batches                  # update the overall average loss with this batch's loss
 
             # Debugging:
             # print('NN Output: ', output)
@@ -308,7 +327,7 @@ class GeneralNN(nn.Module):
                 target = Variable(target, requires_grad=False)
                 output = self.forward(input)
                 loss = loss_fn(output, target)
-                test_error += loss.data[0]
+                test_error += loss.item()
             test_error = test_error / len(testLoader)
 
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
@@ -341,6 +360,8 @@ def predict_nn(model, x, u, indexlist):
         for i, idx in enumerate(indexlist):
             prediction[idx] = pred[i]
     else:
-        prediction = x + model.predict(x_nn,u)
+        pred = model.predict(x_nn,u)
+        for i, idx in enumerate(indexlist):
+            prediction[idx] = x[idx]+ pred[i]
 
     return prediction

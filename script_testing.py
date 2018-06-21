@@ -12,6 +12,7 @@ from model_pnn_truestate_ypr import PNeuralNet_ypr
 from model_dnn_truestate_ypr import NeuralNet_ypr
 from model_general_nn import GeneralNN, predict_nn
 import torch
+from torch.nn import MSELoss
 # import torch.nn as nn
 import time
 import datetime
@@ -84,11 +85,11 @@ states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #[
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
 
-newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, pred_mode = 'Next State', ang_trans_idx =[0,1,2])
+newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
 ypraccel = [6,7,8,12,13,14]
 ypr = [6,7,8]
 print(np.shape(Seqs_U))
-acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 100, optim="Adam")
+acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=150, batch_size = 100, optim="Adam")
 
 # Plot accuracy #
 plt.plot(np.transpose(acc))
