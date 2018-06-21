@@ -23,6 +23,7 @@ class GeneralNN(nn.Module):
         n_in_input,
         n_in_state,
         n_out,
+        state_idx_l,
         prob = True,
         hidden_w = 300,
         input_mode = 'Trajectories',
@@ -39,6 +40,7 @@ class GeneralNN(nn.Module):
          - n_in_state, n_in_input, n_out are all lengths of the inputs and outputs of the neural net
          - input_mode - either 'Trajectories' or else is a long list of recorded data, with separate snippets separated by a row of 0s
          - pred_mode - either 'Next State' or 'Delta State' and changes whether the NN is trained on x_{t+1} = f(x_t,u_t) (next state) or x_{t+1} = x_t + f(x_t,u_t) (delta state)
+         - state_idx_l - list in order of passed states that is their positions in a full state vector
          - ang_trans_idx - list of indices of the inputed states that we want to transform as cosine(x) and sine(x) as we pass through the NN. eg. if the passed state is [roll, pitch, accelxyz], this list will be [0,1], and the input and output will be transformed to [sin(roll), cos(roll), sin(pitch), cos(pitch), accelxyz]. Outputs changed proportionally, but we keep track of this, because on the output side, we get [arctan2(sin(roll),cos(roll)), arctan2(sin(pitch),cos(pitch)), accelxyz]
 
         """
@@ -52,6 +54,7 @@ class GeneralNN(nn.Module):
         self.input_mode = input_mode
         self.pred_mode = pred_mode
         self.ang_trans_idx = ang_trans_idx
+        self.state_idx_l = state_idx_l
 
         # increases number of inputs and outputs if cos/sin is used
         # plus 1 per angle because they need a pair (cos, sin) for each output

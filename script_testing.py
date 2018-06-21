@@ -8,8 +8,6 @@ from utils_plot import *
 from utils_data import *
 from models import LeastSquares
 from model_pnn import PNeuralNet
-from model_pnn_truestate_ypr import PNeuralNet_ypr
-from model_dnn_truestate_ypr import NeuralNet_ypr
 from model_general_nn import GeneralNN, predict_nn
 import torch
 from torch.nn import MSELoss
@@ -85,7 +83,7 @@ states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #[
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
 
-newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
+newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
 ypraccel = [6,7,8,12,13,14]
 ypr = [6,7,8]
 print(np.shape(Seqs_U))
@@ -132,7 +130,7 @@ plot_model(data, newNN, 8, model_dims = ypr, delta=False)
 
 plot_trajectories_state(Seqs_X, 7)
 
-quit()
+# quit()
 
 ################################ Obj Fnc ################################
 origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,12,13,14])
@@ -141,7 +139,7 @@ print('...Objective Function Initialized')
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(nn, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
+mpc1 = MPController(newNN, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
 print('...MPC Running')
 
 new_len = 500

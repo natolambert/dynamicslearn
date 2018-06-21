@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 # torch packages
 import torch
 from torch.autograd import Variable
+from model_general_nn import predict_nn
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -751,15 +752,17 @@ class EnsembleNN(nn.Module):
         # torch.save(self.state_dict(), filepath)   # only param
         torch.save(self, filepath)                  # full
 
-def simulate_learned(model, actions, x0=[]):
+def simulate_learned(model, actions, generalNN = True, x0=[]):
     # returns a array of the states predicted by the learned dynamics model given states and the inputs
     if (x0 == []):
         x0 = np.zeros(model.x_dim,1)
 
     X = [x0]
     for a in actions:
-        # print(a)
-        xnext = X[-1].flatten() + model.predict(X[-1], a)
+        if generalNN:
+            xnext = predict_nn(model, x0, a, model.state_idx_l)
+        else:
+            xnext = X[-1].flatten() + model.predict(X[-1], a)
         X.append(xnext)
 
     return np.array(X)
