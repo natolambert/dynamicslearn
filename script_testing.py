@@ -87,11 +87,23 @@ newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8]
 ypraccel = [6,7,8,12,13,14]
 ypr = [6,7,8]
 print(np.shape(Seqs_U))
-acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=150, batch_size = 100, optim="Adam")
+acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 100, optim="Adam")
+
+# Saves model with date string for sorting
+dir_str = str('_models/')
+date_str = str(datetime.date.today())
+model_name = str('_general_temp')
+newNN.save_model(dir_str+date_str+model_name+'.pth')
+time.sleep(2)
+
+print('Loading as new model')
+newNN2 = torch.load('_models/2018-06-26_general_temp.pth')
+acc2 = newNN2.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 100, optim="Adam")
 
 # Plot accuracy #
-plt.plot(np.transpose(acc))
+plt.plot(np.transpose(acc2))
 plt.show()
+quit()
 
 # quit()
 #

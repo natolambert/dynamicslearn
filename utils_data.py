@@ -108,3 +108,11 @@ def l2array(list_arrays):
     for l in list_arrays:
         arr.append(l)
     return np.array(arr)
+
+def loadcsv(filename):
+    '''
+    Loads a csv / txt file with comma delimiters to be used for the real data system into this Setup
+    format in csv: accel xyz, yaw, pitch, roll, timestamp
+
+    A lot of the data has CALIB or -1 for invalid bits / bits not to train on
+    '''
