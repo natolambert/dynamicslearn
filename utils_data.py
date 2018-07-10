@@ -112,7 +112,16 @@ def l2array(list_arrays):
 def loadcsv(filename):
     '''
     Loads a csv / txt file with comma delimiters to be used for the real data system into this Setup
-    format in csv: accel xyz, yaw, pitch, roll, timestamp
+    format in csv: accel x, accel y, accel z, roll, pitch, yaw, pwm1, pwm2, pwm3, pwm4 timestamp
 
-    A lot of the data has CALIB or -1 for invalid bits / bits not to train on
+    Data has -1 in PWM columns for invalid bits / bits not to train on
     '''
+    data = np.genfromtxt(filename, delimiter=',', invalid_raise = False)[:,0:11]
+    data = data[~np.isnan(data).any(axis=1)]
+    n = np.shape(data)[0]
+    for x in range(n):
+       if data[x,7] == -1:
+           np.delete(data, x, 0)
+    states = data[:,0:6]
+    actions = data[:,7:11]
+    return states,actions
