@@ -63,6 +63,47 @@ def plot12(X,T):
     # plt.show()
     return states_fig
 
+def plot6(s,a):
+    '''
+    Plots 6-element state vector versus time in separate subplots; also plots pitch/roll/accelZ with actions versus time
+    '''
+    if (np.shape(s)[0] != np.shape(a)[0]):
+        raise ValueError('State and action arrays have unequal rows')
+    
+
+    titles = ['Accelerometers','Roll', 'Pitch', 'Yaw']
+    y_lab = ['g', 'Deg.', 'Deg.', 'Deg.']
+    states_fig = plt.figure()
+    for i in range(4):
+        ax = plt.subplot(4,1,i+1)
+        ax.set_title(titles[i])
+        ax.set_xlabel('Timestep')
+        ax.set_ylabel(y_lab[i])
+        if (i==0):
+            plt.plot(s[:,i])
+            plt.plot(s[:,i+1])
+            plt.plot(s[:,i+2])
+        else:
+            plt.plot(s[:,i+2])
+    plt.tight_layout(w_pad = -1.5, h_pad= -.5)
+    plt.draw()
+
+    #Normalize a to get it visible on same axes as state:
+    a = np.true_divide(a, 255)
+
+    action_fig = plt.figure()
+    plt.set_xlabel('Timestep')
+    plt.set_ylabel('Deg. or Normalized PWM')
+    plt.plot(s[:,3])
+    plt.plot(a[:,1])
+    plt.plot(a[:,2])
+    plt.plot(a[:,3])
+    plt.draw()
+
+    plt.show()
+
+    return states_fig    
+
 def plotInputs(U,T):
     '''
     Plots all control variables over time. Use this to visualize the forces from a quadrotor or ionocraft. THIS DOES NOT WORK FOR OTHER ROBOTS.

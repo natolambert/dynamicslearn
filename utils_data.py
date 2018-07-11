@@ -118,10 +118,7 @@ def loadcsv(filename):
     '''
     data = np.genfromtxt(filename, delimiter=',', invalid_raise = False)[:,0:11]
     data = data[~np.isnan(data).any(axis=1)]
-    n = np.shape(data)[0]
-    for x in range(n):
-       if data[x,7] == -1:
-           np.delete(data, x, 0)
+    data = data[data[:,7]!=-1,:]
     states = data[:,0:6]
-    actions = data[:,7:11]
+    actions = data[:,6:10]
     return states,actions
