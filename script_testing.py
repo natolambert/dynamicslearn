@@ -7,7 +7,7 @@ from dynamics_crazyflie_linearized import CrazyFlie
 from utils_plot import *
 from utils_data import *
 from models import LeastSquares
-from model_pnn import PNeuralNet
+#from model_pnn import PNeuralNet
 from model_general_nn import GeneralNN, predict_nn
 import torch
 from torch.nn import MSELoss
@@ -57,11 +57,18 @@ N = 150     # num sequneces
 # generate training data
 print('...Generating Training Data')
 # Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=200, num_iter = N, variance = .007)
-#
-#
-# np.savez('_simmed_data/testingfile_generalnn.npz', Seqs_X, Seqs_U)
+Seqs_X, Seqs_U = loadcsv('_logged_data/iono/tt_log_4.csv')
 
-# print('.... loading training data')
+if len(Seqs_X.shape) < 3:
+  Seqs_X = np.expand_dims(Seqs_X, axis=0)
+if len(Seqs_U.shape) < 3:
+  Seqs_U = np.expand_dims(Seqs_U, axis=0)
+
+#
+#
+np.savez('_simmed_data/testingfile_generalnn.npz', Seqs_X, Seqs_U)
+
+print('.... loading training data')
 npzfile = np.load('_simmed_data/testingfile_generalnn.npz')
 Seqs_X = npzfile['arr_0']
 Seqs_U = npzfile['arr_1']
