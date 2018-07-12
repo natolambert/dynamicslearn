@@ -1,6 +1,8 @@
 # file for data utilities
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from datetime import datetime
+from datetime import timedelta
 
 def stack_pairs(states, actions):
     '''
@@ -122,3 +124,9 @@ def loadcsv(filename):
     states = data[:,0:6]
     actions = data[:,6:10]
     return states,actions
+
+# returns the elapsed milliseconds since the start of the program
+def millis():
+   dt = datetime.now() - start_time
+   ms = (dt.days * 24 * 60 * 60 + dt.seconds) * 1000 + dt.microseconds / 1000.0
+   return ms
