@@ -19,6 +19,15 @@ import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+from enum import Enum
+
+class RunType(Enum):
+  CF = 1
+  IONO =2
+
+runType = RunType.CF
+
+
 
 ### EXAMPLE EXECUTION
 
@@ -57,11 +66,28 @@ N = 150     # num sequneces
 # generate training data
 print('...Generating Training Data')
 # Seqs_X, Seqs_U = generate_data(iono1, dt_m, dt_control = dt_u, sequence_len=200, num_iter = N, variance = .007)
-Seqs_X, Seqs_U = loadcsv('_logged_data/iono/tt_log_4.csv')
+
+if runType is RunType.IONO:
+  Seqs_X, Seqs_U = loadcsv('_logged_data/iono/tt_log_4.csv')
+elif runType is RunType.CF:
+  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/stateandaction-20180711T22-44-47.csv')
+  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/clean_fly_and_hover_long_data.csv')
+  Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/hopping.csv')
+  data = np.concatenate([Seqs_X,Seqs_U],1)
+  data = data[data[:,3]!=0,:]
+  #states = np.concatenate([data[:,1:3],data[:,4:6],data[:,7:8]], 1)
+  states = np.concatenate([data[:,4:6],data[:,7:8]], 1)
+  #imu = unpack_cf_imu(states[:,1], states[:,0])
+
+  #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
+  Seqs_X = states
+  Seqs_U = unpack_cf_pwm(data[:,3])
 
 if len(Seqs_X.shape) < 3:
+  print("added padding dimension to Seqs_X")
   Seqs_X = np.expand_dims(Seqs_X, axis=0)
 if len(Seqs_U.shape) < 3:
+  print("added padding dimension to Seqs_U")
   Seqs_U = np.expand_dims(Seqs_U, axis=0)
 
 #
@@ -76,7 +102,7 @@ Seqs_U = npzfile['arr_1']
 
 # converts data from list of trajectories of [next_states, states, inputs] to a large array of [next_states, states, inputs]
 # downsamples by a factor of samp. This is normalizing the differnece betweem dt_x and dt_measure
-data = sequencesXU2array(Seqs_X[:,::samp,:], Seqs_U[:,::samp,:])
+data = sequencesXU2array(Seqs_X, Seqs_U)
 
 
 ################################ LEARNING ################################
@@ -90,11 +116,22 @@ states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #[
 # ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
 forces_learn = ['Thrust', 'taux', 'tauy']
 
-newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
+if runType is RunType.CF:
+  newNN = GeneralNN(n_in_input = 4, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
+elif runType is RunType.IONO:
+  newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
+else:
+  newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
 ypraccel = [6,7,8,12,13,14]
 ypr = [6,7,8]
 print(np.shape(Seqs_U))
-acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 100, optim="Adam")
+
+if runType is RunType.CF:
+  acc = newNN.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=50, batch_size = 124, optim="Adam")
+elif runType is RunType.IONO:
+  acc = newNN.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=50, batch_size = 100, optim="Adam")
+else:
+  acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 
 # Saves model with date string for sorting
 dir_str = str('_models/')
@@ -104,13 +141,18 @@ newNN.save_model(dir_str+date_str+model_name+'.pth')
 time.sleep(2)
 
 print('Loading as new model')
-newNN2 = torch.load('_models/2018-06-26_general_temp.pth')
-acc2 = newNN2.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 100, optim="Adam")
+newNN2 = torch.load(dir_str+date_str+model_name+'.pth')
+
+#if runType is RunType.CF:
+  #acc2 = newNN2.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
+#else:
+#  acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 
 # Plot accuracy #
-plt.plot(np.transpose(acc2))
+#plt.plot(np.transpose(acc2))
+plt.plot(np.transpose(acc))
 plt.show()
-quit()
+#quit()
 
 # quit()
 #
@@ -143,16 +185,18 @@ quit()
 # pnn = torch.load('pnn_moredata.pth')
 # nn = torch.load('testingnn_new.pth')
 print(np.shape(data))
-plot_model(data, newNN, 6, model_dims = ypr, delta=False)
-plot_model(data, newNN, 7, model_dims = ypr, delta=False)
-plot_model(data, newNN, 8, model_dims = ypr, delta=False)
 
-plot_trajectories_state(Seqs_X, 7)
+ypr = [0,1,2]
+plot_model(data, newNN, 0, model_dims = [0,1,2], delta=False)
+plot_model(data, newNN, 1, model_dims = ypr, delta=False)
+plot_model(data, newNN, 2, model_dims = ypr, delta=False)
+
+plot_trajectories_state(Seqs_X, 2)
 
 # quit()
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8,12,13,14])
+origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
