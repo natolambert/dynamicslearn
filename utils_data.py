@@ -1,12 +1,10 @@
 # file for data utilities
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-<<<<<<< HEAD
 from datetime import datetime
 from datetime import timedelta
-=======
 import struct
->>>>>>> 3a99b52b0573a5b3d917766012d12fc603764b34
+
 
 def stack_pairs(states, actions):
     '''
@@ -195,4 +193,3 @@ def unpack_cf_imu(packed_imu_data_l, packed_imu_data_a):
     unpacked_imu_data[i][5] = az
 
   return unpacked_imu_data
->>>>>>> 3a99b52b0573a5b3d917766012d12fc603764b34

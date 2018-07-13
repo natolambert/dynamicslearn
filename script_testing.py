@@ -43,18 +43,27 @@ samp = int(dt_m/dt_x)     # effective sample rate of simulated data
 
 print('Simulation update step is: ', dt_x, ' and control update is: ', dt_u, 'the ratio is: ', dt_u/dt_x)
 
-# dynamics object
-iono1 = IonoCraft(dt_x, threeinput = True, x_noise = 1e-9)
-# crazy = CrazyFlie(dt_x, x_noise = .000)
 print('...Initializing Dynamics Object')
+# dynamics object
+if runType is RunType.IONO:
+	iono1 = IonoCraft(dt_x, threeinput = True, x_noise = 1e-9)   #use from dynamics_ionocraft.py
+	# initial state is origin
+	x0 = np.zeros(iono1.x_dim)
+	u0 = iono1.u_e
 
-# initial state is origin
-x0 = np.zeros(iono1.x_dim)
-u0 = iono1.u_e
+	# good for unit testin dynamics
+	x1 = iono1.simulate(x0,u0)
+	printState(x1)
 
-# good for unit testin dynamics
-x1 = iono1.simulate(x0,u0)
-printState(x1)
+elif runType is RunType.CF:
+	crazy1 = CrazyFlie(dt_x, x_noise = .000)
+	# initial state is origin
+	x0 = np.zeros(crazy1.x_dim)
+	u0 = crazy1.u_e
+
+	# good for unit testin dynamics
+	x1 = crazy1.simulate(x0,u0)
+	printState(x1)
 
 # quit()
 
@@ -72,7 +81,8 @@ if runType is RunType.IONO:
 elif runType is RunType.CF:
   #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/stateandaction-20180711T22-44-47.csv')
   #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/clean_fly_and_hover_long_data.csv')
-  Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/hopping.csv')
+  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/hopping.csv')
+  Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/clean_hover_data.csv')
   data = np.concatenate([Seqs_X,Seqs_U],1)
   data = data[data[:,3]!=0,:]
   #states = np.concatenate([data[:,1:3],data[:,4:6],data[:,7:8]], 1)
@@ -82,7 +92,8 @@ elif runType is RunType.CF:
   #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
   Seqs_X = states
   Seqs_U = unpack_cf_pwm(data[:,3])
-
+  #print(np.shape(Seqs_U))
+  print(np.mean(Seqs_U,axis=0))
 if len(Seqs_X.shape) < 3:
   print("added padding dimension to Seqs_X")
   Seqs_X = np.expand_dims(Seqs_X, axis=0)
@@ -187,7 +198,7 @@ plt.show()
 print(np.shape(data))
 
 ypr = [0,1,2]
-plot_model(data, newNN, 0, model_dims = [0,1,2], delta=False)
+plot_model(data, newNN, 0, model_dims = ypr, delta=False)
 plot_model(data, newNN, 1, model_dims = ypr, delta=False)
 plot_model(data, newNN, 2, model_dims = ypr, delta=False)
 
@@ -196,17 +207,20 @@ plot_trajectories_state(Seqs_X, 2)
 # quit()
 
 ################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8])
+origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[6,7,8])
 print('...Objective Function Initialized')
 
 ################################ MPC ################################
 
 # initialize MPC object with objective function above
-mpc1 = MPController(newNN, iono1, dt_x, dt_u, origin_minimizer, N=50, T=5, variance = .00003)
+if runType is RunType.CF:
+	mpc1 = MPController(newNN, crazy1, dt_x, dt_u, origin_minimizer, N=40, T=5, variance = 100) #.00003
+elif runType is RunType.IONO:
+	mpc1 = MPController(newNN, iono1, dt_x, dt_u, origin_minimizer, N=40, T=5, variance = .00003)
 print('...MPC Running')
 
 new_len = 500
-x_controlled, u_seq = sim_sequence(iono1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
+x_controlled, u_seq = sim_sequence(crazy1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = True)
 
 
 # x0 = np.zeros(12)
@@ -217,8 +231,8 @@ x_controlled, u_seq = sim_sequence(iono1, dt_m, dt_u, controller = mpc1, sequenc
 
 # Sim sequence off the trained controller
 new_len = 5000
-x_controlled, u_seq = sim_sequence(iono1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
-print(np.mean(x_controlled[:,[12,13,14]]))
+x_controlled, u_seq = sim_sequence(crazy1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
+#print(np.mean(x_controlled[:,[12,13,14]]))
 print(x_controlled[:,[6,7,8]])
 print('Simulated Learned.')
 ################################ PLot ################################
@@ -229,9 +243,10 @@ plot12(x_controlled, T)
 # plotInputs(u_seq, T)
 fig_inputs = plt.figure()
 plt.title('Three Inputs')
-plt.plot(T, u_seq[:,0],label='Thrust')
-plt.plot(T, u_seq[:,1],label='taux')
-plt.plot(T, u_seq[:,2],label='tauy')
+plt.plot(T, u_seq[:,0],label='PWM1')
+plt.plot(T, u_seq[:,1],label='PWM2')
+plt.plot(T, u_seq[:,2],label='PWM3')
+plt.plot(T, u_seq[:,3],label='PWM4')
 plt.legend()
 # plt.show()
 # # Plots animation, change save to false to not save .gif
