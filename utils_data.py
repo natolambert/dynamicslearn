@@ -183,4 +183,6 @@ def unpack_cf_imu(packed_imu_data_l, packed_imu_data_a):
     unpacked_imu_data[i][4] = ay
     unpacked_imu_data[i][5] = az
 
+    #print("Unpacked IMU: ", unpacked_imu_data[i])
+
   return unpacked_imu_data

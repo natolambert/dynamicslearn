@@ -6,7 +6,8 @@ import numpy as np
 import math
 from sklearn.model_selection import train_test_split
 from sklearn import linear_model
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+import pickle
 
 # torch packages
 import torch
@@ -15,6 +16,7 @@ from torch.nn import MSELoss
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+
 
 from lossfnc_pnngaussian import PNNLoss_Gaussian
 
@@ -63,10 +65,13 @@ class GeneralNN(nn.Module):
             self.n_out += len(self.ang_trans_idx)
 
         #To keep track of what the mean and variance are at all times for transformations. Scalar is passed in init()
-        self.scalarX = MinMaxScaler()
-        self.scalarU = MinMaxScaler()
-        self.scalardX = MinMaxScaler()
+        #self.scalarX = MinMaxScaler()
+        #self.scalarU = MinMaxScaler()
+        #self.scalardX = MinMaxScaler()
 
+        self.scalarX = RobustScaler()
+        self.scalarU = RobustScaler()
+        self.scalardX = RobustScaler()
         # Sets loss function
         if prob:
             self.loss_fnc = PNNLoss_Gaussian
@@ -187,19 +192,59 @@ class GeneralNN(nn.Module):
             raise ValueError('Something went wrong, modified X shape:' + str(dX.shape) + ' dX shape:' + str(X.shape))
 
         #update mean and variance of the dataset with each training pass
-        self.scalarX.partial_fit(X)
-        self.scalarU.partial_fit(U)
-        self.scalardX.partial_fit(dX)
+        #self.scalarX.partial_fit(X)
+        #self.scalarU.partial_fit(U)
+        #self.scalardX.partial_fit(dX)
 
+        self.scalarX.fit(X)
+        self.scalarU.fit(U)
+        self.scalardX.fit(dX)
+
+        import matplotlib.pyplot as plt
+        plt.hist(dX[:,0], bins=100)
+        plt.hist(dX[:,1], bins=100)
+        plt.hist(dX[:,2], bins=100)
+        plt.hist(dX[:,3], bins=100)
+        plt.hist(dX[:,4], bins=100)
+        plt.hist(dX[:,5], bins=100)
+        #plt.show()
+        plt.hist(U[:,0], bins=100)
+        plt.hist(U[:,1], bins=100)
+        plt.hist(U[:,2], bins=100)
+        plt.hist(U[:,3], bins=100)
+        #plt.show()
         #Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(X)
         normU = self.scalarU.transform(U)
         normdX = self.scalardX.transform(dX)
 
+        #print("normalized dX: ")
+        #for i in normdX: print(i)
+        #print("normalized U : ")
+        #for i in normU: print(i)
+
+
+        plt.hist(normdX[:,0], bins=100)
+        plt.hist(normdX[:,1], bins=100)
+        plt.hist(normdX[:,2], bins=100)
+        plt.hist(normdX[:,3], bins=100)
+        plt.hist(normdX[:,4], bins=100)
+        plt.hist(normdX[:,5], bins=100)
+        #plt.show()
+        plt.hist(normU[:,0], bins=100)
+        plt.hist(normU[:,1], bins=100)
+        plt.hist(normU[:,2], bins=100)
+        plt.hist(normU[:,3], bins=100)
+        #plt.show()
+        #quit()
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
 
         return list(zip(inputs, outputs))
+
+    def getNormScalers(self):
+        return self.scalarX, self.scalarU, self.scalardX
+
 
     def postprocess(self, dX):
         """
