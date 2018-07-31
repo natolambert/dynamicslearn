@@ -55,7 +55,8 @@ class CrazyFlie(Dynamics):
         self.g = 9.81
 
         # Define equilibrium input for quadrotor around hover
-        self.u_e = np.array([m*self.g, 0, 0, 0])
+        #self.u_e = np.array([m*self.g, 0, 0, 0])               #This is not the case for PWM inputs
+        self.u_e = np.array([42646, 40844, 47351, 40116])           #Four PWM inputs around hover, extracted from mean of clean_hover_data.csv
 
         # Hover control matrices
         self._hover_mats = [np.array([1, 0, 0, 0]),      # z

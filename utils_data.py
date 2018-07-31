@@ -1,7 +1,10 @@
 # file for data utilities
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from datetime import datetime
+from datetime import timedelta
 import struct
+
 
 def stack_pairs(states, actions):
     '''
@@ -123,6 +126,12 @@ def loadcsv(filename):
     states = data[:,0:6]
     actions = data[:,6:10]
     return states,actions
+
+# returns the elapsed milliseconds since the start of the program
+def millis():
+   dt = datetime.now() - start_time
+   ms = (dt.days * 24 * 60 * 60 + dt.seconds) * 1000 + dt.microseconds / 1000.0
+   return ms
 
 def unpack_cf_pwm(packed_pwm_data):
   unpacked_pwm_data = np.zeros((len(packed_pwm_data), 4))

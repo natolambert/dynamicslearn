@@ -340,6 +340,7 @@ class Objective():
 
         # Chooses data of sub-indices of each trajectory
         data_eval = self.data[:,:,self.dim_to_eval]
+        
 
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
         # print(np.shape(objective_vals))
@@ -354,8 +355,7 @@ class Objective():
         # print(np.shape(self.data))
         # Chooses data of sub-indices of each trajectory
         # print(self.dim_to_eval)
-        data_eval = self.data[:,:,self.dim_to_eval]
-
+        data_eval = self.data[:,:,self.dim_to_eval]    
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
         # print(np.shape(objective_vals))
         mm_idx = self.argmm(objective_vals)
@@ -371,4 +371,5 @@ class Objective():
 
     def _enforce_dimension(self, input_vector):
         if (self.dim != np.size(input_vector)):
+            #print(np.shape(input_vector),np.shape(self.dim))
             raise ValueError('Dimension of input does not match what was set')
