@@ -89,6 +89,8 @@ class GeneralNN(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_w, hidden_w),
             nn.ReLU(),
+            nn.Linear(hidden_w, hidden_w),
+            nn.ReLU(),
             nn.Linear(hidden_w, self.n_out)
         )
 
@@ -206,7 +208,6 @@ class GeneralNN(nn.Module):
         plt.hist(dX[:,2], bins=100)
         plt.hist(dX[:,3], bins=100)
         plt.hist(dX[:,4], bins=100)
-        plt.hist(dX[:,5], bins=100)
         #plt.show()
         plt.hist(U[:,0], bins=100)
         plt.hist(U[:,1], bins=100)
@@ -229,7 +230,7 @@ class GeneralNN(nn.Module):
         plt.hist(normdX[:,2], bins=100)
         plt.hist(normdX[:,3], bins=100)
         plt.hist(normdX[:,4], bins=100)
-        plt.hist(normdX[:,5], bins=100)
+        #plt.hist(normdX[:,5], bins=100)
         #plt.show()
         plt.hist(normU[:,0], bins=100)
         plt.hist(normU[:,1], bins=100)
@@ -302,6 +303,8 @@ class GeneralNN(nn.Module):
 
         trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
         testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
+        
+        self.testData = dataset[int(split*len(dataset)):]
 
         #Unclear if we should be using SGD or ADAM? Papers seem to say ADAM works better
         if(optim=="Adam"):
@@ -378,6 +381,8 @@ class GeneralNN(nn.Module):
                 test_error += loss.item()
             test_error = test_error / len(testLoader)
 
+
+
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
             print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))
@@ -395,21 +400,25 @@ def predict_nn(model, x, u, indexlist):
     indexlist is is an ordered index list for which state variable the indices of the input to the NN correspond to. Assumes states come before any u
     '''
     # constructs input to nn
-    x_nn = []
-    for idx in indexlist:
-        x_nn.append(x[idx])
-    x_nn = np.array(x_nn)
-
+    #x_nn = []
+    #for idx in indexlist:
+    #    x_nn.append(x[idx])
+    #x_nn = np.array(x_nn)
+   
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
-    prediction = x
+    prediction = np.copy(x)
     pred_mode = model.pred_mode
     if pred_mode == 'Next State':
-        pred = model.predict(x_nn,u)
+        pred = model.predict(x,u)
         for i, idx in enumerate(indexlist):
             prediction[idx] = pred[i]
     else:
-        pred = model.predict(x_nn,u)
+        pred = model.predict(x,u)
         for i, idx in enumerate(indexlist):
-            prediction[idx] = x[idx]+ pred[i]
+            #print('x_nn = ', x[idx], 'predicted', pred)
+            prediction[idx] = x[idx] + pred[i]
+            #print('prediction list 1: ', prediction[0])
+    #print('prediction list 2: ', prediction[0])
+
 
     return prediction

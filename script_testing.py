@@ -1,12 +1,12 @@
-width = 200
-epochs = 50
-batch  = 64
-learning_rate = 1e-5
+width = 100
+epochs = 100
+batch  = 32
+learning_rate = 8e-7
 prob = True
 data_name  = '250hz-clean'
 
-using_premade_data = True
-
+using_premade_data = False
+old_model = False
 
 
 
@@ -98,7 +98,7 @@ elif runType is RunType.CF:
   print("Angular: ", states[:,0])
   imu = unpack_cf_imu(states[:,1], states[:,0]) # linear and angular acceleration
 
-  Seqs_X = np.concatenate([imu[:,3:], states[:,2:]], 1)
+  Seqs_X = np.concatenate([imu[:,3:], states[:,2:4]], 1)
   #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
   #Seqs_X = np.concatenate([imu, states], 1) # linear accel, angular accel, and YPR
   #Seqs_X = states # YPR ONLY
@@ -142,7 +142,7 @@ forces_learn = ['Thrust', 'taux', 'tauy']
 
 
 if runType is RunType.CF:
-  newNN = GeneralNN(n_in_input = 4, n_in_state = 6, hidden_w=width, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=prob, pred_mode = 'Delta State')#, ang_trans_idx =[0,1,2])
+  newNN = GeneralNN(n_in_input = 4, n_in_state = 5, hidden_w=width, n_out = 5, state_idx_l=[0,1,2,3,4], prob=prob, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
 elif runType is RunType.IONO:
   #newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
   newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
@@ -157,13 +157,12 @@ if not using_premade_data:
   np.savetxt('_logged_data/crazyflie/' + data_name + '-Seqs_U.csv', Seqs_U[0], delimiter=',')
 
 if using_premade_data:
-  Seqs_X = np.loadtxt(open('_logged_data/crazyflie/' + data_name + '-Seqs_X-new.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
+  Seqs_X = np.loadtxt(open('_logged_data/crazyflie/' + data_name + '-Seqs_X-new5.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
   Seqs_U = np.loadtxt(open('_logged_data/crazyflie/' + data_name + '-Seqs_U-new.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
   data = np.concatenate([Seqs_X,Seqs_U],1)
   Seqs_X = np.expand_dims(Seqs_X, axis=0)
   Seqs_U = np.expand_dims(Seqs_U, axis=0)
   data = sequencesXU2array(Seqs_X, Seqs_U)
-
 
 #dim0, dim1 = Seqs_X.shape
 
@@ -176,7 +175,9 @@ if using_premade_data:
 
 
 if runType is RunType.CF:
-  acc = newNN.train((Seqs_X, Seqs_U), learning_rate=learning_rate, epochs=epochs, batch_size = batch, optim="Adam")
+  if not old_model:
+    acc = newNN.train((Seqs_X, Seqs_U), learning_rate=learning_rate, epochs=epochs, batch_size = batch, optim="Adam")
+  print("Done.")
 elif runType is RunType.IONO:
   acc = newNN.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=50, batch_size = 100, optim="Adam")
 else:
@@ -202,7 +203,8 @@ with open(model_name+"-normparams.pkl", 'wb') as pickle_file:
 time.sleep(2)
 
 #print('Loading as new model')
-#newNN2 = torch.load(dir_str+date_str+model_name+'.pth')
+if old_model:
+  newNN = torch.load('_models/model.pth')
 #if runType is RunType.CF:
   #acc2 = newNN2.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 #else:
@@ -210,8 +212,9 @@ time.sleep(2)
 
 # Plot accuracy #
 #plt.plot(np.transpose(acc2))
-#plt.plot(np.transpose(acc))
-plt.show()
+if not old_model:
+  plt.plot(np.transpose(acc))
+  plt.show()
 #quit()
 
 # quit()
@@ -232,8 +235,8 @@ plt.show()
 # acc = pnn_ypr.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=200, batch_size = 100, optim="Adam")
 #
 # # Plot accuracy #
-plt.plot(np.transpose(acc))
-plt.show()
+#plt.plot(np.transpose(acc))
+#plt.show()
 
 # Saves model with date string for sorting
 # dir_str = str('_models/')
@@ -245,23 +248,44 @@ plt.show()
 # pnn = torch.load('pnn_moredata.pth')
 #newNN = torch.load(dir_str+'greatmodel-2.pth')
 print(np.shape(data))
+toPlot1 = []
+toPlot2 = []
+toPlot3 = []
 
-#ypr = [0,1,2,3,4,5,6,7,8]
-ypr = [0,1,2,3,4,5]
+for i in data:
+  toPlot1.append(i[0])
+  toPlot2.append(i[1])
+  toPlot3.append(i[2])
 
-plot_model(data, newNN, 0, model_dims = ypr, delta=False)
-plot_model(data, newNN, 1, model_dims = ypr, delta=False)
-plot_model(data, newNN, 2, model_dims = ypr, delta=False)
+#plt.plot(toPlot1)
+#plt.show()
+#plt.plot(toPlot2)
+#plt.show()
+#plt.plot(toPlot3)
+#plt.show()
+
+ypr = [0,1,2,3,4]
+
+plt.show()
+
+
+
+
+#plot_model(data, newNN, 0, model_dims = ypr, delta=True)
+#plot_model(data, newNN, 1, model_dims = ypr, delta=True)
+#plot_model(data, newNN, 2, model_dims = ypr, delta=True)
+#plot_model(data, newNN, 3, model_dims = ypr, delta=True)
+#plot_model(data, newNN, 4, model_dims = ypr, delta=True)
+
+#plot_model(data, newNN, 0, model_dims = ypr, delta=False)
+#plot_model(data, newNN, 1, model_dims = ypr, delta=False)
+#plot_model(data, newNN, 2, model_dims = ypr, delta=False)
 plot_model(data, newNN, 3, model_dims = ypr, delta=False)
 plot_model(data, newNN, 4, model_dims = ypr, delta=False)
-plot_model(data, newNN, 5, model_dims = ypr, delta=False)
-#plot_model(data, newNN, 6, model_dims = ypr, delta=False)
-#plot_model(data, newNN, 7, model_dims = ypr, delta=False)
-#plot_model(data, newNN, 8, model_dims = ypr, delta=False)
+plt.show()
+#plot_trajectories_state(Seqs_X, 2)
 
-plot_trajectories_state(Seqs_X, 2)
-
-# quit()
+quit()
 
 ################################ Obj Fnc ################################
 origin_minimizer = Objective(np.linalg.norm, 'min', 6, dim_to_eval=[6,7,8])

@@ -255,6 +255,9 @@ def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
         # pred = model.predict(x,u)
         pred = predict_nn(model,x,u, model_dims)
         # print(np.shape(pred))
+        #print('prediction: ', pred, ' x: ', x)
+        if delta:
+          pred = pred - x
         predictions = np.append(predictions, pred.reshape(1,-1),  axis=0)
 
     # Debug
@@ -265,7 +268,8 @@ def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
     pred_dim = predictions[:, dim]
 
     # Sort with respect to ground truth
-    ground_dim_sort, pred_dim_sort = zip(*sorted(zip(ground_dim,pred_dim)))
+    #ground_dim_sort, pred_dim_sort = zip(*sorted(zip(ground_dim,pred_dim)))
+    ground_dim_sort, pred_dim_sort = ground_dim,pred_dim
 
     # Plot
     modelacc_fig = plt.figure()
@@ -276,7 +280,7 @@ def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
     plt.plot(pred_dim_sort, label='Predicted Val')
     plt.plot(ground_dim_sort, label='Ground Truth')
     plt.legend()
-    plt.show()
+    #plt.show()
     return modelacc_fig
 
 
