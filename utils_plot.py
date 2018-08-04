@@ -222,7 +222,7 @@ def plot_trajectories_state(Seqs_X, dim):
     return modelacc_fig
 
 
-def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
+def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True, sort=False):
     '''
     Function that takes in data of the form (states, inputs) and plots a specific state variable's ground truth and it's one step prediction. Ground truth is the actual state that occured and prediction is f(x,u) from the learned model. Dimension is the dimension of the state to look at, for simplicity.
 
@@ -268,8 +268,10 @@ def plot_model(data, model, dim, model_dims = [6,7,8,12,13,14], delta = True):
     pred_dim = predictions[:, dim]
 
     # Sort with respect to ground truth
-    #ground_dim_sort, pred_dim_sort = zip(*sorted(zip(ground_dim,pred_dim)))
-    ground_dim_sort, pred_dim_sort = ground_dim,pred_dim
+    if sort:
+      ground_dim_sort, pred_dim_sort = zip(*sorted(zip(ground_dim,pred_dim)))
+    else:
+      ground_dim_sort, pred_dim_sort = ground_dim,pred_dim
 
     # Plot
     modelacc_fig = plt.figure()

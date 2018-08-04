@@ -1,14 +1,12 @@
-width = 100
-epochs = 100
+width = 250
+epochs = 25
 batch  = 32
-learning_rate = 8e-7
+learning_rate = 5e-6
 prob = True
-data_name  = '250hz-clean'
+data_name  = 'pink_long_clean'
 
 using_premade_data = False
 old_model = False
-
-
 
 from dynamics import *
 import pickle
@@ -107,12 +105,15 @@ elif runType is RunType.CF:
   imu = unpack_cf_imu(states[:,1], states[:,0]) # linear and angular acceleration
 
   Seqs_X = np.concatenate([imu[:,3:], states[:,2:4]], 1)
+  #Seqs_X = np.concatenate([states[:,2:3]], 1)
   #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
   #Seqs_X = np.concatenate([imu, states], 1) # linear accel, angular accel, and YPR
   #Seqs_X = states # YPR ONLY
   Seqs_U = unpack_cf_pwm(data[:,3])
   #print(np.shape(Seqs_U))
   print(np.mean(Seqs_U,axis=0))
+
+
 if len(Seqs_X.shape) < 3:
   print("added padding dimension to Seqs_X")
   Seqs_X = np.expand_dims(Seqs_X, axis=0)
@@ -122,8 +123,6 @@ if len(Seqs_U.shape) < 3:
 
 
 print("Data : \n", Seqs_X, Seqs_U)
-#
-#
 np.savez('_simmed_data/testingfile_generalnn.npz', Seqs_X, Seqs_U)
 
 print('.... loading training data')
@@ -151,7 +150,8 @@ forces_learn = ['Thrust', 'taux', 'tauy']
 
 
 if runType is RunType.CF:
-  newNN = GeneralNN(n_in_input = 4, n_in_state = 5, hidden_w=width, n_out = 5, state_idx_l=[0,1,2,3,4], prob=prob, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
+  newNN = GeneralNN(n_in_input = 4, n_in_state = 5, hidden_w=width, n_out = 5, state_idx_l=[0,1,2,3,4], prob=prob, pred_mode = 'Delta State', depth=2, activation="Swish", B = 1.0)#, ang_trans_idx =[0,1,2])
+  print(newNN)
 elif runType is RunType.IONO:
   #newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
   newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
@@ -213,7 +213,7 @@ time.sleep(2)
 
 #print('Loading as new model')
 if old_model:
-  newNN = torch.load('_models/model.pth')
+  newNN = torch.load('_models/w-150e-95lr-7e-06b-64d-pinkp-True.pth')
 #if runType is RunType.CF:
   #acc2 = newNN2.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 #else:
@@ -279,20 +279,34 @@ plt.show()
 
 
 
-#plot_model(data, newNN, 0, model_dims = ypr, delta=True)
-#plot_model(data, newNN, 1, model_dims = ypr, delta=True)
-#plot_model(data, newNN, 2, model_dims = ypr, delta=True)
-#plot_model(data, newNN, 3, model_dims = ypr, delta=True)
-#plot_model(data, newNN, 4, model_dims = ypr, delta=True)
-
-#plot_model(data, newNN, 0, model_dims = ypr, delta=False)
-#plot_model(data, newNN, 1, model_dims = ypr, delta=False)
-#plot_model(data, newNN, 2, model_dims = ypr, delta=False)
-plot_model(data, newNN, 3, model_dims = ypr, delta=False)
-plot_model(data, newNN, 4, model_dims = ypr, delta=False)
+plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = False)
+plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = False)
+plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = False)
+plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = False)
+plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = False)
 plt.show()
+plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = True)
+plt.show()
+
+
+#plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=False, sort = False)
+#plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=False, sort = False)
+#plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=False, sort = False)
+#plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=False, sort = False)
+plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=False, sort = False)
+plt.show()
+plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=False, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=False, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=False, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=False, sort = True)
+plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=False, sort = True)
 #plot_trajectories_state(Seqs_X, 2)
 
+plt.show()
 quit()
 
 ################################ Obj Fnc ################################
@@ -314,7 +328,7 @@ x_controlled, u_seq = sim_sequence(crazy1, dt_m, dt_u, controller = mpc1, sequen
 
 # x0 = np.zeros(12)
 # new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
-#
+##
 # compareTraj(Us, x0, iono1, nn, show=True)
 ################################ Sim Controlled ################################
 

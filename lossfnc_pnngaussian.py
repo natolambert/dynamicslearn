@@ -2,7 +2,8 @@
 
 import torch
 import numpy as np
-
+import math
+import torch.nn as nn
 class PNNLoss_Gaussian(torch.nn.Module):
     '''
     Here is a brief aside on why we want and will use this loss. Essentially, we will incorporate this loss function to include a probablistic nature to the dynamics learning nueral nets. The output of the Probablistic Nueral Net (PNN) or Bayesian Neural Net (BNN) will be both a mean for each trained variable and an associated variance. This loss function will take the mean (u), variance (sig), AND the true trained value (s) to compare against the mean. Stacked variances form Cov matrix
@@ -18,8 +19,18 @@ class PNNLoss_Gaussian(torch.nn.Module):
 
          with a small regularization penalty on term on max_logvar so that it does not grow beyond the training distribution’s maximum output variance, and on the negative of min_logvar so that it does not drop below the training distribution’s minimum output variance.
     '''
+
     def __init__(self):
         super(PNNLoss_Gaussian,self).__init__()
+        
+        
+        self.max_logvar = torch.tensor([0.4654, 1.7603, 0.635, 1.0709, 1.7087])
+        self.min_logvar = torch.tensor([-1.1057, -0.0531, -0.7361, -0.8476, -0.0607])
+        self.scalers    = torch.tensor([4.2254, 4.2254, 1.0, 0.1214, 0.1509])
+        
+        self.initialized_maxmin_logvar = True
+    def print_mmlogvars(self): 
+        print("Max log var: ", self.max_logvar, " Min log var: ", self.min_logvar)
 
     def forward(self, output, target):
         '''
@@ -28,21 +39,43 @@ class PNNLoss_Gaussian(torch.nn.Module):
         var is a vector of variances for each of the respective means
         target is a vector of the target values for each of the mean
         '''
-        l = 0.1
+        l = 10
+
+        
 
         d2 = output.size()[1]
         d = torch.tensor(d2/2, dtype=torch.int32)
 
         mean = output[:,:d]
         logvar = output[:,d:]
+        
+        softplus = nn.Softplus()
+        tmp_logvar = softplus(self.max_logvar - logvar)
+        logvar = self.max_logvar - tmp_logvar
+        tmp_logvar = softplus(logvar - self.min_logvar)
+        logvar = self.min_logvar + tmp_logvar
+
+        #if not self.initialized_maxmin_logvar:
+        #  self.max_logvar = torch.zeros(logvar.shape)
+        #  self.min_logvar = torch.zeros(logvar.shape)
+        #  self.initialized_maxmin_logvar = True
+
+        #for i,var_row in enumerate(logvar):
+        #  for j,var in enumerate(var_row):
+        #    if var > self.max_logvar[i][j]:
+        #      self.max_logvar[i][j] = var
+        #    elif var < self.min_logvar[i][j]:
+        #      self.min_logvar[i][j] = var
+
         var = torch.exp(logvar)
         b_s = mean.size()[0]    # batch size
 
         eps = 1e-9              # Add to variance to avoid 1/0
 
         A = mean - target.expand_as(mean)
+        A.mul_(self.scalers)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
-
+        B.mul_(self.scalers)
         loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+l*torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
         return loss
 

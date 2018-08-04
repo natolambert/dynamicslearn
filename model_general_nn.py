@@ -16,6 +16,7 @@ from torch.nn import MSELoss
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from Swish import Swish
 
 
 from lossfnc_pnngaussian import PNNLoss_Gaussian
@@ -30,7 +31,10 @@ class GeneralNN(nn.Module):
         hidden_w = 300,
         input_mode = 'Trajectories',
         pred_mode = 'Next State',
-        ang_trans_idx = []):
+        ang_trans_idx = [],
+        depth = 2,
+        activation = "ReLU",
+        B = 1.0):
 
         super(GeneralNN, self).__init__()
         """
@@ -57,7 +61,9 @@ class GeneralNN(nn.Module):
         self.pred_mode = pred_mode
         self.ang_trans_idx = ang_trans_idx
         self.state_idx_l = state_idx_l
-
+        self.depth = depth
+        self.activation = activation
+        self.B = B
         # increases number of inputs and outputs if cos/sin is used
         # plus 1 per angle because they need a pair (cos, sin) for each output
         if len(self.ang_trans_idx) > 0:
@@ -84,15 +90,83 @@ class GeneralNN(nn.Module):
 
         # Sequential object of network
         # The last layer has double the output's to include a variance on the estimate for every variable
-        self.features = nn.Sequential(
-            nn.Linear(self.n_in, hidden_w),
-            nn.ReLU(),
-            nn.Linear(hidden_w, hidden_w),
-            nn.ReLU(),
-            nn.Linear(hidden_w, hidden_w),
-            nn.ReLU(),
-            nn.Linear(hidden_w, self.n_out)
-        )
+        
+        if self.activation == "ReLU":
+            if self.depth == 1:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 2:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 3:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 4:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, hidden_w),
+                    nn.ReLU(),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+        elif self.activation == "Swish":
+            if self.depth == 1:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 2:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 3:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, self.n_out)
+                )
+            elif self.depth == 4:
+                self.features = nn.Sequential(
+                    nn.Linear(self.n_in, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, hidden_w),
+                    Swish(self.B),
+                    nn.Linear(hidden_w, self.n_out)
+                )
 
     def forward(self, x):
         """
@@ -203,16 +277,16 @@ class GeneralNN(nn.Module):
         self.scalardX.fit(dX)
 
         import matplotlib.pyplot as plt
-        plt.hist(dX[:,0], bins=100)
-        plt.hist(dX[:,1], bins=100)
-        plt.hist(dX[:,2], bins=100)
-        plt.hist(dX[:,3], bins=100)
-        plt.hist(dX[:,4], bins=100)
+        #plt.hist(dX[:,0], bins=100)
+        #plt.hist(dX[:,1], bins=100)
+        #plt.hist(dX[:,2], bins=100)
+        #plt.hist(dX[:,3], bins=100)
+        #plt.hist(dX[:,4], bins=100)
         #plt.show()
-        plt.hist(U[:,0], bins=100)
-        plt.hist(U[:,1], bins=100)
-        plt.hist(U[:,2], bins=100)
-        plt.hist(U[:,3], bins=100)
+        #plt.hist(U[:,0], bins=100)
+        #plt.hist(U[:,1], bins=100)
+        #plt.hist(U[:,2], bins=100)
+        #plt.hist(U[:,3], bins=100)
         #plt.show()
         #Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(X)
@@ -225,17 +299,17 @@ class GeneralNN(nn.Module):
         #for i in normU: print(i)
 
 
-        plt.hist(normdX[:,0], bins=100)
-        plt.hist(normdX[:,1], bins=100)
-        plt.hist(normdX[:,2], bins=100)
-        plt.hist(normdX[:,3], bins=100)
-        plt.hist(normdX[:,4], bins=100)
+        #plt.hist(normdX[:,0], bins=100)
+        #plt.hist(normdX[:,1], bins=100)
+        #plt.hist(normdX[:,2], bins=100)
+        #plt.hist(normdX[:,3], bins=100)
+        #plt.hist(normdX[:,4], bins=100)
         #plt.hist(normdX[:,5], bins=100)
         #plt.show()
-        plt.hist(normU[:,0], bins=100)
-        plt.hist(normU[:,1], bins=100)
-        plt.hist(normU[:,2], bins=100)
-        plt.hist(normU[:,3], bins=100)
+        #plt.hist(normU[:,0], bins=100)
+        #plt.hist(normU[:,1], bins=100)
+        #plt.hist(normU[:,2], bins=100)
+        #plt.hist(normU[:,3], bins=100)
         #plt.show()
         #quit()
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
@@ -344,7 +418,7 @@ class GeneralNN(nn.Module):
             NNout = self.postprocess(NNout[:int(self.n_out/2)]).ravel()
         else:
             NNout = self.postprocess(NNout).ravel()
-
+        
         return NNout
 
     def _optimize(self, loss_fn, optim, epochs, batch_size, trainLoader, testLoader):
@@ -387,6 +461,7 @@ class GeneralNN(nn.Module):
             #          "test_error={:.9f}".format(test_error))
             print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))
             errors.append(test_error)
+        #loss_fn.print_mmlogvars()
         return errors
 
     def save_model(self, filepath):

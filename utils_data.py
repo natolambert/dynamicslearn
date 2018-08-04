@@ -38,7 +38,7 @@ def stack_trios(change_states, states, actions):
     lst = []
     for (d,a,s) in zip(change_states,states,actions):
         lst.append([d,a,s])
-
+    print('das shape: ', np.array(lst).shape)
     return np.array(lst)
 
 def states2delta(states):
@@ -85,9 +85,9 @@ def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
     # data = np.zeros(((n-1)*l,dimx+dimu))
     seqs = []
     Seqs_dX = Seqs_X[:,1:,:]-Seqs_X[:,:-1,:]
-    # print(np.shape(Seqs_dX))
-    # print(np.shape(Seqs_X))
-    # print(np.shape(Seqs_U))
+    print(np.shape(Seqs_dX))
+    print(np.shape(Seqs_X))
+    print(np.shape(Seqs_U))
 
     for (seqdX, seqX, seqU) in zip(Seqs_dX, Seqs_X,Seqs_U):
         # generates the changes in states from raw data
@@ -100,8 +100,13 @@ def sequencesXU2array(Seqs_X, Seqs_U, normalize = False):
         dx_x_u_t = stack_trios(seqdX[:,:], seqX[:-1,:], seqU[:-1,:])
         seqs.append(dx_x_u_t)
 
+    print(np.shape(seqs))
     # reshape data into a long list of dx, x, u pairs for training
-    data = np.reshape(seqs, (n*(l-1),3))
+
+    if len(np.shape(seqs))  == 4:
+      data = np.reshape(seqs, (n*(l-1),3, dimx))
+    else:
+      data = np.reshape(seqs, (n*(l-1),3))
     return data
 
 def l2array(list_arrays):
