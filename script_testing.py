@@ -1,9 +1,9 @@
-width = 250
-epochs = 25
+width = 150
+epochs = 50
 batch  = 32
-learning_rate = 5e-6
+learning_rate = 7e-6
 prob = True
-data_name  = 'pink_long_clean'
+data_name  = 'pink_long_hover_clean'
 
 using_premade_data = False
 old_model = False
@@ -104,7 +104,7 @@ elif runType is RunType.CF:
   print("Angular: ", states[:,0])
   imu = unpack_cf_imu(states[:,1], states[:,0]) # linear and angular acceleration
 
-  Seqs_X = np.concatenate([imu[:,3:], states[:,2:4]], 1)
+  Seqs_X = np.concatenate([imu[:,3:], states[:,2:5]], 1)
   #Seqs_X = np.concatenate([states[:,2:3]], 1)
   #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
   #Seqs_X = np.concatenate([imu, states], 1) # linear accel, angular accel, and YPR
@@ -150,7 +150,7 @@ forces_learn = ['Thrust', 'taux', 'tauy']
 
 
 if runType is RunType.CF:
-  newNN = GeneralNN(n_in_input = 4, n_in_state = 5, hidden_w=width, n_out = 5, state_idx_l=[0,1,2,3,4], prob=prob, pred_mode = 'Delta State', depth=2, activation="Swish", B = 1.0)#, ang_trans_idx =[0,1,2])
+  newNN = GeneralNN(n_in_input = 4, n_in_state = 6, hidden_w=width, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=prob, pred_mode = 'Delta State', depth=2, activation="Swish", B = 1.0, outIdx = [0,1,2,3,4,5], dropout=0.5)#, ang_trans_idx =[0,1,2])
   print(newNN)
 elif runType is RunType.IONO:
   #newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
@@ -273,24 +273,30 @@ for i in data:
 #plt.show()
 
 ypr = [0,1,2,3,4]
+ypr = [0,1,2]
 
 plt.show()
 
 
+data = data[int(0.8*len(data)):]
+for i, datum in enumerate(data[:,0]):
+  data[i,0] = datum[:3]
 
-
-plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = False)
-plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = False)
-plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = False)
-plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = False)
-plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 0, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 1, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 2, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 0, model_dims = ypr, delta=True, sort = True)
+plot_model(data, newNN, 1, model_dims = ypr, delta=True, sort = True)
+plot_model(data, newNN, 2, model_dims = ypr, delta=True, sort = True)
+#plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = False)
+#plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = False)
 plt.show()
-plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = True)
-plt.show()
+#plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = True)
+#plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = True)
+#plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = True)
+#plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = True)
+#plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = True)
+#plt.show()
 
 
 #plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=False, sort = False)

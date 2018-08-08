@@ -22,7 +22,7 @@ learning_rate = 5e-7
 prob = True
 
 
-data_name  = 'pink'
+data_name  = 'pink_long_clean'
 
 
 
@@ -83,7 +83,7 @@ print_best(pitch,   25)
 print("\n------------------------- Roll -------------------------")
 print_best(roll,    25)
 
-with open("pinkresults.pkl", 'wb') as pickle_file:
+with open("pink-long-clean-results.pkl", 'wb') as pickle_file:
   pickle.dump((a_acc_x,a_acc_y,a_acc_z,pitch,roll), pickle_file, protocol=2)
 
 

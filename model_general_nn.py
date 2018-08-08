@@ -34,7 +34,9 @@ class GeneralNN(nn.Module):
         ang_trans_idx = [],
         depth = 2,
         activation = "ReLU",
-        B = 1.0):
+        B = 1.0,
+        outIdx = [0],
+        dropout = 0.2):
 
         super(GeneralNN, self).__init__()
         """
@@ -64,6 +66,8 @@ class GeneralNN(nn.Module):
         self.depth = depth
         self.activation = activation
         self.B = B
+        self.outIdx = outIdx
+        self.d = dropout
         # increases number of inputs and outputs if cos/sin is used
         # plus 1 per angle because they need a pair (cos, sin) for each output
         if len(self.ang_trans_idx) > 0:
@@ -135,36 +139,46 @@ class GeneralNN(nn.Module):
                 self.features = nn.Sequential(
                     nn.Linear(self.n_in, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, self.n_out)
                 )
             elif self.depth == 2:
                 self.features = nn.Sequential(
                     nn.Linear(self.n_in, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, self.n_out)
                 )
             elif self.depth == 3:
                 self.features = nn.Sequential(
                     nn.Linear(self.n_in, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, self.n_out)
                 )
             elif self.depth == 4:
                 self.features = nn.Sequential(
                     nn.Linear(self.n_in, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, hidden_w),
                     Swish(self.B),
+                    nn.Dropout(p=self.d),
                     nn.Linear(hidden_w, self.n_out)
                 )
 
@@ -194,6 +208,10 @@ class GeneralNN(nn.Module):
             else:
                 dX = X[:,1:,:] - X[:,:-1,:]
 
+            print("dX shape : ", dX.shape)
+            dX = dX[:,:,self.outIdx]
+            print("dX shape : ", dX.shape)
+
             # Ignore last element of X and U sequences because do not see next state
             X = X[:,:-1,:]
             U = U[:,:-1,:]
@@ -201,7 +219,9 @@ class GeneralNN(nn.Module):
             # reshape
             X = X.reshape(-1, dx)
             U = U.reshape(-1, du)
-            dX = dX.reshape(-1, dx)
+            dX = dX.reshape(-1, len(self.outIdx))
+
+
             # # If there are angles to transform, do that now before normalization
             # if len(self.ang_trans_idx > 0):
             #     X_angled_part = np.concatenate((
@@ -264,8 +284,8 @@ class GeneralNN(nn.Module):
         # print(np.shape(X))
         # print(np.shape(dX))
         #at this point they should look like input output pairs
-        if dX.shape != X.shape:
-            raise ValueError('Something went wrong, modified X shape:' + str(dX.shape) + ' dX shape:' + str(X.shape))
+        #if dX.shape != X.shape:
+        #    raise ValueError('Something went wrong, modified X shape:' + str(dX.shape) + ' dX shape:' + str(X.shape))
 
         #update mean and variance of the dataset with each training pass
         #self.scalarX.partial_fit(X)
@@ -367,7 +387,7 @@ class GeneralNN(nn.Module):
             # print('Shape of dataset is:', len(dataset))
 
         if self.prob:
-            loss_fn = PNNLoss_Gaussian()
+            loss_fn = PNNLoss_Gaussian(idx=self.outIdx)
         else:
             loss_fn = MSELoss()
 
@@ -387,8 +407,11 @@ class GeneralNN(nn.Module):
             optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=learning_rate)
         else:
             raise ValueError(optim + " is not a valid optimizer type")
-        return self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
 
+
+        ret = self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
+        loss_fn.print_mmlogvars()    
+        return ret
 
     def predict(self, X, U):
         """
@@ -437,6 +460,7 @@ class GeneralNN(nn.Module):
                 optim.step()                                  # do a gradient descent step
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
                     print("loss is NaN")                       # This is helpful: it'll catch that when it happens,
+                    print("Output: ", output, "\nInput: ", input, "\nLoss: ", loss)
                     return output, input, loss                 # and give the output and input that made the loss NaN
                 avg_loss += loss.item()/num_batches                  # update the overall average loss with this batch's loss
 

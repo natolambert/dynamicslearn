@@ -215,7 +215,7 @@ def eval(model, dims = [0,1,2,3,4]):
 
 
 
-def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold = -0.1):
+def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold = -0.1, B = 1.0, activation = "Swish"):
   newNN = model
   if epoch_step < 2:
     print("PARAMETER ERROR! epoch_step must be >= 2")
@@ -231,7 +231,7 @@ def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold
           last_loss = acc
         dir_str = str('_models/sweep/')
         date_str = str(datetime.datetime.now())
-        info_str = "w-" + str(width) + "_d-" + str(depth) + "_e-" + str(i+epoch_step) + "_lr-" + str(learning_rate) + "_b-" + str(batch) + "_ds-" + str(data_name) + "_p-" + str(prob)
+        info_str = "w-" + str(width) + "_d-" + str(depth) + "_a-" + str(activation) + "_B-" + str(B) + "_e-" + str(i+epoch_step) + "_lr-" + str(learning_rate) + "_b-" + str(batch) + "_ds-" + str(data_name) + "_p-" + str(prob)
         model_name = dir_str + info_str
         newNN.save_model(model_name + '.pth')
         print("Saved: ", model_name)
