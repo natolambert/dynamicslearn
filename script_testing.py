@@ -6,7 +6,7 @@ prob = True
 data_name  = 'pink_long_hover_clean'
 
 using_premade_data = False
-old_model = False
+old_model = True
 
 from dynamics import *
 import pickle
@@ -213,7 +213,7 @@ time.sleep(2)
 
 #print('Loading as new model')
 if old_model:
-  newNN = torch.load('_models/w-150e-95lr-7e-06b-64d-pinkp-True.pth')
+  newNN = torch.load('_models/2018-08-08 13:07:38.973867w-150e-50lr-7e-06b-32d-pink_long_hover_cleanp-True.pth')
 #if runType is RunType.CF:
   #acc2 = newNN2.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 #else:
@@ -272,22 +272,28 @@ for i in data:
 #plt.plot(toPlot3)
 #plt.show()
 
-ypr = [0,1,2,3,4]
-ypr = [0,1,2]
+ypr = [0,1,2,3,4,5]
+#ypr = [0,1,2]
 
 plt.show()
 
 
 data = data[int(0.8*len(data)):]
-for i, datum in enumerate(data[:,0]):
-  data[i,0] = datum[:3]
+#for i, datum in enumerate(data[:,0]):
+#  data[i,0] = datum[:3]
 
 plot_model(data, newNN, 0, model_dims = ypr, delta=True, sort = False)
 plot_model(data, newNN, 1, model_dims = ypr, delta=True, sort = False)
 plot_model(data, newNN, 2, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 3, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 4, model_dims = ypr, delta=True, sort = False)
+plot_model(data, newNN, 5, model_dims = ypr, delta=True, sort = False)
 plot_model(data, newNN, 0, model_dims = ypr, delta=True, sort = True)
 plot_model(data, newNN, 1, model_dims = ypr, delta=True, sort = True)
 plot_model(data, newNN, 2, model_dims = ypr, delta=True, sort = True)
+plot_model(data, newNN, 3, model_dims = ypr, delta=True, sort = True)
+plot_model(data, newNN, 4, model_dims = ypr, delta=True, sort = True)
+plot_model(data, newNN, 5, model_dims = ypr, delta=True, sort = True)
 #plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = False)
 #plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = False)
 plt.show()
