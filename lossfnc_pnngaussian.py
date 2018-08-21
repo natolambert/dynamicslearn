@@ -22,8 +22,8 @@ class PNNLoss_Gaussian(torch.nn.Module):
 
     def __init__(self, idx=[0,1,2,3,4,5]):
         super(PNNLoss_Gaussian,self).__init__()
-        
-        self.idx= idx 
+
+        self.idx= idx
         self.initialized_maxmin_logvar = True
 
         if self.initialized_maxmin_logvar:
@@ -38,8 +38,14 @@ class PNNLoss_Gaussian(torch.nn.Module):
           self.min_logvar = self.min_logvar[self.idx]
           self.scalers    = self.scalers[self.idx]
 
-    def print_mmlogvars(self): 
+    def print_mmlogvars(self):
         print("Max log var: ", self.max_logvar, " Min log var: ", self.min_logvar)
+
+    def def_maxminlogvar(scalers, max_logvar, min_logvar):
+        # Loads logvars for data if not initialized above HARD CODED
+        self.scalers    = scalers # scalers for pink_long_hover_clean
+        self.max_logvar = max_logvar # logvar for x,y,z,p,r,y from pink_long_hover_clean
+        self.min_logvar = min_logvar # logvar for x,y,z,p,r,y from pink_long_hover_clean
 
     def forward(self, output, target):
         '''
@@ -48,13 +54,11 @@ class PNNLoss_Gaussian(torch.nn.Module):
         var is a vector of variances for each of the respective means
         target is a vector of the target values for each of the mean
         '''
-        l = 10
+        # l = 10
 
-        
-
+        # Initializes parameterss
         d2 = output.size()[1]
         d = torch.tensor(d2/2, dtype=torch.int32)
-
         mean = output[:,:d]
         logvar = output[:,d:]
 
@@ -70,15 +74,15 @@ class PNNLoss_Gaussian(torch.nn.Module):
         #      self.max_logvar[i][j] = var
         #    elif var < self.min_logvar[i][j]:
         #      self.min_logvar[i][j] = var
-        
+
+        # Caps max and min log to avoid NaNs
         softplus = nn.Softplus()
         tmp_logvar = softplus(self.max_logvar - logvar)
         logvar = self.max_logvar - tmp_logvar
         tmp_logvar = softplus(logvar - self.min_logvar)
         logvar = self.min_logvar + tmp_logvar
 
-
-
+        # Computes loss
         var = torch.exp(logvar)
         b_s = mean.size()[0]    # batch size
 
@@ -87,7 +91,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         A = mean - target.expand_as(mean)
         A.mul_(self.scalers)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
-        B.mul_(self.scalers) 
+        B.mul_(self.scalers)
         loss = sum(torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+l*torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
         return loss
 

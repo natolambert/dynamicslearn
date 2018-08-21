@@ -74,140 +74,6 @@ class randController(Controller):
 
         return self.control
 
-
-class HoverPID(Controller):
-    def __init__(self, dynamics, dt_control, target = [0,0,0]):
-        # TODO: Implement
-        # dt is update rate desired, more important for future subclasses
-        # dim is the dimension of the control output
-        # dynamics is an istance of the dynamics that provides info used for control
-        # acts by hovering around the z setpoint, and minimizing roll and pitch to 0
-        # target is a vector where
-        #   target[0] = target_z
-        #   target[1] = target_pitch
-        #   target[2] = target_roll
-
-        dt_dynam = dynamics.get_dt
-        dim = dynamics.get_dims[1]
-        super().__init__(dt_dynam, dt_control, dim=dim)
-
-        # equilibrium point is from dynamics. Add PID outputs to hover condition
-        self.equil = dynamics.u_e
-        self.control = self.equil
-        self.i = 0
-
-        # set up three PID controllers
-        self.PIDz = PID(kP = 1, kI = 0, kD = 0, target = target[0])
-        self.PIDpitch = PID(kP = 1, kI = 0, kD = 0, target = target[1])
-        self.PIDroll = PID(kP = 1, kI = 0, kD = 0, target = target[2])
-
-        # Grab control matrices from dynamics file
-        PIDmatrices = dynamics._hover_mats
-        self.z_transform = PIDmatrices[0]
-        self.pitch_transform = PIDmatrices[1]
-        self.roll_transform = PIDmatrices[2]
-
-    def update(self, state):
-
-        # initialize some variables for only updating control at correct
-        # if dt_u == dt_x R = 1, so always updates
-        Rdt = int(self.dt_control/self.dt_dynam)    # number of dynamics updates per new control update
-
-        if ((self.i % Rdt) == 0):
-            # Returns the sum of the PIDs as the controller
-            z = state[2]
-            pitch = state[4]
-            roll = state[5]
-
-            z_cnst = self.PIDz.update(z)
-            pitch_cnst = self.PIDpitch.update(pitch)
-            roll_cnst = self.PIDroll.update(roll)
-
-            z_vect = z_cnst*self.z_transform
-            pitch_vect = pitch_cnst*self.pitch_transform
-            roll_vect = roll_cnst*self.roll_transform
-
-            self.control = z_vect + pitch_vect + roll_vect + self.equil
-
-        self.i += 1
-
-        return self.control
-
-    # Methods for setting PID parameters
-    def setKrollPID(self,kPIDnew):
-        self.PIDroll.kPID(kPIDnew)
-
-    def setKpitchPID(self,kPIDnew):
-        self.PIDpith.kPID(kPIDnew)
-
-    def setKzPID(self,kPIDnew):
-        self.PIDpz.kPID(kPIDnew)
-
-class PID:
-    # Class for 1d PID controller
-    def __init__(self, kP = 1, kI = 0, kD = 0, target = 0, integral_max = 100, integral_min = -100):
-        self.kP = kP
-        self.kI = kI
-        self.kD = kD
-        self.target = target
-
-        # terms for calculating PID values
-        self.error = 0
-        self.last_error = 0
-        self.integral_error = 0
-        self.integral_max =integral_max
-        self.integral_min = integral_min
-
-    # reset between runs for intergral error etc
-    def reset(self):
-        self.error = 0
-        self.last_error = 0
-        self.integral_error = 0
-
-
-    def update(self, val):
-        # updates the PID value for a given Value
-        error = val - self.target
-        self.error = error
-
-        # Caps integral error
-        self.integral_error = self.integral_error + error       # updates error
-        if self.integral_error > self.integral_max:             # capping error
-            self.integral_error = self.integral_max
-        elif self.integral_error < self.integral_min:
-            self.integral_error = self.integral_min
-
-        # Calculate PID terms
-        P_fact = self.kP*error
-        I_fact = self.kI*(self.integral_error)
-        D_fact = self.kD*(error-self.last_error)
-        self.last_error = error
-
-        return P_fact + I_fact + D_fact
-
-    @property
-    def kPID(self):
-        # returns the PID values
-        return [self.kP, self.kI, self.kD]
-
-    @kPID.setter
-    def kPID(self, kPIDnew):
-        # sets new kPID values
-        self.kP = kPIDnew[0]
-        self.kI = kPIDnew[1]
-        self.kD = kPIDnew[2]
-
-    @property
-    def targetpoint(self):
-        # returns the PID values
-        return self.target
-
-    @targetpoint.setter
-    def targetpoint(self, targetnew):
-        # sets new target value
-        self.target = targetnew
-
-
 class MPController(Controller):
     # MPC control, there will be two types
     # 1. random shooting control, with best reward being taken
@@ -340,7 +206,7 @@ class Objective():
 
         # Chooses data of sub-indices of each trajectory
         data_eval = self.data[:,:,self.dim_to_eval]
-        
+
 
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
         # print(np.shape(objective_vals))
@@ -355,7 +221,7 @@ class Objective():
         # print(np.shape(self.data))
         # Chooses data of sub-indices of each trajectory
         # print(self.dim_to_eval)
-        data_eval = self.data[:,:,self.dim_to_eval]    
+        data_eval = self.data[:,:,self.dim_to_eval]
         objective_vals = [np.sum(self.eval(traj),axis=0) for traj in data_eval]
         # print(np.shape(objective_vals))
         mm_idx = self.argmm(objective_vals)
