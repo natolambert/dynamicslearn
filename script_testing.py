@@ -90,10 +90,6 @@ print('...Generating Training Data')
 if runType is RunType.IONO:
   Seqs_X, Seqs_U = loadcsv('_logged_data/iono/tt_log_4.csv')
 elif runType is RunType.CF:
-  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/stateandaction-20180711T22-44-47.csv')
-  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/stateandaction-20180717T20-53-44.csv')
-  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/clean_fly_and_hover_long_data.csv')
-  #Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/hopping.csv')
   Seqs_X, Seqs_U = loadcsv('_logged_data/crazyflie/' + data_name + '.csv')
   data = np.concatenate([Seqs_X,Seqs_U],1)
   data = data[data[:,3]!=0,:]
@@ -105,14 +101,11 @@ elif runType is RunType.CF:
   imu = unpack_cf_imu(states[:,1], states[:,0]) # linear and angular acceleration
 
   Seqs_X = np.concatenate([imu[:,3:], states[:,2:5]], 1)
-  #Seqs_X = np.concatenate([states[:,2:3]], 1)
-  #Seqs_X = np.concatenate([imu, states[:,2:]], 1)
   #Seqs_X = np.concatenate([imu, states], 1) # linear accel, angular accel, and YPR
   #Seqs_X = states # YPR ONLY
   Seqs_U = unpack_cf_pwm(data[:,3])
   #print(np.shape(Seqs_U))
   print(np.mean(Seqs_U,axis=0))
-
 
 if len(Seqs_X.shape) < 3:
   print("added padding dimension to Seqs_X")
@@ -179,10 +172,6 @@ if using_premade_data:
 
 #Seqs_X = Seqs_X + noiseX
 
-
-
-
-
 if runType is RunType.CF:
   if not old_model:
     acc = newNN.train((Seqs_X, Seqs_U), learning_rate=learning_rate, epochs=epochs, batch_size = batch, optim="Adam")
@@ -192,12 +181,7 @@ elif runType is RunType.IONO:
 else:
   acc = newNN.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=25, batch_size = 100, optim="Adam")
 
-
 # Save normalizing parameters
-
-
-
-
 # Saves model with date string for sorting
 dir_str = str('_models/')
 date_str = str(datetime.datetime.now())
@@ -226,36 +210,6 @@ if not old_model:
   plt.show()
 #quit()
 
-# quit()
-#
-# pnn = PNeuralNet()
-# pnn_ypr = PNeuralNet_ypr()
-# dnn_ypr = NeuralNet_ypr()
-# # ['F1', 'F2', 'F3', 'F4']
-# # nn = NeuralNet(layer_sizes, layer_types, iono1, states_learn, forces_learn)
-#
-#
-# ypraccel = [6,7,8,12,13,14]
-# ypr = [6,7,8]
-# # Create New model
-# # acc = nn_ens.train_ens((Seqs_X[:,::samp,:], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=15, batch_size = 1500, optim="Adam")
-# # acc = pnn.train((Seqs_X[:,::samp,ypraccel], Seqs_U[:,::samp,:]), learning_rate=7.5e-6, epochs=240, batch_size = 100, optim="Adam")
-#
-# acc = pnn_ypr.train((Seqs_X[:,::samp,ypr], Seqs_U[:,::samp,:]), learning_rate=2.5e-5, epochs=200, batch_size = 100, optim="Adam")
-#
-# # Plot accuracy #
-#plt.plot(np.transpose(acc))
-#plt.show()
-
-# Saves model with date string for sorting
-# dir_str = str('_models/')
-# date_str = str(datetime.date.today())
-# model_name = str('_MODEL_absdet')
-# pnn.save_model(dir_str+date_str+model_name+'.pth')
-
-# Or load model
-# pnn = torch.load('pnn_moredata.pth')
-#newNN = torch.load(dir_str+'greatmodel-2.pth')
 print(np.shape(data))
 toPlot1 = []
 toPlot2 = []
@@ -297,28 +251,7 @@ plot_model(data, newNN, 5, model_dims = ypr, delta=True, sort = True)
 #plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = False)
 #plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = False)
 plt.show()
-#plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=True, sort = True)
-#plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=True, sort = True)
-#plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=True, sort = True)
-#plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=True, sort = True)
-#plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=True, sort = True)
-#plt.show()
 
-
-#plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=False, sort = False)
-#plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=False, sort = False)
-#plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=False, sort = False)
-#plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=False, sort = False)
-plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=False, sort = False)
-plt.show()
-plot_model(data[int(0.8*len(data)):], newNN, 0, model_dims = ypr, delta=False, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 1, model_dims = ypr, delta=False, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 2, model_dims = ypr, delta=False, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 3, model_dims = ypr, delta=False, sort = True)
-plot_model(data[int(0.8*len(data)):], newNN, 4, model_dims = ypr, delta=False, sort = True)
-#plot_trajectories_state(Seqs_X, 2)
-
-plt.show()
 quit()
 
 ################################ Obj Fnc ################################

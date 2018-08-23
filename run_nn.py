@@ -145,82 +145,25 @@ learning_rate = 9e-7
 prob = True
 
 
-
-"""
-# #creating neural network with 2 layers of 100 linearly connected ReLU units
-print('...Training Model')
-layer_sizes = [12, 400, 400, 9]
-layer_types = ['nn.Linear()','nn.ReLU()', 'nn.Linear()', 'nn.Linear()']
-states_learn = ['yaw', 'pitch', 'roll', 'ax', 'ay', 'az'] #,'ax', 'ay', 'az'] #['yaw', 'pitch', 'roll', 'ax', 'ay', 'az']
-# ['X', 'Y', 'Z', 'vx', 'vy', 'vz', 'yaw', 'pitch', 'roll', 'w_z', 'w_x', 'w_y']
-forces_learn = ['Thrust', 'taux', 'tauy']
-
-
-
-if runType is RunType.CF:
-  newNN = GeneralNN(n_in_input = 4, n_in_state = 4, hidden_w=width, n_out = 4, state_idx_l=[0,1,2,3], prob=prob, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
-elif runType is RunType.IONO:
-  #newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=False, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
-  newNN = GeneralNN(n_in_input = 4, n_in_state = 6, n_out = 6, state_idx_l=[0,1,2,3,4,5], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
-else:
-  newNN = GeneralNN(n_in_input = 3, n_in_state = 3, n_out = 3, state_idx_l=[6,7,8], prob=True, pred_mode = 'Next State')#, ang_trans_idx =[0,1,2])
-ypraccel = [6,7,8,12,13,14]
-ypr = [6,7,8]
-print(np.shape(Seqs_U))
-
-if not using_premade_data:
-  np.savetxt('_logged_data/crazyflie/' + data_name + '-Seqs_X.csv', Seqs_X[0], delimiter=',')
-  np.savetxt('_logged_data/crazyflie/' + data_name + '-Seqs_U.csv', Seqs_U[0], delimiter=',')
-
-if using_premade_data:
-  Seqs_X = np.loadtxt(open('_logged_data/crazyflie/' + data_name + '-Seqs_X-new5.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-  Seqs_U = np.loadtxt(open('_logged_data/crazyflie/' + data_name + '-Seqs_U-new.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-  data = np.concatenate([Seqs_X,Seqs_U],1)
-  Seqs_X = np.expand_dims(Seqs_X, axis=0)
-  Seqs_U = np.expand_dims(Seqs_U, axis=0)
-  data = sequencesXU2array(Seqs_X, Seqs_U)
-
-#dim0, dim1 = Seqs_X.shape
-
-#noiseX = 0.7 * np.random.rand(dim0, dim1)
-
-#Seqs_X = Seqs_X + noiseX
-
-"""
-
-
-
-
-
-
 def eval(model, dims = [0,1,2,3,4]):
   SE = [0]*len(dims)
   for i in range(0, len(data) - 1):
     predictions = predict_nn(model, data[i][1], data[i][2], [0,1,2,3,4])
     for j,prediction in enumerate(predictions):
       SE[j] += (data[i+1][1][j] - prediction) ** 2
-      
+
   MSE = [0]*len(dims)
   for i,error in enumerate(SE):
     MSE[i] = error / (len(data) - 1)
-    
+
   return MSE
-
-
-
-
-
-
-
-
-
 
 def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold = -0.1, B = 1.0, activation = "Swish"):
   newNN = model
   if epoch_step < 2:
     print("PARAMETER ERROR! epoch_step must be >= 2")
     quit()
-  
+
   if runType is RunType.CF:
     if not old_model:
       for i in range(0, epochs+1, epoch_step):
@@ -235,7 +178,7 @@ def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold
         model_name = dir_str + info_str
         newNN.save_model(model_name + '.pth')
         print("Saved: ", model_name)
-        
+
     print("Done.")
   elif runType is RunType.IONO:
     acc = newNN.train((Seqs_X, Seqs_U), learning_rate=2.5e-5, epochs=50, batch_size = 100, optim="Adam")
@@ -245,18 +188,15 @@ def run(model, learning_rate, epochs, epoch_step, batch, width, depth, threshold
 
   # Save normalizing parameters
 
-
-
-
   # Saves model with date string for sorting
   #dir_str = str('_models/')
   #date_str = str(datetime.datetime.now())
   #info_str = "w-" + str(width) + "e-" + str(epochs) + "lr-" + str(learning_rate) + "b-" + str(batch) + "d-" + str(data_name) + "p-" + str(prob)
   model_name = dir_str + date_str + info_str
   newNN.save_model(model_name + '.pth')
-  
-  
-  
+
+
+
   info_str = "w-" + str(width) + "_d-" + str(depth) + "_e-" + str(epochs) + "_lr-" + str(learning_rate) + "_b-" + str(batch) + "_ds-" + str(data_name) + "_p-" + str(prob)
   model_name = dir_str + info_str
   normX, normU, normdX = newNN.getNormScalers()
@@ -346,57 +286,3 @@ plt.show()
 #plot_model(data, newNN, 4, model_dims = ypr, delta=False)
 #plt.show()
 #plot_trajectories_state(Seqs_X, 2)
-
-#quit()
-"""
-################################ Obj Fnc ################################
-origin_minimizer = Objective(np.linalg.norm, 'min', 3, dim_to_eval=[6,7,8])
-print('...Objective Function Initialized')
-
-################################ MPC ################################
-
-# initialize MPC object with objective function above
-if runType is RunType.CF:
-	mpc1 = MPController(newNN, crazy1, dt_x, dt_u, origin_minimizer, N=40, T=5, variance = 100) #.00003
-elif runType is RunType.IONO:
-	mpc1 = MPController(newNN, iono1, dt_x, dt_u, origin_minimizer, N=40, T=5, variance = .00003)
-print('...MPC Running')
-
-new_len = 500
-x_controlled, u_seq = sim_sequence(crazy1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = True)
-
-
-# x0 = np.zeros(12)
-# new_seq, Us = sim_sequence(iono1, dt_u, sequence_len = 150, x0=x0, controller = mpc1)
-#
-# compareTraj(Us, x0, iono1, nn, show=True)
-################################ Sim Controlled ################################
-
-# Sim sequence off the trained controller
-new_len = 5000
-x_controlled, u_seq = sim_sequence(crazy1, dt_m, dt_u, controller = mpc1, sequence_len = new_len, to_print = False)
-#print(np.mean(x_controlled[:,[12,13,14]]))
-print(x_controlled[:,[6,7,8]])
-print('Simulated Learned.')
-################################ PLot ################################
-print('...Plotting')
-# plot states and inputs of the trajectory if wanted
-T = np.linspace(0,new_len*dt_x,new_len)
-plot12(x_controlled, T)
-# plotInputs(u_seq, T)
-fig_inputs = plt.figure()
-plt.title('Three Inputs')
-plt.plot(T, u_seq[:,0],label='PWM1')
-plt.plot(T, u_seq[:,1],label='PWM2')
-plt.plot(T, u_seq[:,2],label='PWM3')
-plt.plot(T, u_seq[:,3],label='PWM4')
-plt.legend()
-# plt.show()
-# # Plots animation, change save to false to not save .gif
-plotter1 = PlotFlight(x_controlled[::15,:],.5)
-plotter1.show(save=False)
-# print('Saved Gif')
-
-
-print('---------------------------------------------------------end run-----')
-"""

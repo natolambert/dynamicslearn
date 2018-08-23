@@ -17,8 +17,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from Swish import Swish
-
-
+from model_split_nn import SplitModel
+import matplotlib.pyplot as plt
 from lossfnc_pnngaussian import PNNLoss_Gaussian
 
 class GeneralNN(nn.Module):
@@ -36,7 +36,8 @@ class GeneralNN(nn.Module):
         activation = "ReLU",
         B = 1.0,
         outIdx = [0],
-        dropout = 0.2):
+        dropout = 0.2,
+        split_flag = False):
 
         super(GeneralNN, self).__init__()
         """
@@ -68,6 +69,7 @@ class GeneralNN(nn.Module):
         self.B = B
         self.outIdx = outIdx
         self.d = dropout
+        self.split = split_flag
         # increases number of inputs and outputs if cos/sin is used
         # plus 1 per angle because they need a pair (cos, sin) for each output
         if len(self.ang_trans_idx) > 0:
@@ -84,7 +86,15 @@ class GeneralNN(nn.Module):
         self.scalardX = RobustScaler()
         # Sets loss function
         if prob:
-            self.loss_fnc = PNNLoss_Gaussian
+            # INIT max/minlogvar if PNN
+            self.max_logvar = torch.nn.Parameter(torch.tensor(10*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.min_logvar = torch.nn.Parameter(torch.tensor(-10*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+
+            self.loss_fnc = PNNLoss_Gaussian()
+            # print('Here are your current state scaling parameters: ')
+            # self.loss_fnc.print_mmlogvars()
+            # print('Note: you can change these by calling self.loss_fnc.def_maxminlogvar(scalers, max_logvar, min_logvar)')
+            # print('\t Please make sure these are tensor objects')
         else:
             self.loss_fnc = nn.MSELoss
 
@@ -92,95 +102,104 @@ class GeneralNN(nn.Module):
         if prob:
             self.n_out *= 2
 
-        # Sequential object of network
-        # The last layer has double the output's to include a variance on the estimate for every variable
-        
-        if self.activation == "ReLU":
-            if self.depth == 1:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 2:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 3:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 4:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, hidden_w),
-                    nn.ReLU(),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-        elif self.activation == "Swish":
-            if self.depth == 1:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 2:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 3:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, self.n_out)
-                )
-            elif self.depth == 4:
-                self.features = nn.Sequential(
-                    nn.Linear(self.n_in, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, hidden_w),
-                    Swish(self.B),
-                    nn.Dropout(p=self.d),
-                    nn.Linear(hidden_w, self.n_out)
-                )
+        # If using split model, initiate here:
+        if self.split:
+            self.features = nn.Sequential(
+                SplitModel(self.n_in, self.n_out, int(self.n_out/2),
+                    prob = self.prob,
+                    depth = self.depth,
+                    width = self.hidden_w,
+                    activation = self.activation,
+                    dropout = self.d))
+        else:
+            # Standard sequential object of network
+            # The last layer has double the output's to include a variance on the estimate for every variable
+            if self.activation == "ReLU":
+                if self.depth == 1:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 2:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 3:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 4:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.ReLU(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+            elif self.activation == "Swish":
+                if self.depth == 1:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 2:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 3:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 4:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, hidden_w),
+                        Swish(self.B),
+                        nn.Dropout(p=self.d),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
 
     def forward(self, x):
         """
@@ -221,21 +240,6 @@ class GeneralNN(nn.Module):
             U = U.reshape(-1, du)
             dX = dX.reshape(-1, len(self.outIdx))
 
-
-            # # If there are angles to transform, do that now before normalization
-            # if len(self.ang_trans_idx > 0):
-            #     X_angled_part = np.concatenate((
-            #         np.sin(X[:,self.ang_trans_idx]), np.cos(X[:,self.ang_trans_idx])),axis=1)
-            #     X_no_trans = [X[:,i] for i in range(dx) if i not in self.ang_trans_idx]
-            #     X = np.concatenate((X_angled_part,X_no_trans[0].T),axis=1)
-            #
-            #     # Cannot do this preemptively on the Xs in trajectory mode (at least not easily)
-            #     dX_angled_part = np.concatenate((
-            #         np.sin(dX[:,self.ang_trans_idx]), np.cos(dX[:,self.ang_trans_idx])),axis=1)
-            #     dX_no_trans = [dX[:,i] for i in range(dx) if i not in self.ang_trans_idx]
-            #     dX = np.concatenate((dX_angled_part,dX_no_trans[0].T),axis=1)
-            #
-            # # TODO: Change the trajectories form to just reformat to the two column mode my appending zeros to the end of each trajectory. It is a little bit easier to debug when they are separate
         else:
             # ELSE: already 2d form, assumed the next state is removed. Assumed that dX can be calculated nicely
             # dX = X[1:,:] - X[:-1,:]
@@ -244,24 +248,24 @@ class GeneralNN(nn.Module):
             _, du = np.shape(U)
 
             if self.pred_mode == 'Next State':
-                dX = X[1:,:]#-X[:,:-1,:]
+                dX = X[1:,:]
             else:
+                # Next state is the change to the next state
+                # The last state does not have next state data, so remove
                 dX = X[1:,:] - X[:-1,:]
+                X = X[:-1,:]
+                U = U[:-1,:]
 
             # np.where returns true when there are nonzero elements
+            # Removes 0 elements
             dX = dX[np.where(X.any(axis=1))[0]]
             U = U[np.where(X.any(axis=1))[0]]
             X = X[np.where(X.any(axis=1))[0]]
 
-            '''
-            breakpoints = find rows of 0
-            dX = dX[np.where(X.any(axis=1))[0]]
-            U = U[np.where(X.any(axis=1))[0]]
-            X = X[np.where(X.any(axis=1))[0]]
+            # print('Shape of data after removing zeros is: ', np.shape(X))
 
-            if each trajectory is appended with a row of 0s, the breakpoints are at line n and n-1
-            '''
-
+        # OLD CODE BELOW FOR WHEN NORMALIZING ANGLES
+        '''
         # If there are angles to transform, do that now before normalization
         if (len(self.ang_trans_idx) > 0):
             X_angled_part = np.concatenate((
@@ -280,6 +284,7 @@ class GeneralNN(nn.Module):
                 dX = dX_angled_part
             else:
                 dX = np.concatenate((dX_angled_part,dX_no_trans[0].T),axis=1)
+        '''
 
         # print(np.shape(X))
         # print(np.shape(dX))
@@ -296,42 +301,26 @@ class GeneralNN(nn.Module):
         self.scalarU.fit(U)
         self.scalardX.fit(dX)
 
-        import matplotlib.pyplot as plt
-        #plt.hist(dX[:,0], bins=100)
-        #plt.hist(dX[:,1], bins=100)
-        #plt.hist(dX[:,2], bins=100)
-        #plt.hist(dX[:,3], bins=100)
-        #plt.hist(dX[:,4], bins=100)
-        #plt.show()
-        #plt.hist(U[:,0], bins=100)
-        #plt.hist(U[:,1], bins=100)
-        #plt.hist(U[:,2], bins=100)
-        #plt.hist(U[:,3], bins=100)
-        #plt.show()
         #Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(X)
         normU = self.scalarU.transform(U)
         normdX = self.scalardX.transform(dX)
 
-        #print("normalized dX: ")
-        #for i in normdX: print(i)
-        #print("normalized U : ")
-        #for i in normU: print(i)
+        # Tool for plotting the scaled inputs as a histogram
+        if False:
+            plt.hist(normdX[:,0], bins=100)
+            plt.hist(normdX[:,1], bins=100)
+            plt.hist(normdX[:,2], bins=100)
+            plt.hist(normdX[:,3], bins=100)
+            plt.hist(normdX[:,4], bins=100)
+            plt.hist(normdX[:,5], bins=100)
+            plt.show()
+            plt.hist(normU[:,0], bins=100)
+            plt.hist(normU[:,1], bins=100)
+            plt.hist(normU[:,2], bins=100)
+            plt.hist(normU[:,3], bins=100)
+            plt.show()
 
-
-        #plt.hist(normdX[:,0], bins=100)
-        #plt.hist(normdX[:,1], bins=100)
-        #plt.hist(normdX[:,2], bins=100)
-        #plt.hist(normdX[:,3], bins=100)
-        #plt.hist(normdX[:,4], bins=100)
-        #plt.hist(normdX[:,5], bins=100)
-        #plt.show()
-        #plt.hist(normU[:,0], bins=100)
-        #plt.hist(normU[:,1], bins=100)
-        #plt.hist(normU[:,2], bins=100)
-        #plt.hist(normU[:,3], bins=100)
-        #plt.show()
-        #quit()
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
 
@@ -397,7 +386,7 @@ class GeneralNN(nn.Module):
 
         trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
         testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
-        
+
         self.testData = dataset[int(split*len(dataset)):]
 
         #Unclear if we should be using SGD or ADAM? Papers seem to say ADAM works better
@@ -409,8 +398,7 @@ class GeneralNN(nn.Module):
             raise ValueError(optim + " is not a valid optimizer type")
 
 
-        ret = self._optimize(loss_fn, optimizer, epochs, batch_size, trainLoader, testLoader)
-        loss_fn.print_mmlogvars()    
+        ret = self._optimize(self.loss_fnc, optimizer, epochs, batch_size, trainLoader, testLoader)
         return ret
 
     def predict(self, X, U):
@@ -441,7 +429,7 @@ class GeneralNN(nn.Module):
             NNout = self.postprocess(NNout[:int(self.n_out/2)]).ravel()
         else:
             NNout = self.postprocess(NNout).ravel()
-        
+
         return NNout
 
     def _optimize(self, loss_fn, optim, epochs, batch_size, trainLoader, testLoader):
@@ -450,12 +438,20 @@ class GeneralNN(nn.Module):
             avg_loss = Variable(torch.zeros(1))
             num_batches = len(trainLoader)/batch_size
             for i, (input, target) in enumerate(trainLoader):
+
                 input = Variable(input)
                 target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
                 optim.zero_grad()                             # zero the gradient buffers
                 output = self.forward(input)                 # compute the output
-                loss = loss_fn(output, target)                # compute the loss
+                loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
 
+                # add small loss term on the max and min logvariance if probablistic network
+                # note, adding this term will backprob the values properly
+                lambda_logvar = .001
+                if self.prob:
+                    loss += lambda_logvar * torch.sum(self.max_logvar) - lambda_logvar * torch.sum(self.min_logvar)
+
+                # print(self.max_logvar, self.min_logvar)
                 loss.backward()                               # backpropagate from the loss to fill the gradient buffers
                 optim.step()                                  # do a gradient descent step
                 if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
@@ -464,22 +460,15 @@ class GeneralNN(nn.Module):
                     return output, input, loss                 # and give the output and input that made the loss NaN
                 avg_loss += loss.item()/num_batches                  # update the overall average loss with this batch's loss
 
-            # Debugging:
-            # print('NN Output: ', output)
-            # print('Target: ', target)
-            # print(np.shape(output))
-            # print(np.shape(target))
-
+            print(self.max_logvar, self.min_logvar)
             test_error = 0
             for (input, target) in testLoader:                     # compute the testing test_error
                 input = Variable(input)
                 target = Variable(target, requires_grad=False)
                 output = self.forward(input)
-                loss = loss_fn(output, target)
+                loss = loss_fn(output, target, self.max_logvar, self.min_logvar)
                 test_error += loss.item()
             test_error = test_error / len(testLoader)
-
-
 
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
@@ -503,7 +492,7 @@ def predict_nn(model, x, u, indexlist):
     #for idx in indexlist:
     #    x_nn.append(x[idx])
     #x_nn = np.array(x_nn)
-   
+
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
     prediction = np.copy(x)
     pred_mode = model.pred_mode
