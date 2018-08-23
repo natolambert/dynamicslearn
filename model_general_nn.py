@@ -87,8 +87,8 @@ class GeneralNN(nn.Module):
         # Sets loss function
         if prob:
             # INIT max/minlogvar if PNN
-            self.max_logvar = torch.nn.Parameter(torch.tensor(10*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
-            self.min_logvar = torch.nn.Parameter(torch.tensor(-10*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.max_logvar = torch.nn.Parameter(torch.tensor(15*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.min_logvar = torch.nn.Parameter(torch.tensor(-15*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
 
             self.loss_fnc = PNNLoss_Gaussian()
             # print('Here are your current state scaling parameters: ')

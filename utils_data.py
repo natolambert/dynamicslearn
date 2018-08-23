@@ -38,7 +38,7 @@ def stack_trios(change_states, states, actions):
     lst = []
     for (d,a,s) in zip(change_states,states,actions):
         lst.append([d,a,s])
-    print('das shape: ', np.array(lst).shape)
+    # print('das shape: ', np.array(lst).shape)
     return np.array(lst)
 
 def states2delta(states):
