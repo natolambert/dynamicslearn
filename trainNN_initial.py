@@ -89,7 +89,7 @@ if plotting:
 print('...Training NN')
 # Some nn Parameters
 w = 150     # Network width
-e = 250      # number of epochs
+e = 300      # number of epochs
 b  = 32     # batch size
 lr = 7e-6   # learning rate
 prob_flag = True
@@ -103,7 +103,7 @@ newNN = GeneralNN(n_in_input = 4,
                     prob=prob_flag,
                     input_mode = 'Stacked Data',
                     pred_mode = 'Delta State',
-                    depth=2,
+                    depth=3,
                     activation="Swish",
                     B = 1.0,
                     outIdx = [0,1,2,3,4,5],

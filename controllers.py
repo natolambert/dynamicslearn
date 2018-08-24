@@ -3,7 +3,6 @@ import numpy as np
 # import cvxopt           # convex opt package
 
 # Import models files for MPC controller
-from models import *
 import time
 
 class Controller:

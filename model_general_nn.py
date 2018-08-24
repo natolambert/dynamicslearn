@@ -87,8 +87,8 @@ class GeneralNN(nn.Module):
         # Sets loss function
         if prob:
             # INIT max/minlogvar if PNN
-            self.max_logvar = torch.nn.Parameter(torch.tensor(15*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
-            self.min_logvar = torch.nn.Parameter(torch.tensor(-15*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.max_logvar = torch.nn.Parameter(torch.tensor(20*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.min_logvar = torch.nn.Parameter(torch.tensor(-20*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
 
             self.loss_fnc = PNNLoss_Gaussian()
             # print('Here are your current state scaling parameters: ')
@@ -447,7 +447,7 @@ class GeneralNN(nn.Module):
 
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
-                lambda_logvar = .001
+                lambda_logvar = .01
                 if self.prob:
                     loss += lambda_logvar * torch.sum(self.max_logvar) - lambda_logvar * torch.sum(self.min_logvar)
 
@@ -460,7 +460,7 @@ class GeneralNN(nn.Module):
                     return output, input, loss                 # and give the output and input that made the loss NaN
                 avg_loss += loss.item()/num_batches                  # update the overall average loss with this batch's loss
 
-            print(self.max_logvar, self.min_logvar)
+            # print(self.max_logvar, self.min_logvar)
             test_error = 0
             for (input, target) in testLoader:                     # compute the testing test_error
                 input = Variable(input)
