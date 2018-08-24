@@ -67,6 +67,14 @@ Objv = Objv[np.array(np.where(Ts != 0)).flatten()]
 Ts = Ts[np.array(np.where(Ts != 0)).flatten()]
 Time = Time[np.array(np.where(Ts != 0)).flatten()]
 
+
+# remove repeated euler angles
+if True:
+    X = X[np.all(X[:,3:] !=0, axis=1)]
+    U = U[np.all(X[:,3:] !=0, axis=1)]
+    dX = dX[np.all(X[:,3:] !=0, axis=1)]
+
+
 # plot
 if True:
     font = {'family' : 'normal',
@@ -77,7 +85,8 @@ if True:
 
     start_time = Time[0]
     scaled_time = (Time[:]-start_time)/1000000
-    fig_new_data, ax1 = plt.subplots()
+
+    ax1 = plt.subplot(311)
     plt.title('Autonomous Flight Data')
 
     ax1.plot(scaled_time, X[:,3:])
@@ -85,13 +94,23 @@ if True:
     ax1.set_ylabel('Angle (degrees)')
     ax1.set_xlabel('Time (ms)')
 
-    ax2 = ax1.twinx()
-    ax2.plot(scaled_time, Objv, color='r')
-    ax2.set_ylabel('Objective Function Value')
-    ax2.set_ylim([0,1000])
+    # ax2 = ax1.twinx()
+    ax4 = plt.subplot(312)
+    ax4.plot(scaled_time, X[:,0],color='m')
+    ax4.plot(scaled_time, X[:,1],color='c')
+    ax4.plot(scaled_time, X[:,2],color='y')
+    ax4.set_ylabel('Angular Accel (deg/s^2)')
+    ax4.set_ylim([-400,400])
 
     ax1.legend(['pitch', 'roll', 'yaw'],loc=2)
-    ax2.legend(['Objective Function'],loc=1)
+    ax4.legend(['omega_x','omega_y','omega_z'],loc=2)
+
+    ax3 = plt.subplot(313)
+    ax3.plot(scaled_time, Objv, color='r')
+    ax3.set_ylabel('Objective Function Value')
+    ax3.set_ylim([0,1000])
+    ax3.set_xlabel('Time (ms)')
+
     plt.show()
 # continue training the network
 print(np.shape(X))

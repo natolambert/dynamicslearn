@@ -92,6 +92,7 @@ w = 150     # Network width
 e = 300      # number of epochs
 b  = 32     # batch size
 lr = 7e-6   # learning rate
+depth = 3
 prob_flag = True
 
 # Initialize
@@ -103,7 +104,7 @@ newNN = GeneralNN(n_in_input = 4,
                     prob=prob_flag,
                     input_mode = 'Stacked Data',
                     pred_mode = 'Delta State',
-                    depth=3,
+                    depth=depth,
                     activation="Swish",
                     B = 1.0,
                     outIdx = [0,1,2,3,4,5],
@@ -124,7 +125,7 @@ plt.show()
 dir_str = str('_models/temp/')
 date_str = str(datetime.datetime.now())[:-5]
 date_str = date_str.replace(' ','--').replace(':', '-')
-info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "d=" + str(data_name) + "p=" + str(prob_flag)
+info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(depth) + "p=" + str(prob_flag) + "da=" + str(data_name)
 model_name = dir_str + date_str + info_str
 newNN.save_model(model_name + '.pth')
 
