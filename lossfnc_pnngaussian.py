@@ -55,19 +55,6 @@ class PNNLoss_Gaussian(torch.nn.Module):
     def get_datascaler(self):
         return self.scalers
 
-    # def print_mmlogvars(self):
-    #     print("Max log var: ", self.max_logvar, " Min log var: ", self.min_logvar)
-    #
-    # def def_maxminlogvar(self, scalers, max_logvar, min_logvar):
-    #     # Loads logvars for data if not initialized above HARD CODED
-    #     if not (torch.is_tensor(scalers) and torch.is_tensor(max_logvar) and torch.is_tensor(min_logvar)):
-    #         raise ValueError("Attempted to set a non tensor variable in the loss function")
-    #
-    #     # sets values
-    #     self.scalers    = scalers # scalers for pink_long_hover_clean
-    #     self.max_logvar = max_logvar # logvar for x,y,z,p,r,y from pink_long_hover_clean
-    #     self.min_logvar = min_logvar # logvar for x,y,z,p,r,y from pink_long_hover_clean
-
     def softplus_raw(self,input):
         # Performs the elementwise softplus on the input
         # softplus(x) = 1/B * log(1+exp(B*x))
@@ -89,7 +76,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         mean = output[:,:d]
         logvar = output[:,d:]
 
-        lambda_cov = 1 # scaling the log(cov()) term in loss function
+        lambda_cov = 3 # scaling the log(cov()) term in loss function
         lambda_mean = 1
 
         # Caps max and min log to avoid NaNs

@@ -96,7 +96,7 @@ class GeneralNN(nn.Module):
             # print('Note: you can change these by calling self.loss_fnc.def_maxminlogvar(scalers, max_logvar, min_logvar)')
             # print('\t Please make sure these are tensor objects')
         else:
-            self.loss_fnc = nn.MSELoss
+            self.loss_fnc = nn.MSELoss()
 
         # Probablistic nueral networks have an extra output for each prediction parameter to track variance
         if prob:
@@ -443,8 +443,10 @@ class GeneralNN(nn.Module):
                 target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
                 optim.zero_grad()                             # zero the gradient buffers
                 output = self.forward(input)                 # compute the output
-                loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
-
+                if self.prob:
+                    loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
+                else:
+                    loss = loss_fn(output, target)
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
                 lambda_logvar = .01
@@ -466,7 +468,10 @@ class GeneralNN(nn.Module):
                 input = Variable(input)
                 target = Variable(target, requires_grad=False)
                 output = self.forward(input)
-                loss = loss_fn(output, target, self.max_logvar, self.min_logvar)
+                if self.prob:
+                    loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
+                else:
+                    loss = loss_fn(output, target)
                 test_error += loss.item()
             test_error = test_error / len(testLoader)
 

@@ -49,7 +49,7 @@ x1 = crazy1.simulate(x0,u0)
 ############################## LOADING DATA ###############################
 print('...Loading Data')
 data_dir = '_logged_data/pink-cf1/'
-data_name = '2018_08_22_cf1_hover_'
+data_name = '2018_08_22_cf1_activeflight_'
 Seqs_X = np.loadtxt(open(data_dir + data_name + 'Seqs_X.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
 Seqs_U = np.loadtxt(open(data_dir + data_name + 'Seqs_U.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
 Seqs_dX = Seqs_X[1:,:]-Seqs_X[:-1,:]
