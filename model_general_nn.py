@@ -208,7 +208,7 @@ class GeneralNN(nn.Module):
         x = self.features(x)
         return x.view(x.size(0), -1)
 
-    def preprocess(self, X, U):
+    def preprocess(self, dataset):# X, U):
         """
         Preprocess X and U for passing into the neural network. For simplicity, takes in X and U as they are output from generate data, but only passed the dimensions we want to prepare for real testing. This removes a lot of potential questions that were bugging me in the general implementation. Will do the cosine and sin conversions externally.
         """
@@ -216,86 +216,60 @@ class GeneralNN(nn.Module):
         # [yaw, pitch, roll, x_ddot, y_ddot, z_ddot]  to
         # [sin(yaw), sin(pitch), sin(roll), cos(pitch), cos(yaw),  cos(roll), x_ddot, y_ddot, z_ddot]
         # dX = np.array([utils_data.states2delta(val) for val in X])
-        if self.input_mode == 'Trajectories':
-            # if passed trajectories rather than a 2d array
-            n, l, dx = np.shape(X)
-            _, _, du = np.shape(U)
+        if len(dataset) == 3:
+            X = dataset[0]
+            U = dataset[1]
+            dX = dataset[2]
+        elif len(dataset) ==2:
+            X = dataset[0]
+            U = dataset[1]
+            if self.input_mode == 'Trajectories':
+                # if passed trajectories rather than a 2d array
+                n, l, dx = np.shape(X)
+                _, _, du = np.shape(U)
 
-            # calcualte dX on trajectories rather than stacked elements
-            if self.pred_mode == 'Next State':
-                dX = X[:,1:,:]#-X[:,:-1,:]
+                # calcualte dX on trajectories rather than stacked elements
+                if self.pred_mode == 'Next State':
+                    dX = X[:,1:,:]#-X[:,:-1,:]
+                else:
+                    dX = X[:,1:,:] - X[:,:-1,:]
+
+                print("dX shape : ", dX.shape)
+                dX = dX[:,:,self.outIdx]
+                print("dX shape : ", dX.shape)
+
+                # Ignore last element of X and U sequences because do not see next state
+                X = X[:,:-1,:]
+                U = U[:,:-1,:]
+
+                # reshape
+                X = X.reshape(-1, dx)
+                U = U.reshape(-1, du)
+                dX = dX.reshape(-1, len(self.outIdx))
             else:
-                dX = X[:,1:,:] - X[:,:-1,:]
+                # ELSE: already 2d form, assumed the next state is removed. Assumed that dX can be calculated nicely
+                # dX = X[1:,:] - X[:-1,:]
+                # At the end of each trajectory a line of zeros
+                n, dx = np.shape(X)
+                _, du = np.shape(U)
 
-            print("dX shape : ", dX.shape)
-            dX = dX[:,:,self.outIdx]
-            print("dX shape : ", dX.shape)
+                if self.pred_mode == 'Next State':
+                    dX = X[1:,:]
+                else:
+                    # Next state is the change to the next state
+                    # The last state does not have next state data, so remove
+                    dX = X[1:,:] - X[:-1,:]
+                    X = X[:-1,:]
+                    U = U[:-1,:]
 
-            # Ignore last element of X and U sequences because do not see next state
-            X = X[:,:-1,:]
-            U = U[:,:-1,:]
+                # np.where returns true when there are nonzero elements
+                # Removes 0 elements
+                dX = dX[np.where(X.any(axis=1))[0]]
+                U = U[np.where(X.any(axis=1))[0]]
+                X = X[np.where(X.any(axis=1))[0]]
 
-            # reshape
-            X = X.reshape(-1, dx)
-            U = U.reshape(-1, du)
-            dX = dX.reshape(-1, len(self.outIdx))
+                # print('Shape of data after removing zeros is: ', np.shape(X))
 
-        else:
-            # ELSE: already 2d form, assumed the next state is removed. Assumed that dX can be calculated nicely
-            # dX = X[1:,:] - X[:-1,:]
-            # At the end of each trajectory a line of zeros
-            n, dx = np.shape(X)
-            _, du = np.shape(U)
-
-            if self.pred_mode == 'Next State':
-                dX = X[1:,:]
-            else:
-                # Next state is the change to the next state
-                # The last state does not have next state data, so remove
-                dX = X[1:,:] - X[:-1,:]
-                X = X[:-1,:]
-                U = U[:-1,:]
-
-            # np.where returns true when there are nonzero elements
-            # Removes 0 elements
-            dX = dX[np.where(X.any(axis=1))[0]]
-            U = U[np.where(X.any(axis=1))[0]]
-            X = X[np.where(X.any(axis=1))[0]]
-
-            # print('Shape of data after removing zeros is: ', np.shape(X))
-
-        # OLD CODE BELOW FOR WHEN NORMALIZING ANGLES
-        '''
-        # If there are angles to transform, do that now before normalization
-        if (len(self.ang_trans_idx) > 0):
-            X_angled_part = np.concatenate((
-                np.sin(X[:,self.ang_trans_idx]), np.cos(X[:,self.ang_trans_idx])),axis=1)
-            X_no_trans = np.array([X[:,i] for i in range(dx) if i not in self.ang_trans_idx])
-            if len(self.ang_trans_idx) == dx:
-                X = X_angled_part
-            else:
-                X = np.concatenate((X_angled_part,X_no_trans.T),axis=1)
-
-            # doing this preemptively made more issues. Post process dX here too
-            dX_angled_part = np.concatenate((
-                np.sin(dX[:,self.ang_trans_idx]), np.cos(dX[:,self.ang_trans_idx])),axis=1)
-            dX_no_trans = [dX[:,i] for i in range(dx) if i not in self.ang_trans_idx]
-            if len(self.ang_trans_idx) == dx:
-                dX = dX_angled_part
-            else:
-                dX = np.concatenate((dX_angled_part,dX_no_trans[0].T),axis=1)
-        '''
-
-        # print(np.shape(X))
-        # print(np.shape(dX))
-        #at this point they should look like input output pairs
-        #if dX.shape != X.shape:
-        #    raise ValueError('Something went wrong, modified X shape:' + str(dX.shape) + ' dX shape:' + str(X.shape))
-
-        #update mean and variance of the dataset with each training pass
-        #self.scalarX.partial_fit(X)
-        #self.scalarU.partial_fit(U)
-        #self.scalardX.partial_fit(dX)
 
         self.scalarX.fit(X)
         self.scalarU.fit(U)
@@ -372,7 +346,7 @@ class GeneralNN(nn.Module):
         split is train/test split ratio
         """
         if preprocess:
-            dataset = self.preprocess(dataset[0], dataset[1])
+            dataset = self.preprocess(dataset)#[0], dataset[1])
             # print('Shape of dataset is:', len(dataset))
 
         if self.prob:

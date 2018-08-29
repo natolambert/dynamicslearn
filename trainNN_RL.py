@@ -129,10 +129,10 @@ Seqs_U = Seqs_U[:-1]
 # print(np.shape(X_merge))
 
 w = 150     # Network width
-e = 360      # number of epochs
+e = 300      # number of epochs
 b  = 50     # batch size
 lr = 2.5e-5   # learning rate
-depth = 4
+depth = 2
 prob_flag = True
 
 # Initialize
@@ -151,8 +151,9 @@ newNN = GeneralNN(n_in_input = 4,
                     dropout=0.5,
                     split_flag = True)
 
+
 # Train
-acc = newNN.train((X_rl, U_rl),
+acc = newNN.train((X_rl, U_rl, dX_rl),
                     learning_rate = lr,
                     epochs=e,
                     batch_size = b,
@@ -165,7 +166,7 @@ plt.show()
 dir_str = str('_models/temp_reinforced/')
 date_str = str(datetime.datetime.now())[:-5]
 date_str = date_str.replace(' ','--').replace(':', '-')
-info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(d) + "d=" + str(data_name) + "p=" + str(prob_flag)
+info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(depth) + "d=" + str(data_name) + "p=" + str(prob_flag)
 model_name = dir_str + date_str + info_str
 newNN.save_model(model_name + '.pth')
 
