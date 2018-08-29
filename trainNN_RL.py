@@ -23,11 +23,11 @@ import csv
 from enum import Enum
 
 # load network
-model_name = '_models/current_best/2018-08-23--14-21-35.9||w=150e=250lr=7e-06b=32d=2018_08_22_cf1_hover_p=True.pth'
-newNN = torch.load(model_name)
-
-with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
-    normX,normU,normdX = pickle.load(pickle_file)
+# model_name = '_models/current_best/2018-08-23--14-21-35.9||w=150e=250lr=7e-06b=32d=2018_08_22_cf1_hover_p=True.pth'
+# newNN = torch.load(model_name)
+#
+# with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
+#     normX,normU,normdX = pickle.load(pickle_file)
 
 new_data = []
 # load new data
@@ -111,17 +111,17 @@ def trim_load(fname):
 
         return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time)
 
-X_rl, U_rl, dX_rl = stack_dir("Aug_24th/")
+X_rl, U_rl, dX_rl = stack_dir("Aug_29th_125/")
 new_data = np.array(new_data)
 
 # manual data
-data_dir = '_logged_data/pink-cf1/'
-data_name = '2018_08_22_cf1_activeflight_'
-Seqs_X = np.loadtxt(open(data_dir + data_name + 'Seqs_X.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-Seqs_U = np.loadtxt(open(data_dir + data_name + 'Seqs_U.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-Seqs_dX = Seqs_X[1:,:]-Seqs_X[:-1,:]
-Seqs_X = Seqs_X[:-1]
-Seqs_U = Seqs_U[:-1]
+# data_dir = '_logged_data/pink-cf1/'
+# data_name = '2018_08_22_cf1_activeflight_'
+# Seqs_X = np.loadtxt(open(data_dir + data_name + 'Seqs_X.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
+# Seqs_U = np.loadtxt(open(data_dir + data_name + 'Seqs_U.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
+# Seqs_dX = Seqs_X[1:,:]-Seqs_X[:-1,:]
+# Seqs_X = Seqs_X[:-1]
+# Seqs_U = Seqs_U[:-1]
 
 # X_merge = np.concatenate((Seqs_X, X_rl), axis=0)
 # U_merge = np.concatenate((Seqs_U, U_rl), axis=0)
@@ -132,7 +132,7 @@ w = 150     # Network width
 e = 300      # number of epochs
 b  = 50     # batch size
 lr = 2.5e-5   # learning rate
-depth = 2
+depth = 3
 prob_flag = True
 
 # Initialize
@@ -165,6 +165,7 @@ plt.show()
 # Saves NN params
 dir_str = str('_models/temp_reinforced/')
 date_str = str(datetime.datetime.now())[:-5]
+data_name = '_AUG29_125RL'
 date_str = date_str.replace(' ','--').replace(':', '-')
 info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(depth) + "d=" + str(data_name) + "p=" + str(prob_flag)
 model_name = dir_str + date_str + info_str
