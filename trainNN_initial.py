@@ -52,74 +52,104 @@ data_dir = '_logged_data/pink-cf1/'
 data_name = '2018_08_22_cf1_activeflight_'
 Seqs_X = np.loadtxt(open(data_dir + data_name + 'Seqs_X.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
 Seqs_U = np.loadtxt(open(data_dir + data_name + 'Seqs_U.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
+Seqs_X = Seqs_X[:2500,:]
+Seqs_U = Seqs_U[:2500,:]
+
+
+# Takes only angles!
+Seqs_X = Seqs_X[:,3:]
 Seqs_dX = Seqs_X[1:,:]-Seqs_X[:-1,:]
 Seqs_X = Seqs_X[:-1]
 Seqs_U = Seqs_U[:-1]
 
 # remove repeated euler angles
-Seqs_X = Seqs_X[np.all(Seqs_dX[:,3:] !=0, axis=1)]
-Seqs_U = Seqs_U[np.all(Seqs_dX[:,3:] !=0, axis=1)]
-Seqs_dX = Seqs_dX[np.all(Seqs_dX[:,3:] !=0, axis=1)]
+Seqs_X = Seqs_X[np.all(Seqs_dX[:,:] !=0, axis=1)]
+Seqs_U = Seqs_U[np.all(Seqs_dX[:,:] !=0, axis=1)]
+Seqs_dX = Seqs_dX[np.all(Seqs_dX[:,:] !=0, axis=1)]
 
+glag = (
+    ((Seqs_dX[:,0] > -5) & (Seqs_dX[:,0] < 5)) &
+    ((Seqs_dX[:,1] > -5) & (Seqs_dX[:,1] < 5)) &
+    ((Seqs_dX[:,2] > -5) & (Seqs_dX[:,2] < 5))
+)
+
+# glag = (
+#     ((Seqs_dX[:,0] > -90) & (Seqs_dX[:,0] < 90)) &
+#     ((Seqs_dX[:,1] > -90) & (Seqs_dX[:,1] < 90)) &
+#     ((Seqs_dX[:,2] > -90) & (Seqs_dX[:,2] < 90)) &
+#     ((Seqs_dX[:,3] > -5) & (Seqs_dX[:,3] < 5)) &
+#     ((Seqs_dX[:,4] > -5) & (Seqs_dX[:,4] < 5)) &
+#     ((Seqs_dX[:,5] > -5) & (Seqs_dX[:,5] < 5))
+# )
+
+Seqs_X = Seqs_X[glag,:]
+Seqs_dX = Seqs_dX[glag,:]
+Seqs_U = Seqs_U[glag,:]
+
+# SHUFFLES DATA
+n, dx = np.shape(Seqs_X)
+shuff = np.random.permutation(n)
+Seqs_X = Seqs_X[shuff,:]
+Seqs_dX = Seqs_dX[shuff,:]
+Seqs_U = Seqs_U[shuff,:]
 # plt.plot(Seqs_dX[:,:])
 # plt.legend(['omeg_x', 'omeg_y','omeg_z', 'pitch', 'roll', 'yaw'])
 # plt.show()
 # quit()
 
+# Only angles
+# Seqs_dX = Seqs_dX[:,3:]
+
 print('  State data of shape: ', np.shape(Seqs_X))
 print('  Input data of shape: ', np.shape(Seqs_U))
 
-# handles functions for processing raw logged data
-raw_data = False
-if raw_data:
-    # will need to use the following functions:
-    # unpack_cf_imu()
-    # unpack_cf_pwm()
-    # may need to make one for only accelerations
-    print('')
-    # NOTE this will be one function in future version
-
-plotting = False
-if plotting:
-    # currently plotting needs a different data structure
-    # NOTE This will be depreciated in future versions
-    data = sequencesXU2array(Seqs_X, Seqs_U)
 
 ############################## Training NN ###############################
 print('...Training NN')
 # Some nn Parameters
-w = 150     # Network width
+w = 500     # Network width
 e = 300      # number of epochs
 b  = 32     # batch size
-lr = 7e-6   # learning rate
+lr = .0005   # learning rate
 depth = 3
-prob_flag = True
+prob_flag = False
 
 # Initialize
 newNN = GeneralNN(n_in_input = 4,
-                    n_in_state = 6,
+                    n_in_state = 3,
                     hidden_w=w,
-                    n_out = 6,
+                    n_out = 3,
                     state_idx_l=[0,1,2,3,4,5],
                     prob=prob_flag,
                     input_mode = 'Stacked Data',
                     pred_mode = 'Delta State',
                     depth=depth,
-                    activation="Swish",
+                    activation="Softsign",
                     B = 1.0,
                     outIdx = [0,1,2,3,4,5],
-                    dropout=0.5,
-                    split_flag = True)
+                    dropout=0.0,
+                    split_flag = False)
 
 # Train
-acc = newNN.train((Seqs_X, Seqs_U),
+acctest, acctrain  = newNN.train_cust((Seqs_X, Seqs_U, Seqs_dX),
                     learning_rate = lr,
                     epochs=e,
                     batch_size = b,
-                    optim="Adam")
+                    optim="Adam",
+                    split=.8)
 
-plt.plot(acc)
+min_err = min(acctrain)
+ax1 = plt.subplot(111)
+ax1.set_yscale('log')
+ax1.plot(acctest, label = 'Test Accurcay')
+plt.title('Test  Train Accuracy')
+# ax2 = plt.subplot(212)
+ax1.plot(acctrain, label = 'Train Accurcay')
+plt.title('Training Accuracy')
+ax1.legend()
 plt.show()
+# plt.plot(acc)
+# plt.show()
 
 # Saves NN params
 dir_str = str('_models/temp/')

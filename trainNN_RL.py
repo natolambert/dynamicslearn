@@ -17,7 +17,7 @@ import os
 # Plotting
 import matplotlib.pyplot as plt
 import matplotlib
-
+import torch.nn as nn
 from mpl_toolkits.mplot3d import Axes3D
 import csv
 from enum import Enum
@@ -29,149 +29,300 @@ from enum import Enum
 # with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
 #     normX,normU,normdX = pickle.load(pickle_file)
 
-new_data = []
-# load new data
-with open('_logged_data_autonomous/Aug_24th/flight_log-20180824-153552.csv', "rb") as csvfile:
-    new_data = np.loadtxt(csvfile, delimiter=",")
+# new_data = []
+# # load new data
+# with open('_logged_data_autonomous/Aug_24th/flight_log-20180824-153552.csv', "rb") as csvfile:
+#     new_data = np.loadtxt(csvfile, delimiter=",")
 
-def stack_dir(dir):
-    '''
-    Takes in a directory and saves the compiled tests into one numpy .npz in
-    _logged_data_autonomous/compiled/
-    '''
-    files = os.listdir("_logged_data_autonomous/"+dir)
+# X_rl, U_rl, dX_rl = stack_dir("/rostime_false/")
 
-    X = []
-    U = []
-    dX = []
-    for f in files:
-        # print(f)
-        # with open(f, "rb") as csvfile:
-        #     new_data = np.loadtxt(csvfile, delimiter=",")
-        X_t, U_t, dX_t, _, _, _ = trim_load("_logged_data_autonomous/"+dir+f)
-        if X == []:
-            X = X_t
-        else:
-            X = np.append(X, X_t, axis=0)
+delta = True
+input_stack = 4
+# X_rl, U_rl, dX_rl = stack_dir("/sep9_150_ng/", delta = delta, input_stack = input_stack)
+# X_rl_2, U_rl_2, dX_rl_2 = stack_dir("/sep9_150_ng2/", delta = delta, input_stack = input_stack)
+# X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep10_150_ng/", delta = delta, input_stack = input_stack)
+# X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep10_150_ng2/", delta = delta, input_stack = input_stack)
+# X_rl_4, U_rl_4, dX_rl_4 = stack_dir("/sep10_150_ng3/", delta = delta, input_stack = input_stack)
 
-        if U == []:
-            U = U_t
-        else:
-            U = np.append(U, U_t, axis=0)
+X_rl, U_rl, dX_rl = stack_dir("/sep12_float/", delta = delta, input_stack = input_stack)
+X_rl_2, U_rl_2, dX_rl_2 = stack_dir("/sep13_150/", delta = delta, input_stack = input_stack)
+# X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep13_150_2/", delta = delta, input_stack = input_stack)
+# X_rl_4, U_rl_4, dX_rl_4 = stack_dir("/sep14_150_2/", delta = delta, input_stack = input_stack, takeoff=True)
+# X_rl_5, U_rl_5, dX_rl_5 = stack_dir("/sep14_150_3/", delta = delta, input_stack = input_stack, takeoff=True)
+# X_rl_6, U_rl_6, dX_rl_6 = stack_dir("/sep14_150_4/", delta = delta, input_stack = input_stack, takeoff=True)
 
-        if dX == []:
-            dX = dX_t
-        else:
-            dX = np.append(dX, dX_t, axis=0)
 
-    print('Directory: ', dir, ' has additional trimmed datapoints: ', np.shape(X)[0])
-    return np.array(X), np.array(U), np.array(dX)
+# quit()
+X = X_rl
+U = U_rl
+dX = dX_rl
+X = np.concatenate((X_rl,X_rl_2),axis=0)
+U = np.concatenate((U_rl,U_rl_2),axis=0)
+dX = np.concatenate((dX_rl,dX_rl_2),axis=0)
 
-def trim_load(fname):
-    '''
-    Opens the directed csv file and returns the arrays we want
-    '''
-    with open(fname, "rb") as csvfile:
-        new_data = np.loadtxt(csvfile, delimiter=",")
-        X = new_data[:,:6]
-        U = new_data[:,6:10]
-        Time = new_data[:,10]
-        Objv = new_data[:,11]
+# X = np.concatenate((X_rl,X_rl_2,X_rl_3),axis=0)
+# U = np.concatenate((U_rl,U_rl_2, U_rl_3),axis=0)
+# dX = np.concatenate((dX_rl,dX_rl_2, dX_rl_3),axis=0)
 
-        # Reduces by length one for training
-        dX = X[1:,:]-X[:-1,:]
-        X = X[:-1,:]
-        U = U[:-1,:]
-        Ts = (Time[1:]-Time[:-1])/1000000   # converts deltaT to ms for easy check if data was dropped
-        Objv = Objv[:-1]
-        Time = Time[:-1]
+# X = np.concatenate((X_rl,X_rl_2,X_rl_3,X_rl_4),axis=0)
+# U = np.concatenate((U_rl,U_rl_2, U_rl_3, U_rl_4),axis=0)
+# dX = np.concatenate((dX_rl,dX_rl_2, dX_rl_3, dX_rl_4),axis=0)
+#
+# X = np.concatenate((X_rl,X_rl_2,X_rl_3,X_rl_4, X_rl_5),axis=0)
+# U = np.concatenate((U_rl,U_rl_2, U_rl_3, U_rl_4, U_rl_5),axis=0)
+# dX = np.concatenate((dX_rl,dX_rl_2, dX_rl_3, dX_rl_4, dX_rl_5),axis=0)
 
-        # Remove data where the timestep is wrong
-        # Remove data if timestep above 10ms
-        X = X[np.array(np.where(Ts < 10)).flatten(),:]
-        U = U[np.array(np.where(Ts < 10)).flatten(),:]
-        dX = dX[np.array(np.where(Ts < 10)).flatten(),:]
-        Objv = Objv[np.array(np.where(Ts < 10)).flatten()]
-        Ts = Ts[np.array(np.where(Ts < 10)).flatten()]
-        Time = Time[np.array(np.where(Ts < 10)).flatten()]
+# X = np.concatenate((X_rl,X_rl_2,X_rl_3,X_rl_4, X_rl_5, X_rl_6),axis=0)
+# U = np.concatenate((U_rl,U_rl_2, U_rl_3, U_rl_4, U_rl_5, U_rl_6),axis=0)
+# dX = np.concatenate((dX_rl,dX_rl_2, dX_rl_3, dX_rl_4, dX_rl_5, dX_rl_6),axis=0)
 
-        # Remove data where Ts = 0
-        X = X[np.array(np.where(Ts != 0)).flatten(),:]
-        U = U[np.array(np.where(Ts != 0)).flatten(),:]
-        dX = dX[np.array(np.where(Ts != 0)).flatten(),:]
-        Objv = Objv[np.array(np.where(Ts != 0)).flatten()]
-        Ts = Ts[np.array(np.where(Ts != 0)).flatten()]
-        Time = Time[np.array(np.where(Ts != 0)).flatten()]
+# print(len(X))
+#
 
-        # remove repeated euler angles
-        if True:
-            X = X[np.all(X[:,3:] !=0, axis=1)]
-            U = U[np.all(X[:,3:] !=0, axis=1)]
-            dX = dX[np.all(X[:,3:] !=0, axis=1)]
+# print(np.shape(X))
+# print(np.shape(dX))
+# X = np.delete(X,[0,1,2,10,11,12],1)
+# dX = np.delete(dX, [0,1,2],1)
+# dX = np.delete(dX, [2,5,8],1)
+# print(np.shape(X))
+# print(np.shape(dX))
 
-        return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time)
+# print(np.unique(U))
+#
+# X = X_rl_3
+# dX = dX_rl_3
+# U = U_rl_3
+# pitch = X[:,3]
+# roll = X[:,4]
+# MSE = ((pitch)**2+(roll**2)).mean()
+# print(MSE)
+# quit()
 
-X_rl, U_rl, dX_rl = stack_dir("Aug_29th_125/")
-new_data = np.array(new_data)
 
-# manual data
-# data_dir = '_logged_data/pink-cf1/'
-# data_name = '2018_08_22_cf1_activeflight_'
-# Seqs_X = np.loadtxt(open(data_dir + data_name + 'Seqs_X.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-# Seqs_U = np.loadtxt(open(data_dir + data_name + 'Seqs_U.csv', 'r', encoding='utf-8'), delimiter=",", skiprows=1)
-# Seqs_dX = Seqs_X[1:,:]-Seqs_X[:-1,:]
-# Seqs_X = Seqs_X[:-1]
-# Seqs_U = Seqs_U[:-1]
+w = 500     # Network width
+e = 60 #450      # number of epochs
+b  = 32
 
-# X_merge = np.concatenate((Seqs_X, X_rl), axis=0)
-# U_merge = np.concatenate((Seqs_U, U_rl), axis=0)
-# continue training the network
-# print(np.shape(X_merge))
-
-w = 150     # Network width
-e = 300      # number of epochs
-b  = 50     # batch size
-lr = 2.5e-5   # learning rate
+     # batch size was 32
+lr = .0003 #.002  # .003    # learning rate was .005, .01 for adam
+# lr = 3e-3    # learning rate
+dims = [0,1,2,3,4,5,6,7,8]
 depth = 3
 prob_flag = True
+#
+dX = dX#[:, 3:6]
+# print(np.mean(X[:,6:], axis=0))
+# quit()
+X = X #[:, 3:6]
+
+# delta = True
+# if delta:
+#     data =
+# else:
+#     data =
+
+# remove repeated euler angles
+# X = X[np.all(dX[:,:] !=0, axis=1)]
+# U = U[np.all(dX[:,:] !=0, axis=1)]
+# dX = dX[np.all(dX[:,:] !=0, axis=1)]
+# print(np.shape(dX))
+
+n, d_o = np.shape(dX)
+_, dx = np.shape(X)
+_, du = np.shape(U)
+print(du)
+print(dx)
+def init_weights(m):
+    if type(m) == nn.Linear:
+        torch.nn.init.orthogonal_(m.weight)
+        # m.bias.data.fill_(0.01)
 
 # Initialize
-newNN = GeneralNN(n_in_input = 4,
-                    n_in_state = 6,
+newNN = GeneralNN(n_in_input = du,
+                    n_in_state = len(dims)*input_stack,
                     hidden_w=w,
-                    n_out = 6,
-                    state_idx_l=[0,1,2,3,4,5],
+                    n_out = d_o, #len(dims),
+                    state_idx_l=dims,
                     prob=prob_flag,
                     input_mode = 'Stacked Data',
                     pred_mode = 'Delta State',
                     depth=depth,
                     activation="Swish",
                     B = 1.0,
-                    outIdx = [0,1,2,3,4,5],
-                    dropout=0.5,
-                    split_flag = True)
+                    outIdx = dims,
+                    dropout=0.0,
+                    split_flag = False)
 
+newNN.features.apply(init_weights)
+
+# Checks the loss function scalers because these were wrong for a long time
+if prob_flag:
+    print('REMINDER: Did you check the scalars?')
+    print(np.std(dX,axis=0))
+    newNN.loss_fnc.scalers = torch.Tensor(np.std(dX,axis=0))
+    # newNN.loss_fnc.scalers = torch.Tensor([.1, .1, .01, 10, 10,.5, 1, 1, 1])
+    print(newNN.loss_fnc.scalers)
+    print('Do the two values above match?')
 
 # Train
-acc = newNN.train((X_rl, U_rl, dX_rl),
+acctest, acctrain = newNN.train_cust((X, U, dX),
                     learning_rate = lr,
                     epochs=e,
                     batch_size = b,
-                    optim="Adam")
+                    optim="Adam",
+                    split=0.8)
 
-plt.plot(acc)
+min_err = min(acctrain)
+min_err_test = min(acctest)
+ax1 = plt.subplot(211)
+ax1.set_yscale('log')
+ax1.plot(acctest, label = 'Test Accurcay')
+plt.title('Test  Train Accuracy')
+ax2 = plt.subplot(212)
+# ax2.set_yscale('log')
+ax2.plot(acctrain, label = 'Train Accurcay')
+plt.title('Training Accuracy')
+ax1.legend()
 plt.show()
-
+# print(acc[::10])
 # Saves NN params
 dir_str = str('_models/temp_reinforced/')
 date_str = str(datetime.datetime.now())[:-5]
-data_name = '_AUG29_125RL'
+data_name = '_CONF_'
 date_str = date_str.replace(' ','--').replace(':', '-')
-info_str = "||w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(depth) + "d=" + str(data_name) + "p=" + str(prob_flag)
+info_str = "--Min error"+ str(min_err_test)+ "--w=" + str(w) + "e=" + str(e) + "lr=" + str(lr) + "b=" + str(b) + "de=" + str(depth) + "d=" + str(data_name) + "p=" + str(prob_flag)
 model_name = dir_str + date_str + info_str
 newNN.save_model(model_name + '.pth')
-
+print('Saving model to', model_name)
 normX, normU, normdX = newNN.getNormScalers()
-with open(model_name+"||normparams.pkl", 'wb') as pickle_file:
+with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
   pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
 time.sleep(2)
+
+quit()
+delta = True
+pred_dims = [0,1,2,3,4,5,6,7,8]
+n = np.shape(xs)[0]
+print(n)
+# Now need to iterate through all data and plot
+predictions_1 = np.empty((0,np.shape(xs)[1]))
+print(np.shape(predictions_1))
+for (dx, x, u) in zip(dxs, xs, us):
+    # grab prediction value
+    # pred = model.predict(x,u)
+    pred = predict_nn(nn1,x,u, pred_dims)
+
+    # print(np.shape(pred))
+    #print('prediction: ', pred, ' x: ', x)
+    if delta:
+      pred = pred - x
+    # print(pred)
+    predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
+    # print(pred)
+print(np.shape(predictions_1))
+
+# Return evaluation along each dimension of the model
+MSE = np.zeros(len(pred_dims))
+print(np.shape(dxs))
+
+for i, d in enumerate(pred_dims):
+    se = (predictions_1[:,d] - dxs[:,i])**2
+    # se = (predictions_1[:,d] - dxs[:,i])**2
+    mse = np.mean(se)
+    MSE[i] = mse
+print('MSE Across Learned Dimensions')
+print(MSE)
+
+
+quit()
+
+delta = True
+sort = True
+
+# newNN.eval()
+
+model_1 = '_models/temp_reinforced/2018-09-07--07-33-00.2--Min error-89.02649255701013||w=500e=600lr=0.001b=20de=2d=_SEP6p=True.pth'
+# Load a NN model with:
+nn1 = torch.load(model_1)
+nn1.training = False
+nn1.eval()
+with open(model_1[:-4]+'||normparams.pkl', 'rb') as pickle_file:
+    normX1,normU1,normdX1 = pickle.load(pickle_file)
+
+X_rl, U_rl, dX_rl = stack_dir("Sep_5_rand/")
+# # X_rl_2, U_rl_2, dX_rl_2 = stack_dir("Aug_29th_125_2/")
+#
+#
+# # xs = np.concatenate((X_rl,X_rl_2),axis=0)
+# # us = np.concatenate((U_rl,U_rl_2),axis=0)
+# # dxs = np.concatenate((dX_rl,dX_rl_2),axis=0)
+xs = X_rl
+us = U_rl
+dxs = dX_rl
+dims = [0,1,2] #,3,4,5,6,7,8]
+# Now need to iterate through all data and plot
+predictions_1 = np.empty((0,np.shape(xs)[1]))
+model_dims = dims
+for (dx, x, u) in zip(dxs, xs, us):
+    # grab prediction value
+    # pred = model.predict(x,u)
+    pred = predict_nn(nn1,x,u, model_dims)
+    # print(np.shape(pred))
+    #print('prediction: ', pred, ' x: ', x)
+    if delta:
+      pred = pred - x
+    predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
+
+# 0  1  2  3  4  5  6  7  8
+# wx wy wz p  r  y  lx ly lz
+dim = 2
+# Grab correction dimension data
+if delta:
+    ground_dim = dxs[:, dim]
+else:
+    ground_dim = xs[:,dim]
+pred_dim_1 = predictions_1[:, dim]
+
+
+# Sort with respect to ground truth
+if sort:
+    data = zip(ground_dim,pred_dim_1)
+    data = sorted(data, key=lambda tup: tup[0])
+    ground_dim_sort, pred_dim_sort_1 = zip(*data)
+
+
+font = {'family' : 'normal',
+    'size'   : 18}
+
+matplotlib.rc('font', **font)
+matplotlib.rc('lines', linewidth=2.5)
+
+ax1 = plt.subplot(111)
+plt.title('Comparison of Deterministic and Probablistic One-Step Predictions')
+
+x = np.size(ground_dim)
+print(x)
+time = np.linspace(0, int(x)-1, int(x))
+ts = 4*10**-3
+time = np.array([t*ts for t in time])
+
+if sort:
+    ax1.plot(ground_dim_sort, label='Ground Truth', color='k')
+    ax1.plot(pred_dim_sort_1, label='Model 1 Prediction', linewidth=.8)#, linestyle=':')
+    ax1.set_xlabel('Sorted Datapoints')
+    ax1.set_ylabel('Roll Step (Degrees)')
+else:
+    ax1.plot(time-34, ground_dim, label='Ground Truth', color='k')
+    ax1.plot(time-34, pred_dim_1, label='Probablistic Model Prediction') #, linestyle=':')
+    # ax1.set_xlim([34,35])
+    ax1.set_xlim([0,.5])
+    ax1.set_ylim([-5,5])
+    ax1.set_xticks(np.arange(0., .5, 0.05))
+    ax1.set_yticks(np.arange(-5., 5., 1.))
+    plt.grid(True, ls= 'dashed')
+    ax1.set_xlabel('Time (s)')
+    ax1.set_ylabel('Roll Step (Degrees)')
+
+
+ax1.legend()
+plt.show()

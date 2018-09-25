@@ -6,7 +6,7 @@ import numpy as np
 import math
 from sklearn.model_selection import train_test_split
 from sklearn import linear_model
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
 import pickle
 
 # torch packages
@@ -16,8 +16,10 @@ from torch.nn import MSELoss
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torch.distributions.normal import Normal
 from Swish import Swish
 from model_split_nn import SplitModel
+from model_split_nn_v2 import SplitModel2
 import matplotlib.pyplot as plt
 from lossfnc_pnngaussian import PNNLoss_Gaussian
 
@@ -69,26 +71,27 @@ class GeneralNN(nn.Module):
         self.B = B
         self.outIdx = outIdx
         self.d = dropout
-        self.split = split_flag
+        self.split_flag = split_flag
+        # print(self.n_in)
         # increases number of inputs and outputs if cos/sin is used
         # plus 1 per angle because they need a pair (cos, sin) for each output
-        if len(self.ang_trans_idx) > 0:
-            self.n_in += len(self.ang_trans_idx)
-            self.n_out += len(self.ang_trans_idx)
+        # if len(self.ang_trans_idx) > 0:
+        #     self.n_in += len(self.ang_trans_idx)
+        #     self.n_out += len(self.ang_trans_idx)
 
         #To keep track of what the mean and variance are at all times for transformations. Scalar is passed in init()
         #self.scalarX = MinMaxScaler()
         #self.scalarU = MinMaxScaler()
         #self.scalardX = MinMaxScaler()
 
-        self.scalarX = RobustScaler()
-        self.scalarU = RobustScaler()
-        self.scalardX = RobustScaler()
+        self.scalarX = StandardScaler()# MinMaxScaler(feature_range=(-1,1))#StandardScaler()# RobustScaler()
+        self.scalarU = MinMaxScaler(feature_range=(-1,1))
+        self.scalardX = MinMaxScaler(feature_range=(-1,1)) #StandardScaler() #MinMaxScaler(feature_range=(-1,1))#StandardScaler() # RobustScaler(quantile_range=(25.0, 90.0))
         # Sets loss function
         if prob:
             # INIT max/minlogvar if PNN
-            self.max_logvar = torch.nn.Parameter(torch.tensor(20*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
-            self.min_logvar = torch.nn.Parameter(torch.tensor(-20*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.max_logvar = torch.nn.Parameter(torch.tensor(1*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
+            self.min_logvar = torch.nn.Parameter(torch.tensor(-1*np.ones([1, self.n_out]),dtype=torch.float, requires_grad=True))
 
             self.loss_fnc = PNNLoss_Gaussian()
             # print('Here are your current state scaling parameters: ')
@@ -101,13 +104,19 @@ class GeneralNN(nn.Module):
         # Probablistic nueral networks have an extra output for each prediction parameter to track variance
         if prob:
             self.n_out *= 2
-
+        # print(self.n_out)
         # If using split model, initiate here:
-        if self.split:
+        if self.split_flag:
+            # self.features = nn.Sequential(
+            #     SplitModel(self.n_in, self.n_out, int(self.n_out/2),
+            #         prob = self.prob,
+            #         depth = self.depth,
+            #         width = self.hidden_w,
+            #         activation = self.activation,
+            #         dropout = self.d))
             self.features = nn.Sequential(
-                SplitModel(self.n_in, self.n_out, int(self.n_out/2),
+                SplitModel2(self.n_in, self.n_out,
                     prob = self.prob,
-                    depth = self.depth,
                     width = self.hidden_w,
                     activation = self.activation,
                     dropout = self.d))
@@ -163,6 +172,7 @@ class GeneralNN(nn.Module):
                     )
                 elif self.depth == 2:
                     self.features = nn.Sequential(
+                        nn.Dropout(p=self.d),
                         nn.Linear(self.n_in, hidden_w),
                         Swish(self.B),
                         nn.Dropout(p=self.d),
@@ -173,6 +183,7 @@ class GeneralNN(nn.Module):
                     )
                 elif self.depth == 3:
                     self.features = nn.Sequential(
+                        nn.Dropout(p=self.d),
                         nn.Linear(self.n_in, hidden_w),
                         Swish(self.B),
                         nn.Dropout(p=self.d),
@@ -186,6 +197,7 @@ class GeneralNN(nn.Module):
                     )
                 elif self.depth == 4:
                     self.features = nn.Sequential(
+                        nn.Dropout(p=self.d),
                         nn.Linear(self.n_in, hidden_w),
                         Swish(self.B),
                         nn.Dropout(p=self.d),
@@ -200,13 +212,89 @@ class GeneralNN(nn.Module):
                         nn.Dropout(p=self.d),
                         nn.Linear(hidden_w, self.n_out)
                     )
+            elif self.activation == "Tanh":
+                if self.depth == 1:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 2:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 3:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 4:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Tanh(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+            elif self.activation == "Softsign":
+                if self.depth == 1:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 2:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 3:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
+                elif self.depth == 4:
+                    self.features = nn.Sequential(
+                        nn.Linear(self.n_in, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, hidden_w),
+                        nn.Softsign(),
+                        nn.Linear(hidden_w, self.n_out)
+                    )
 
     def forward(self, x):
         """
         Standard forward function necessary if extending nn.Module.
         """
+
         x = self.features(x)
-        return x.view(x.size(0), -1)
+        return x #x.view(x.size(0), -1)
+
 
     def preprocess(self, dataset):# X, U):
         """
@@ -270,7 +358,6 @@ class GeneralNN(nn.Module):
 
                 # print('Shape of data after removing zeros is: ', np.shape(X))
 
-
         self.scalarX.fit(X)
         self.scalarU.fit(U)
         self.scalardX.fit(dX)
@@ -279,25 +366,105 @@ class GeneralNN(nn.Module):
         normX = self.scalarX.transform(X)
         normU = self.scalarU.transform(U)
         normdX = self.scalardX.transform(dX)
+        # print('--------')
+        # print(self.scalarU.data_min_)
+        # print(self.scalarU.min_)
+        # print(self.scalarU.scale_)
+        # quit()
 
         # Tool for plotting the scaled inputs as a histogram
         if False:
-            plt.hist(normdX[:,0], bins=100)
-            plt.hist(normdX[:,1], bins=100)
-            plt.hist(normdX[:,2], bins=100)
-            plt.hist(normdX[:,3], bins=100)
-            plt.hist(normdX[:,4], bins=100)
-            plt.hist(normdX[:,5], bins=100)
+            plt.title('Unscaled Targets')
+            plt.hist(dX[:,0], bins=1000, label='omeg_x')
+            plt.hist(dX[:,1], bins=1000, label='omeg_y')
+            plt.hist(dX[:,2], bins=1000, label='omeg_z')
+            plt.legend()
             plt.show()
-            plt.hist(normU[:,0], bins=100)
-            plt.hist(normU[:,1], bins=100)
-            plt.hist(normU[:,2], bins=100)
-            plt.hist(normU[:,3], bins=100)
+            plt.title('Unscaled Targets')
+            plt.hist(dX[:,3], bins=1000, label='lx')
+            plt.hist(dX[:,4], bins=1000, label='ly')
+            plt.hist(dX[:,5], bins=1000, label='lz')
+            plt.legend()
             plt.show()
+            plt.title('Unscaled Targets')
+            plt.hist(dX[:,0], bins=1000, label='pitch')
+            plt.hist(dX[:,1], bins=1000, label='roll')
+            plt.hist(dX[:,2], bins=1000, label='yaw')
+            plt.legend()
+            plt.show()
+            # plt.title('Unscaled Inputs')
+            # plt.hist(U[:,0], bins=1000)
+            # plt.hist(U[:,1], bins=1000)
+            # plt.hist(U[:,2], bins=1000)
+            # plt.hist(U[:,3], bins=1000)
+            # plt.legend()
+            # plt.show()
+        # Tool for plotting the scaled inputs as a histogram
+        if False:
+            # plt.title('Scaled State In')
+            # plt.hist(normX[:,0], bins=1000, label='omeg_x')
+            # plt.hist(normX[:,1], bins=1000, label='omeg_y')
+            # plt.hist(normX[:,2], bins=1000, label='omeg_z')
+            # plt.legend()
+            # plt.show()
+            plt.title('Scaled State In')
+            plt.hist(normX[:,3], bins=1000, label='lx')
+            plt.hist(normX[:,4], bins=1000, label='ly')
+            plt.hist(normX[:,5], bins=1000, label='lz')
+            plt.legend()
+            plt.show()
+            # plt.title('Scaled State In')
+            # plt.hist(normX[:,0], bins=1000, label='pitch')
+            # plt.hist(normX[:,1], bins=1000, label='roll')
+            # plt.hist(normX[:,2], bins=1000, label='yaw')
+            # plt.legend()
+            # plt.show()
+            plt.title('Scaled Inputs')
+            plt.hist(normU[:,0], bins=1000)
+            plt.hist(normU[:,1], bins=1000)
+            plt.hist(normU[:,2], bins=1000)
+            plt.hist(normU[:,3], bins=1000)
+            plt.legend()
+            plt.show()
+            # plt.title('Scaled Inputs')
+            # plt.hist(U[:,0], bins=1000)
+            # plt.hist(U[:,1], bins=1000)
+            # plt.hist(U[:,2], bins=1000)
+            # plt.hist(U[:,3], bins=1000)
+            # plt.legend()
+            # plt.show()
+            # plt.title('Scaled Target')
+            # plt.hist(normdX[:,0], bins=1000, label='omeg_x')
+            # plt.hist(normdX[:,1], bins=1000, label='omeg_y')
+            # plt.hist(normdX[:,2], bins=1000, label='omeg_z')
+            # plt.legend()
+            # plt.show()
+            # plt.title('Scaled Targets')
+            # plt.hist(normdX[:,3], bins=1000, label='lx')
+            # plt.hist(normdX[:,4], bins=1000, label='ly')
+            # plt.hist(normdX[:,5], bins=1000, label='lz')
+            # plt.legend()
+            # plt.show()
+            plt.title('Scaled Targets')
+            plt.hist(normdX[:,6], bins=1000, label='pitch')
+            plt.hist(normdX[:,7], bins=1000, label='roll')
+            plt.hist(normdX[:,8], bins=1000, label='yaw')
+            plt.legend()
+            plt.show()
+            plt.title('Raw Targets')
+            plt.hist(dX[:,6], bins=1000, label='pitch')
+            plt.hist(dX[:,7], bins=1000, label='roll')
+            plt.hist(dX[:,8], bins=1000, label='yaw')
+            plt.legend()
+            plt.show()
+
 
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
+        # inputs = torch.Tensor(normX)
         outputs = torch.Tensor(normdX)
-
+        # print(inputs.size())
+        # print(outputs.size())
+        # print('Preprocessed')
         return list(zip(inputs, outputs))
 
     def getNormScalers(self):
@@ -324,7 +491,7 @@ class GeneralNN(nn.Module):
         return np.array(dX)
 
 
-    def train(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=PNNLoss_Gaussian(), split=0.8, preprocess=True):
+    def train_cust(self, dataset, learning_rate = 1e-3, epochs=50, batch_size=50, optim="Adam", loss_fn=PNNLoss_Gaussian(), split=0.8, preprocess=True):
         """
         usage:
         data = (X[::samp,ypr], U[::samp,:])
@@ -351,6 +518,7 @@ class GeneralNN(nn.Module):
 
         if self.prob:
             loss_fn = PNNLoss_Gaussian(idx=self.outIdx)
+            self.test_loss_fnc = MSELoss()
         else:
             loss_fn = MSELoss()
 
@@ -361,7 +529,9 @@ class GeneralNN(nn.Module):
         trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
         testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
 
-        self.testData = dataset[int(split*len(dataset)):]
+        # print("Len of trainloader: ", len(trainLoader))
+        # print("Len of testloader: ", len(testLoader))
+        # self.testData = dataset[int(split*len(dataset)):]
 
         #Unclear if we should be using SGD or ADAM? Papers seem to say ADAM works better
         if(optim=="Adam"):
@@ -371,9 +541,10 @@ class GeneralNN(nn.Module):
         else:
             raise ValueError(optim + " is not a valid optimizer type")
 
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=19, gamma=0.5) # most results at .6 gamma, tried .33 when got NaN
 
-        ret = self._optimize(self.loss_fnc, optimizer, epochs, batch_size, trainLoader, testLoader)
-        return ret
+        ret1, ret2 = self._optimize(self.loss_fnc, optimizer, scheduler, epochs, batch_size, dataset) # trainLoader, testLoader)
+        return ret1, ret2
 
     def predict(self, X, U):
         """
@@ -394,7 +565,7 @@ class GeneralNN(nn.Module):
         normX = self.scalarX.transform(X.reshape(1, -1))
         normU = self.scalarU.transform(U.reshape(1, -1))
 
-        input = Variable(torch.Tensor(np.concatenate((normX, normU), axis=1)))
+        input = torch.Tensor(np.concatenate((normX, normU), axis=1))
 
         NNout = self.forward(input).data[0]
 
@@ -406,15 +577,31 @@ class GeneralNN(nn.Module):
 
         return NNout
 
-    def _optimize(self, loss_fn, optim, epochs, batch_size, trainLoader, testLoader):
+    def _optimize(self, loss_fn, optim, scheduler, epochs, batch_size,dataset): #trainLoader, testLoader):
         errors = []
+        error_train = []
+        split = .8
+
+        testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
+        trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
+
         for epoch in range(epochs):
-            avg_loss = Variable(torch.zeros(1))
+            scheduler.step()
+            avg_loss = torch.zeros(1)
             num_batches = len(trainLoader)/batch_size
             for i, (input, target) in enumerate(trainLoader):
-
-                input = Variable(input)
-                target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
+                # Add noise to the batch
+                if False:
+                    if self.prob:
+                        n_out = int(self.n_out/2)
+                    else:
+                        n_out = self.n_out
+                    noise_in = torch.tensor(np.random.normal(0,.01,(input.size())), dtype=torch.float)
+                    noise_targ = torch.tensor(np.random.normal(0,.01,(target.size())),dtype=torch.float)
+                    input.add_(noise_in)
+                    target.add_(noise_targ)
+                # input = input, requires_grad=False)
+                # target = Variable(target, requires_grad=False) #Apparently the target can't have a gradient? kinda weird, but whatever
                 optim.zero_grad()                             # zero the gradient buffers
                 output = self.forward(input)                 # compute the output
                 if self.prob:
@@ -423,38 +610,52 @@ class GeneralNN(nn.Module):
                     loss = loss_fn(output, target)
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
-                lambda_logvar = .01
+                lambda_logvar = torch.tensor(.01)
                 if self.prob:
-                    loss += lambda_logvar * torch.sum(self.max_logvar) - lambda_logvar * torch.sum(self.min_logvar)
+                    loss += torch.mul(lambda_logvar, torch.sum(self.max_logvar)) - torch.mul(lambda_logvar, torch.sum(self.min_logvar))
 
-                # print(self.max_logvar, self.min_logvar)
-                loss.backward()                               # backpropagate from the loss to fill the gradient buffers
-                optim.step()                                  # do a gradient descent step
-                if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
+                if loss.data.numpy() == loss.data.numpy():
+                    # print(self.max_logvar, self.min_logvar)
+                    loss.backward()                               # backpropagate from the loss to fill the gradient buffers
+                    optim.step()                                  # do a gradient descent step
+                    # print('tain: ', loss.item())
+                # if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
+                else:
                     print("loss is NaN")                       # This is helpful: it'll catch that when it happens,
-                    print("Output: ", output, "\nInput: ", input, "\nLoss: ", loss)
-                    return output, input, loss                 # and give the output and input that made the loss NaN
-                avg_loss += loss.item()/num_batches                  # update the overall average loss with this batch's loss
+                    # print("Output: ", output, "\nInput: ", input, "\nLoss: ", loss)
+                    errors.append(np.nan)
+                    error_train.append(np.nan)
+                    return errors, error_train                 # and give the output and input that made the loss NaN
+                avg_loss += loss.item()                  # update the overall average loss with this batch's loss
 
-            # print(self.max_logvar, self.min_logvar)
-            test_error = 0
-            for (input, target) in testLoader:                     # compute the testing test_error
-                input = Variable(input)
-                target = Variable(target, requires_grad=False)
+            # self.features.eval()
+            test_error = torch.zeros(1)
+            for i, (input, target) in enumerate(testLoader):
+                # print(self.max_logvar, self.min_logvar)
+                # compute the testing test_error
+                # input = Variable(input)
+                # target = Variable(target, requires_grad=False)
                 output = self.forward(input)
+                # means = output[:,:9]
                 if self.prob:
-                    loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
+                    loss = self.test_loss_fnc(output[:,:int(self.n_out/2)], target)
+                    # loss = torch.nn.modules.loss.NLLLoss(output[:,:int(self.n_out/2)],target)
+                    # loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
                 else:
                     loss = loss_fn(output, target)
+                # print('test: ', loss.item())
                 test_error += loss.item()
-            test_error = test_error / len(testLoader)
+            test_error = test_error
+            # self.features.train()
 
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
-            print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error))
-            errors.append(test_error)
+            if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]/len(trainLoader)), "test loss=", "{:.6f}".format(test_error.data[0]/len(testLoader)))
+            if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
+            error_train.append(avg_loss.data[0].numpy()/len(trainLoader))
+            errors.append(test_error.data[0].numpy()/len(testLoader))
         #loss_fn.print_mmlogvars()
-        return errors
+        return errors, error_train
 
     def save_model(self, filepath):
         torch.save(self, filepath)                  # full model state

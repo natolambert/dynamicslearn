@@ -30,6 +30,7 @@ class SplitModel(nn.Module):
     angle_modules.append(nn.Linear(self.nn_in, self.width))
     angle_modules.append(copy.deepcopy(self.activation))
     angle_modules.append(nn.Dropout(p=self.dropout))
+
     euler_modules.append(nn.Linear(self.nn_in, self.width))
     euler_modules.append(copy.deepcopy(self.activation))
     euler_modules.append(nn.Dropout(p=self.dropout))
