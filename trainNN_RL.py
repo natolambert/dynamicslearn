@@ -1,26 +1,29 @@
 # minimal file to load existing NN and continue training with new data
 
-from dynamics import *
-import pickle
-from controllers import randController, MPController
-from dynamics_ionocraft import IonoCraft
-from dynamics_crazyflie_linearized import CrazyFlie
-from utils_plot import *
+# Our infrastucture files
 from utils_data import *
+
+# data packages
+import pickle
+
+# neural nets
 from model_general_nn import GeneralNN, predict_nn
+from model_split_nn import SplitModel
+
+# Torch Packages
 import torch
+import torch.nn as nn
 from torch.nn import MSELoss
+
+# timing etc
 import time
 import datetime
-from model_split_nn import SplitModel
 import os
+
 # Plotting
 import matplotlib.pyplot as plt
 import matplotlib
-import torch.nn as nn
-from mpl_toolkits.mplot3d import Axes3D
-import csv
-from enum import Enum
+
 
 # load network
 # model_name = '_models/current_best/2018-08-23--14-21-35.9||w=150e=250lr=7e-06b=32d=2018_08_22_cf1_hover_p=True.pth'
@@ -36,16 +39,33 @@ from enum import Enum
 
 # X_rl, U_rl, dX_rl = stack_dir("/rostime_false/")
 
-delta = True
-input_stack = 4
+# import argparse
+# parser = argparse.ArgumentParser()
+# parser.add_argument('env_name', type=str)
+# args = parser.parse_args()
+
+
 # X_rl, U_rl, dX_rl = stack_dir("/sep9_150_ng/", delta = delta, input_stack = input_stack)
 # X_rl_2, U_rl_2, dX_rl_2 = stack_dir("/sep9_150_ng2/", delta = delta, input_stack = input_stack)
 # X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep10_150_ng/", delta = delta, input_stack = input_stack)
 # X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep10_150_ng2/", delta = delta, input_stack = input_stack)
 # X_rl_4, U_rl_4, dX_rl_4 = stack_dir("/sep10_150_ng3/", delta = delta, input_stack = input_stack)
 
-X_rl, U_rl, dX_rl = stack_dir("/sep12_float/", delta = delta, input_stack = input_stack)
-X_rl_2, U_rl_2, dX_rl_2 = stack_dir("/sep13_150/", delta = delta, input_stack = input_stack)
+load_params ={
+    'delta_state': True,
+    'takeoff_points': 5,
+    'trim_0_dX': True,
+    'trime_large_dX': True,
+    'bound_inputs': [20000,65500],
+    'stack_states': 3,
+    'collision_flag': False,
+    'shuffle_here': False,
+    'timestep_flags': []
+}
+df = stack_dir_pd("150Hz/sep12_float/", load_params)
+quit()
+X_rl, U_rl, dX_rl = stack_dir_pd("150Hz/sep12_float/", delta = delta, input_stack = input_stack)
+X_rl_2, U_rl_2, dX_rl_2 = stack_dir("150Hz/sep13_150/", delta = delta, input_stack = input_stack)
 # X_rl_3, U_rl_3, dX_rl_3 = stack_dir("/sep13_150_2/", delta = delta, input_stack = input_stack)
 # X_rl_4, U_rl_4, dX_rl_4 = stack_dir("/sep14_150_2/", delta = delta, input_stack = input_stack, takeoff=True)
 # X_rl_5, U_rl_5, dX_rl_5 = stack_dir("/sep14_150_3/", delta = delta, input_stack = input_stack, takeoff=True)
@@ -200,129 +220,3 @@ with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
 time.sleep(2)
 
 quit()
-delta = True
-pred_dims = [0,1,2,3,4,5,6,7,8]
-n = np.shape(xs)[0]
-print(n)
-# Now need to iterate through all data and plot
-predictions_1 = np.empty((0,np.shape(xs)[1]))
-print(np.shape(predictions_1))
-for (dx, x, u) in zip(dxs, xs, us):
-    # grab prediction value
-    # pred = model.predict(x,u)
-    pred = predict_nn(nn1,x,u, pred_dims)
-
-    # print(np.shape(pred))
-    #print('prediction: ', pred, ' x: ', x)
-    if delta:
-      pred = pred - x
-    # print(pred)
-    predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
-    # print(pred)
-print(np.shape(predictions_1))
-
-# Return evaluation along each dimension of the model
-MSE = np.zeros(len(pred_dims))
-print(np.shape(dxs))
-
-for i, d in enumerate(pred_dims):
-    se = (predictions_1[:,d] - dxs[:,i])**2
-    # se = (predictions_1[:,d] - dxs[:,i])**2
-    mse = np.mean(se)
-    MSE[i] = mse
-print('MSE Across Learned Dimensions')
-print(MSE)
-
-
-quit()
-
-delta = True
-sort = True
-
-# newNN.eval()
-
-model_1 = '_models/temp_reinforced/2018-09-07--07-33-00.2--Min error-89.02649255701013||w=500e=600lr=0.001b=20de=2d=_SEP6p=True.pth'
-# Load a NN model with:
-nn1 = torch.load(model_1)
-nn1.training = False
-nn1.eval()
-with open(model_1[:-4]+'||normparams.pkl', 'rb') as pickle_file:
-    normX1,normU1,normdX1 = pickle.load(pickle_file)
-
-X_rl, U_rl, dX_rl = stack_dir("Sep_5_rand/")
-# # X_rl_2, U_rl_2, dX_rl_2 = stack_dir("Aug_29th_125_2/")
-#
-#
-# # xs = np.concatenate((X_rl,X_rl_2),axis=0)
-# # us = np.concatenate((U_rl,U_rl_2),axis=0)
-# # dxs = np.concatenate((dX_rl,dX_rl_2),axis=0)
-xs = X_rl
-us = U_rl
-dxs = dX_rl
-dims = [0,1,2] #,3,4,5,6,7,8]
-# Now need to iterate through all data and plot
-predictions_1 = np.empty((0,np.shape(xs)[1]))
-model_dims = dims
-for (dx, x, u) in zip(dxs, xs, us):
-    # grab prediction value
-    # pred = model.predict(x,u)
-    pred = predict_nn(nn1,x,u, model_dims)
-    # print(np.shape(pred))
-    #print('prediction: ', pred, ' x: ', x)
-    if delta:
-      pred = pred - x
-    predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
-
-# 0  1  2  3  4  5  6  7  8
-# wx wy wz p  r  y  lx ly lz
-dim = 2
-# Grab correction dimension data
-if delta:
-    ground_dim = dxs[:, dim]
-else:
-    ground_dim = xs[:,dim]
-pred_dim_1 = predictions_1[:, dim]
-
-
-# Sort with respect to ground truth
-if sort:
-    data = zip(ground_dim,pred_dim_1)
-    data = sorted(data, key=lambda tup: tup[0])
-    ground_dim_sort, pred_dim_sort_1 = zip(*data)
-
-
-font = {'family' : 'normal',
-    'size'   : 18}
-
-matplotlib.rc('font', **font)
-matplotlib.rc('lines', linewidth=2.5)
-
-ax1 = plt.subplot(111)
-plt.title('Comparison of Deterministic and Probablistic One-Step Predictions')
-
-x = np.size(ground_dim)
-print(x)
-time = np.linspace(0, int(x)-1, int(x))
-ts = 4*10**-3
-time = np.array([t*ts for t in time])
-
-if sort:
-    ax1.plot(ground_dim_sort, label='Ground Truth', color='k')
-    ax1.plot(pred_dim_sort_1, label='Model 1 Prediction', linewidth=.8)#, linestyle=':')
-    ax1.set_xlabel('Sorted Datapoints')
-    ax1.set_ylabel('Roll Step (Degrees)')
-else:
-    ax1.plot(time-34, ground_dim, label='Ground Truth', color='k')
-    ax1.plot(time-34, pred_dim_1, label='Probablistic Model Prediction') #, linestyle=':')
-    # ax1.set_xlim([34,35])
-    ax1.set_xlim([0,.5])
-    ax1.set_ylim([-5,5])
-    ax1.set_xticks(np.arange(0., .5, 0.05))
-    ax1.set_yticks(np.arange(-5., 5., 1.))
-    plt.grid(True, ls= 'dashed')
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Roll Step (Degrees)')
-
-
-ax1.legend()
-plt.show()

@@ -27,28 +27,8 @@ class PNNLoss_Gaussian(torch.nn.Module):
         self.initialized_maxmin_logvar = True
         # Scalars are proportional to the variance to the loaded prediction data
         # self.scalers    = torch.tensor([2.81690141, 2.81690141, 1.0, 0.02749491, 0.02615976, 0.00791358])
+        self.scalers  = torch.tensor([1, 1, 1, 1, 1, 1, 1,  1, 1])
 
-        # self.scalers  = torch.tensor([45.89669274, 51.33689411, 30.39516228,  1.49262396,  1.41197041, 19.45143309])
-        self.scalers  = torch.tensor([5.78079015, 5.68880775 ,1.21588437 ,0.8275445 , 0.76758704 ,0.33089637, 0.7351334,  1.04219413, 0.83654567])
-        # self.scalers  = torch.tensor([5.78079015, 5.68880775 ,1.21588437 ,0.8275445 , 0.76758704 ,0.33089637, 0.7351334,  1.04219413, 0.83654567])
-        # self.scalers  = torch.tensor([0.74753629, 0.76338989, 0.52391703, 0.73495285, 0.88242845, 0.9698271 ])
-        # self.scalers  = torch.tensor([0.80159202, 0.57952546, 0.38297443]) #,  1., 1., 1.])
-
-        # NOTE below has been moved into the generalNN object
-        # if self.initialized_maxmin_logvar:
-          #self.max_logvar = torch.tensor([0.4654, 1.7603, 0.635, 1.0709, 1.7087])
-          #self.min_logvar = torch.tensor([-1.1057, -0.0531, -0.7361, -0.8476, -0.0607])  These minmax and scalers for pink long clean
-          #self.scalers    = torch.tensor([4.2254, 4.2254, 1.0, 0.1214, 0.1509])
-          # self.scalers    = torch.tensor([2.81690141, 2.81690141, 1.0, 0.02749491, 0.02615976, 0.00791358]) # scalers for pink_long_hover_clean
-          # self.max_logvar = torch.tensor([18.5008, 16.2667, 19.6454, 21.7391, 26.5029, 20.1915]) # logvar for x,y,z,p,r,y from pink_long_hover_clean
-          # self.min_logvar = torch.tensor([-13.0978, -10.3656, -18.3514, -14.2652, -13.6966, -8.3959]) # logvar for x,y,z,p,r,y from pink_long_hover_clean
-
-          # New data: '_logged_data/pink-cf1/2018_08_22_cf1_hover_'
-           # scalers is the variance in the delta state values
-          # self.max_logvar = torch.tensor([17.51944,	11.397427,	11.536588,	8.047502,	14.243026,	7.0879607]) # logvar for x,y,z,p,r,y from pink_long_hover_clean
-          # self.min_logvar = torch.tensor([-14.567484,	-9.694572,	-10.910203,	-12.0458765,	-9.731995,	-9.907068]) # logvar for x,y,z,p,r,y from pink_long_hover_clean
-          # self.max_logvar = torch.nn.Parameter(torch.tensor(np.ones([1, len(self.idx)]),dtype=torch.float, requires_grad=True))
-          # self.min_logvar = torch.nn.Parameter(torch.tensor(-np.ones([1, len(self.idx)]),dtype=torch.float, requires_grad=True))
 
     def def_datacaler(self, scalers):
         # Loads logvars for data if not initialized above HARD CODED

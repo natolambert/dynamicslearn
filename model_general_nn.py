@@ -17,11 +17,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.distributions.normal import Normal
-from Swish import Swish
+from _activation_swish import Swish
 from model_split_nn import SplitModel
-from model_split_nn_v2 import SplitModel2
+# from model_split_nn_v2 import SplitModel2
 import matplotlib.pyplot as plt
-from lossfnc_pnngaussian import PNNLoss_Gaussian
+from _lossfnc_pnngaussian import PNNLoss_Gaussian
 
 class GeneralNN(nn.Module):
     def __init__(self,

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import copy
 from torch.autograd import Variable
-from Swish import Swish
+from _activation_swish import Swish
 
 # module that sends the [0, nn_in - split] inputs through one network and the [split, nn_in] inputs through another
 class SplitModel(nn.Module):

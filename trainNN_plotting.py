@@ -278,167 +278,109 @@ if True:
     ax1.set_ylabel("Pitch (Deg)")
     plt.show()
 
-# delta = True
-# input_stack = 4
-# X_rl, U_rl, dX_rl = stack_dir("top20/roll0/", delta = delta, input_stack = input_stack)
-# X_rl_2, U_rl_2, dX_rl_2 = stack_dir("top20/roll1/", delta = delta, input_stack = input_stack)
-# X_rl_3, U_rl_3, dX_rl_3 = stack_dir("top20/roll2/", delta = delta, input_stack = input_stack)
-# X_rl_4, U_rl_4, dX_rl_4 = stack_dir("top20/roll3/", delta = delta, input_stack = input_stack, takeoff=True)
-# X_rl_4, U_rl_4, dX_rl_4 = stack_dir("top20/roll4/", delta = delta, input_stack = input_stack, takeoff=True)
-# X_rl_4, U_rl_4, dX_rl_4 = stack_dir("top20/roll5/", delta = delta, input_stack = input_stack, takeoff=True)
 
+# Framework for comparing models
+if False:
 
+    model_1 = '_models/current_best/2018-09-05--12-24-30.4||w=250e=125lr=3.5e-05b=200de=4d=_Sept4150zp=True.pth'
+    # Load a NN model with:
+    nn1 = torch.load(model_1)
+    nn1.training = False
+    nn1.eval()
+    with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
+        normX1,normU1,normdX1 = pickle.load(pickle_file)
 
+    model_2 = '_models/temp_reinforced/2018-08-29--14-23-24.3||w=150e=100lr=0.0005b=150de=3d=_AUG29_125RL2p=True.pth'
+    model_2 = '_models/temp/2018-08-30--15-51-50.3||w=350e=30lr=2.5e-05b=100de=3p=Falseda=2018_08_22_cf1_activeflight_.pth'
+    # Load a NN model with: _models/temp/2018-08-30--15-51-50.3||w=350e=30lr=2.5e-05b=100de=3p=Falseda=2018_08_22_cf1_activeflight_.pth
+    nn2 = torch.load(model_2)
+    nn2.training = False
+    nn2.eval()
+    with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
+        normX2,normU2,normdX2 = pickle.load(pickle_file)
 
-# # Figure in paper comparing deterministc vs probablistc network
-# if False:
-#
-#     model_1 = '_models/current_best/2018-09-05--12-24-30.4||w=250e=125lr=3.5e-05b=200de=4d=_Sept4150zp=True.pth'
-#     # Load a NN model with:
-#     nn1 = torch.load(model_1)
-#     nn1.training = False
-#     nn1.eval()
-#     with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
-#         normX1,normU1,normdX1 = pickle.load(pickle_file)
-#
-#     model_2 = '_models/temp_reinforced/2018-08-29--14-23-24.3||w=150e=100lr=0.0005b=150de=3d=_AUG29_125RL2p=True.pth'
-#     model_2 = '_models/temp/2018-08-30--15-51-50.3||w=350e=30lr=2.5e-05b=100de=3p=Falseda=2018_08_22_cf1_activeflight_.pth'
-#     # Load a NN model with: _models/temp/2018-08-30--15-51-50.3||w=350e=30lr=2.5e-05b=100de=3p=Falseda=2018_08_22_cf1_activeflight_.pth
-#     nn2 = torch.load(model_2)
-#     nn2.training = False
-#     nn2.eval()
-#     with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
-#         normX2,normU2,normdX2 = pickle.load(pickle_file)
-#
-#     model_3 = '_models/temp_reinforced/2018-08-29--14-26-00.5||w=150e=100lr=0.0005b=150de=3d=_AUG29_125RL2p=True.pth'
-#     # Load a NN model with:
-#     nn3 = torch.load(model_3)
-#     nn3.training = False
-#     nn3.eval()
-#     with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
-#         normX2,normU2,normdX2 = pickle.load(pickle_file)
-#
-#     # dxs = Seqs_X[1:,:]-Seqs_X[:-1,:]
-#     # xs = Seqs_X[:-1,:]
-#     # us = Seqs_U[:-1,:]
-#     #
-#     # # print(np.shape(dxs))
-#     # # print(np.shape(xs))
-#     # delta = True
-#     #
-#     # dxs = dxs[30000:40000, :]
-#     # xs = xs[30000:40000, :]
-#     # us = us[30000:40000, :]
-#
-#     X_rl, U_rl, dX_rl = stack_dir("Aug_29th_125/")
-#     X_rl_2, U_rl_2, dX_rl_2 = stack_dir("Aug_29th_125_2/")
-#
-#     delta = True
-#
-#     xs = np.concatenate((X_rl,X_rl_2),axis=0)
-#     us = np.concatenate((U_rl,U_rl_2),axis=0)
-#     dxs = np.concatenate((dX_rl,dX_rl_2),axis=0)
-#
-#     # Now need to iterate through all data and plot
-#     predictions_1 = np.empty((0,np.shape(xs)[1]))
-#     for (dx, x, u) in zip(dxs, xs, us):
-#         # grab prediction value
-#         # pred = model.predict(x,u)
-#         pred = predict_nn(nn1,x,u, model_dims)
-#         # print(np.shape(pred))
-#         #print('prediction: ', pred, ' x: ', x)
-#         if delta:
-#           pred = pred - x
-#         predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
-#
-#     # Now need to iterate through all data and plot
-#     # predictions_2 = np.empty((0,np.shape(xs)[1]))
-#     # for (dx, x, u) in zip(dxs, xs, us):
-#     #     # grab prediction value
-#     #     # pred = model.predict(x,u)
-#     #     pred = predict_nn(nn2,x,u, model_dims)
-#     #     # print(np.shape(pred))
-#     #     #print('prediction: ', pred, ' x: ', x)
-#     #     if delta:
-#     #       pred = pred - x
-#     #     predictions_2 = np.append(predictions_2, pred.reshape(1,-1),  axis=0)
-#
-#     # # Now need to iterate through all data and plot
-#     # predictions_3 = np.empty((0,np.shape(xs)[1]))
-#     # for (dx, x, u) in zip(dxs, xs, us):
-#     #     # grab prediction value
-#     #     # pred = model.predict(x,u)
-#     #     pred = predict_nn(nn3,x,u, model_dims)
-#     #     # print(np.shape(pred))
-#     #     #print('prediction: ', pred, ' x: ', x)
-#     #     if delta:
-#     #       pred = pred - x
-#     #     predictions_3 = np.append(predictions_3, pred.reshape(1,-1),  axis=0)
-#
-#     dim = 3
-#     # Grab correction dimension data
-#     if delta:
-#         ground_dim = dxs[:, dim]
-#     else:
-#         ground_dim = xs[:,dim]
-#     pred_dim_1 = predictions_1[:, dim]
-#     # pred_dim_2 = predictions_2[:, dim]
-#     # pred_dim_3 = predictions_3[:, dim]
-#
-#     # Sort with respect to ground truth
-#     sort = False
-#     if sort:
-#         data = zip(ground_dim,pred_dim_1)#,pred_dim_2, pred_dim_3)
-#         data = sorted(data, key=lambda tup: tup[0])
-#         # ground_dim_sort, pred_dim_sort_1, pred_dim_sort_2, pred_dim_sort_3 = zip(*data)
-#         # ground_dim_sort, pred_dim_sort_1 = zip(*data)
-#         ground_dim_sort, pred_dim_sort_1 = zip(*sorted(zip(ground_dim,pred_dim_1)))
-#         # _,               pred_dim_sort_2 = zip(*sorted(zip(ground_dim,pred_dim_2)))
-#         # _,               pred_dim_sort_3 = zip(*sorted(zip(ground_dim,pred_dim_3)))
-#
-#
-#     font = {'family' : 'normal',
-#         'size'   : 18}
-#
-#     matplotlib.rc('font', **font)
-#     matplotlib.rc('lines', linewidth=2.5)
-#
-#     ax1 = plt.subplot(111)
-#     plt.title('Comparison of Deterministic and Probablistic One-Step Predictions')
-#
-#     x = np.size(ground_dim)
-#     print(x)
-#     time = np.linspace(0, int(x)-1, int(x))
-#     ts = 4*10**-3
-#     time = np.array([t*ts for t in time])
-#
-#     if sort:
-#         ax1.plot(ground_dim_sort, label='Ground Truth', color='k')
-#         ax1.plot(pred_dim_sort_1, label='Model 1 Prediction', linewidth=.8)#, linestyle=':')
-#         # ax1.plot(pred_dim_sort_2, label='Model 2 Prediction', linewidth=.8)#, linestyle=':')
-#         # ax1.plot(pred_dim_sort_3, label='Model 3 Prediction', linewidth=.8)#, linestyle=':')
-#         ax1.set_xlabel('Sorted Datapoints')
-#         ax1.set_ylabel('Roll Step (Degrees)')
-#     else:
-#         ax1.plot(time-34, ground_dim, label='Ground Truth', color='k')
-#         ax1.plot(time-34, pred_dim_1, label='Probablistic Model Prediction') #, linestyle=':')
-#         # ax1.plot(time-34, pred_dim_2, label='Deterministic Model Prediction') #, linestyle=':')
-#         # ax1.plot(time, pred_dim_3, label='Model 3 Prediction', linewidth=.8)#, linestyle=':')
-#         # ax1.set_xlim([34,35])
-#         # ax1.set_xlim([0,.5])
-#         # ax1.set_ylim([-5,5])
-#         ax1.set_xticks(np.arange(0., .5, 0.05))
-#         ax1.set_yticks(np.arange(-5., 5., 1.))
-#         plt.grid(True, ls= 'dashed')
-#         ax1.set_xlabel('Time (s)')
-#         ax1.set_ylabel('Roll Step (Degrees)')
-#
-#
-#     ax1.legend()
-#
-#     print('...Plotting')
-#     # Plot
-#     # plt.savefig("predictions-v0.png",bbox_inches='tight')
-#     plt.show()
-#
-# # plot_model((Seqs_X[:,:], Seqs_U[:,:]), newNN, 0, model_dims = model_dims, delta=True, sort = False)
+    model_3 = '_models/temp_reinforced/2018-08-29--14-26-00.5||w=150e=100lr=0.0005b=150de=3d=_AUG29_125RL2p=True.pth'
+    # Load a NN model with:
+    nn3 = torch.load(model_3)
+    nn3.training = False
+    nn3.eval()
+    with open(model_name[:-4]+'||normparams.pkl', 'rb') as pickle_file:
+        normX2,normU2,normdX2 = pickle.load(pickle_file)
+
+    # dxs = Seqs_X[1:,:]-Seqs_X[:-1,:]
+    # xs = Seqs_X[:-1,:]
+    # us = Seqs_U[:-1,:]
+    #
+    # # print(np.shape(dxs))
+    # # print(np.shape(xs))
+    # delta = True
+    #
+    # dxs = dxs[30000:40000, :]
+    # xs = xs[30000:40000, :]
+    # us = us[30000:40000, :]
+
+    X_rl, U_rl, dX_rl = stack_dir("Aug_29th_125/")
+    X_rl_2, U_rl_2, dX_rl_2 = stack_dir("Aug_29th_125_2/")
+
+    delta = True
+
+    xs = np.concatenate((X_rl,X_rl_2),axis=0)
+    us = np.concatenate((U_rl,U_rl_2),axis=0)
+    dxs = np.concatenate((dX_rl,dX_rl_2),axis=0)
+
+    # Now need to iterate through all data and plot
+    predictions_1 = np.empty((0,np.shape(xs)[1]))
+    for (dx, x, u) in zip(dxs, xs, us):
+        # grab prediction value
+        # pred = model.predict(x,u)
+        pred = predict_nn(nn1,x,u, model_dims)
+        # print(np.shape(pred))
+        #print('prediction: ', pred, ' x: ', x)
+        if delta:
+          pred = pred - x
+        predictions_1 = np.append(predictions_1, pred.reshape(1,-1),  axis=0)
+
+    Now need to iterate through all data and plot
+    predictions_2 = np.empty((0,np.shape(xs)[1]))
+    for (dx, x, u) in zip(dxs, xs, us):
+        # grab prediction value
+        # pred = model.predict(x,u)
+        pred = predict_nn(nn2,x,u, model_dims)
+        # print(np.shape(pred))
+        #print('prediction: ', pred, ' x: ', x)
+        if delta:
+          pred = pred - x
+        predictions_2 = np.append(predictions_2, pred.reshape(1,-1),  axis=0)
+
+    # Now need to iterate through all data and plot
+    predictions_3 = np.empty((0,np.shape(xs)[1]))
+    for (dx, x, u) in zip(dxs, xs, us):
+        # grab prediction value
+        # pred = model.predict(x,u)
+        pred = predict_nn(nn3,x,u, model_dims)
+        # print(np.shape(pred))
+        #print('prediction: ', pred, ' x: ', x)
+        if delta:
+          pred = pred - x
+        predictions_3 = np.append(predictions_3, pred.reshape(1,-1),  axis=0)
+
+    dim = 3
+    # Grab correction dimension data
+    if delta:
+        ground_dim = dxs[:, dim]
+    else:
+        ground_dim = xs[:,dim]
+    pred_dim_1 = predictions_1[:, dim]
+    # pred_dim_2 = predictions_2[:, dim]
+    # pred_dim_3 = predictions_3[:, dim]
+
+    # Sort with respect to ground truth
+    sort = False
+    if sort:
+        data = zip(ground_dim,pred_dim_1)#,pred_dim_2, pred_dim_3)
+        data = sorted(data, key=lambda tup: tup[0])
+        # ground_dim_sort, pred_dim_sort_1, pred_dim_sort_2, pred_dim_sort_3 = zip(*data)
+        # ground_dim_sort, pred_dim_sort_1 = zip(*data)
+        ground_dim_sort, pred_dim_sort_1 = zip(*sorted(zip(ground_dim,pred_dim_1)))
+        # _,               pred_dim_sort_2 = zip(*sorted(zip(ground_dim,pred_dim_2)))
+        # _,               pred_dim_sort_3 = zip(*sorted(zip(ground_dim,pred_dim_3)))
