@@ -20,7 +20,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
          with a small regularization penalty on term on max_logvar so that it does not grow beyond the training distribution’s maximum output variance, and on the negative of min_logvar so that it does not drop below the training distribution’s minimum output variance.
     '''
 
-    def __init__(self, idx=[0,1,2,3,4,5]):
+    def __init__(self, idx=[0,1,2,3,4,5,6,7,8]):
         super(PNNLoss_Gaussian,self).__init__()
 
         self.idx= idx
@@ -29,14 +29,14 @@ class PNNLoss_Gaussian(torch.nn.Module):
         # self.scalers    = torch.tensor([2.81690141, 2.81690141, 1.0, 0.02749491, 0.02615976, 0.00791358])
         self.scalers  = torch.tensor([1, 1, 1, 1, 1, 1, 1,  1, 1])
 
+        # weight the parts of loss
+        self.lambda_cov = 1 # scaling the log(cov()) term in loss function
+        self.lambda_mean = 1
 
-    def def_datacaler(self, scalers):
-        # Loads logvars for data if not initialized above HARD CODED
-        if not (torch.is_tensor(scalers)):
-            raise ValueError("Attempted to set a non tensor variable in the loss function")
-
-        # sets values
-        self.scalers    = scalers # scalers for pink_long_hover_clean
+    def set_lambdas(self, l_mean, l_cov):
+        # sets the weights of the loss function
+        self.lambda_cov = l_mean
+        self.lambda_mean = l_cov
 
     def get_datascaler(self):
         return self.scalers
@@ -61,39 +61,20 @@ class PNNLoss_Gaussian(torch.nn.Module):
         d = torch.tensor(d2/2, dtype=torch.int32)
         mean = output[:,:d]
         logvar = output[:,d:]
-        lambda_cov = 1 # scaling the log(cov()) term in loss function
-        lambda_mean = 1
 
         # Caps max and min log to avoid NaNs
-        # OLD depreciated implementation commented
-        # logvar = self.min_logvar + torch.tensor(nn.Softplus(logvar - self.min_logvar))#tmp_logvar
-        # logvar = self.max_logvar - self.softplus_raw(self.max_logvar - logvar)
-        # logvar = self.min_logvar + self.softplus_raw(logvar - self.min_logvar)
         logvar = max_logvar - self.softplus_raw(max_logvar - logvar)
         logvar = min_logvar + self.softplus_raw(logvar - min_logvar)
 
         # Computes loss
         var = torch.exp(logvar)
-        # if (var < 0): print('NEGATIVE VARIANCE WHAT')
         b_s = mean.size()[0]    # batch size
 
-        eps = 1e-9              # Add to variance to avoid 1/0
+        eps = 0              # Add to variance to avoid 1/0
 
         A = mean - target.expand_as(mean)
         A.mul_(self.scalers)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
         # B.mul_(self.scalers)
-        loss = torch.sum(lambda_mean*torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+lambda_cov*torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
+        loss = torch.sum(self.lambda_mean*torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1)+self.lambda_cov*torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
         return loss
-
-        '''
-        https://github.com/pytorch/pytorch/blob/master/torch/nn/functional.py
-        def mse_loss(input, target, size_average=True, reduce=True):
-        """mse_loss(input, target, size_average=True, reduce=True) -> Tensor
-        Measures the element-wise mean squared error.
-        See :class:`~torch.nn.MSELoss` for details.
-        """
-        return _pointwise_loss(lambda a, b: (a - b) ** 2, torch._C._nn.mse_loss,
-                               input, target, size_average, reduce)
-
-        '''
