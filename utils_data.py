@@ -8,6 +8,8 @@ import struct
 import os
 import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib
+import seaborn as sns
 
 def stack_dir_pd(dir, load_params):
     '''
@@ -145,7 +147,13 @@ def stack_dir_pd(dir, load_params):
             'objective vals': objv[:],
             'flight times': times[:]
             }
+
+    # loads battery if needed
+    battery = load_params['battery']
+    if battery: d['vbat'] = X[:,-1]
+
     df = pd.DataFrame(data=d)
+    # print(df)
     print('\n')
     return df
 
@@ -164,6 +172,7 @@ def trim_load_param(fname, load_params):
     collision_flag = load_params['collision_flag']
     shuffle_here = load_params['shuffle_here']
     timestep_flags = load_params['timestep_flags']
+    battery = load_params['battery']
 
     with open(fname, "rb") as csvfile:
         # laod data
@@ -186,6 +195,10 @@ def trim_load_param(fname, load_params):
                 dX = X[1:,:dx]-X[:-1,:dx]
                 X = X[:-1, :]
                 U = U[:-1, :]
+                if battery:
+                    batt = np.array(new_data[input_stack-1:-1,-1, None])
+                    X = np.hstack((X,batt))
+
                 Time = new_data[input_stack-1:,13]
                 Ts = (Time[1:]-Time[:-1])/1000000   # converts deltaT to ms for easy check if data was dropped
                 Objv = new_data[input_stack-1:-1,14]
@@ -194,6 +207,9 @@ def trim_load_param(fname, load_params):
                 dX = X[1:,:dx]#-X[:-1,:]
                 X = X[:-1,:]
                 U = U[:-1,:]
+                if battery:
+                    batt = np.array(new_data[input_stack-1:-1,-1, None])
+                    X = np.hstack((X,batt))
                 Time = new_data[input_stack-1:,13]
                 Ts = (Time[1:]-Time[:-1])/1000000   # converts deltaT to ms for easy check if data was dropped
                 Objv = new_data[input_stack-1:-1,14]
@@ -205,6 +221,9 @@ def trim_load_param(fname, load_params):
             if delta_state:
                 X = new_data[1:-2,:9]
                 U = new_data[1:-2, 9:13]
+                if battery:
+                    batt = new_data[1:-2,-1,None]
+                    X = np.hstack((X,batt))
                 Time = new_data[1:-2,13]
                 Objv = new_data[1:-2,14]
 
@@ -218,6 +237,9 @@ def trim_load_param(fname, load_params):
             else:
                 X = new_data[1:-2,:9]
                 U = new_data[1:-2, 9:13]
+                if battery:
+                    batt = new_data[1:-2,-1,None]
+                    X = np.hstack((X,batt))
                 Time = new_data[1:-2,13]
                 Objv = new_data[1:-2,14]
 
@@ -384,6 +406,24 @@ def trim_load_param(fname, load_params):
 
         ###########################################################################
 
+        # Can be used to plot trimmed data
+        if False:
+            font = {'size'   : 18}
+
+            matplotlib.rc('font', **font)
+            matplotlib.rc('lines', linewidth=2.5)
+
+            # plt.tight_layout()
+
+            with sns.axes_style("darkgrid"):
+                ax1 = plt.subplot(211)
+                ax2 = plt.subplot(212)
+
+
+            ax1.plot(X[:,3:6])
+            ax2.plot(U[:,:4])
+            plt.show()
+
         # Make time counting up from first point
         if len(Time) > 0:
             Time -= min(Time)
@@ -398,10 +438,16 @@ def df_to_training(df, data_params):
     '''
     cols = list(df.columns.values) # or list(df)
     xu_cols = cols[12:]
-    num_repeat = int(len(xu_cols)/13)
+    num_repeat = int((len(xu_cols)-1)/13)
     dX = df.loc[:,cols[:9]].values
     X = df.loc[:,xu_cols[:9*num_repeat]].values
     U = df.loc[:,xu_cols[9*num_repeat:]].values
+
+    # NOTE: this makes battery part of the inputs. This is okay, but was originally uninteded
+    #   It's okay because the inputs U are scaled by uniform scalers.
+    # battery = data_params['battery']
+    # if battery:
+    #     X = np.hstack((X, df.loc[:,[xu_cols[-1]]].values))
 
     # TODO: make it possible to choose specific states
 

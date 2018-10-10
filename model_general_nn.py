@@ -31,16 +31,6 @@ class GeneralNN(nn.Module):
         super(GeneralNN, self).__init__()
         """
         Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed. Note that the data passed into this network is only that which is used.
-
-        Parameters:
-         - prob - If it is probablistic, True, else becomes deterministic three_input - if true, takes inputs of form [Thrust, tau_x, tau_y] rather than [F1, F2, F3, F4]
-         - hidden_w - width of the hidden layers of the NN
-         - n_in_state, n_in_input, n_out are all lengths of the inputs and outputs of the neural net
-         - input_mode - either 'Trajectories' or else is a long list of recorded data, with separate snippets separated by a row of 0s
-         - pred_mode - either 'Next State' or 'Delta State' and changes whether the NN is trained on x_{t+1} = f(x_t,u_t) (next state) or x_{t+1} = x_t + f(x_t,u_t) (delta state)
-         - state_idx_l - list in order of passed states that is their positions in a full state vector
-         - ang_trans_idx - list of indices of the inputed states that we want to transform as cosine(x) and sine(x) as we pass through the NN. eg. if the passed state is [roll, pitch, accelxyz], this list will be [0,1], and the input and output will be transformed to [sin(roll), cos(roll), sin(pitch), cos(pitch), accelxyz]. Outputs changed proportionally, but we keep track of this, because on the output side, we get [arctan2(sin(roll),cos(roll)), arctan2(sin(pitch),cos(pitch)), accelxyz]
-
         """
         # Store the parameters:
         self.prob = nn_params['bayesian_flag']
@@ -198,16 +188,8 @@ class GeneralNN(nn.Module):
         # de-normalize so to say
         dX = self.scalardX.inverse_transform(dX.reshape(1,-1))
         dX = dX.ravel()
-        # If there are angles to transform, do that now after re normalization in post processing
-        if (len(self.ang_trans_idx) > 0):
-            # for i in self.ang_trans_idx:
-            dX_angled = [np.arctan2(dX[idx+j], dX[idx+j+1]) for (j,idx) in enumerate(self.ang_trans_idx)]
-            if len(dX)/2 > 2*len(self.ang_trans_idx):
-                dX_not = dX[2*len(self.ang_trans_idx):]
-                dX = np.concatenate((dX_angled,dX_not))
-            else:
-                dX = dX_angled
 
+ 
         return np.array(dX)
 
 
@@ -239,7 +221,8 @@ class GeneralNN(nn.Module):
 
         if self.prob:
             loss_fn = PNNLoss_Gaussian(idx=np.arange(0,self.n_out/2,1))
-            self.test_loss_fnc = MSELoss()
+            self.test_loss_fnc = loss_fn
+            # self.test_loss_fnc = MSELoss()
         else:
             loss_fn = MSELoss()
 
@@ -268,15 +251,6 @@ class GeneralNN(nn.Module):
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
         dx = len(X)
-        # angle transforms
-        if (len(self.ang_trans_idx) > 0):
-            X_angled_part = np.concatenate((
-                np.sin(X[self.ang_trans_idx]), np.cos(X[self.ang_trans_idx])))
-            X_no_trans = np.array([X[i] for i in range(dx) if i not in self.ang_trans_idx])
-            if len(self.ang_trans_idx) == dx:
-                X = X_angled_part
-            else:
-                X = np.concatenate((X_angled_part,X_no_trans.T))
 
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
@@ -294,7 +268,7 @@ class GeneralNN(nn.Module):
 
         return NNout
 
-    def _optimize(self, loss_fn, optim, scheduler, epochs, batch_size,dataset): #trainLoader, testLoader):
+    def _optimize(self, loss_fn, optim, scheduler, epochs, batch_size, dataset): #trainLoader, testLoader):
         errors = []
         error_train = []
         split = .8
@@ -351,9 +325,9 @@ class GeneralNN(nn.Module):
                 output = self.forward(input)
                 # means = output[:,:9]
                 if self.prob:
-                    loss = self.test_loss_fnc(output[:,:int(self.n_out/2)], target)
+                    # loss = self.test_loss_fnc(output[:,:int(self.n_out/2)], target)
                     # loss = torch.nn.modules.loss.NLLLoss(output[:,:int(self.n_out/2)],target)
-                    # loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
+                    loss = loss_fn(output, target, self.max_logvar, self.min_logvar)                # compute the loss
                 else:
                     loss = loss_fn(output, target)
                 # print('test: ', loss.item())
@@ -388,16 +362,16 @@ def predict_nn(model, x, u, indexlist):
 
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
     prediction = np.copy(x)
-    pred_mode = model.pred_mode
-    if pred_mode == 'Next State':
-        pred = model.predict(x,u)
-        for i, idx in enumerate(indexlist):
-            prediction[idx] = pred[i]
-    else:
-        pred = model.predict(x,u)
-        for i, idx in enumerate(indexlist):
-            #print('x_nn = ', x[idx], 'predicted', pred)
-            prediction[idx] = x[idx] + pred[i]
+    # pred_mode = model.pred_mode
+    # if pred_mode == 'Next State':
+    #     pred = model.predict(x,u)
+    #     for i, idx in enumerate(indexlist):
+    #         prediction[idx] = pred[i]
+    # else:
+    pred = model.predict(x,u)
+    for i, idx in enumerate(indexlist):
+        #print('x_nn = ', x[idx], 'predicted', pred)
+        prediction[idx] = x[idx] + pred[i]
 
 
     return prediction
