@@ -20,6 +20,7 @@ from torch.nn import MSELoss
 import time
 import datetime
 import os
+import copy
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -59,146 +60,149 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 '''
 
 ######################################################################
+def main():
+    # adding arguments to make code easier to work with
+    parser = argparse.ArgumentParser(description='Engineer PID tuning off learned dynamics model.')
+    parser.add_argument('dimension', type=str,
+                        choices = ['all', 'pitch', 'roll'],
+                        help='choose which dimension to tune PID for.')
+    parser.add_argument('--log', action='store_true',
+                        help='a flag for storing a training log in a txt file')
+    parser.add_argument('--noprint', action='store_false',
+                        help='turn off printing in the terminal window for epochs')
+    parser.add_argument('--plot', action='store_true',
+                        help='plots information for easy analysis')
 
-# adding arguments to make code easier to work with
-parser = argparse.ArgumentParser(description='Engineer PID tuning off learned dynamics model.')
-parser.add_argument('dimension', type=str,
-                    choices = ['all', 'pitch', 'roll'],
-                    help='choose which dimension to tune PID for.')
-parser.add_argument('--log', action='store_true',
-                    help='a flag for storing a training log in a txt file')
-parser.add_argument('--noprint', action='store_false',
-                    help='turn off printing in the terminal window for epochs')
-parser.add_argument('--plot', action='store_true',
-                    help='plots information for easy analysis')
+    args = parser.parse_args()
 
-args = parser.parse_args()
+    dim_s = args.dimension
+    if dim_s == 'all':
+        dim = 0
+    elif dim_s == 'pitch':
+        dim = 1
+    elif dim_s == 'roll':
+        dim = 2
 
-dim_s = args.dimension
-if dim_s == 'all':
-    dim = 0
-elif dim_s == 'pitch':
-    dim = 1
-elif dim_s == 'roll':
-    dim = 2
+    log = args.log
+    noprint = args.noprint
 
-log = args.log
-noprint = args.noprint
-
-######################################################################
-model_single = '_models/temp/2018-10-05--15-42-42.8--Min error-782.69296875d=_150Hz_newnet_.pth'
-
-model_ensemble = '_models/temp/2018-10-05--15-43-07.5--Min error-787.556328125d=_150Hz_newnet_.pth'
-
-model = model_single
+    ######################################################################
 
 
-# Code outline to predict states given an action or control scheme
 
-# load model
+    # Code outline to predict states given an action or control scheme
 
-# load initial state or generate.
-load_params ={
-    'delta_state': True,
-    'takeoff_points': 180,
-    'trim_0_dX': True,
-    'trime_large_dX': True,
-    'bound_inputs': [20000,65500],
-    'stack_states': 4,
-    'collision_flag': False,
-    'shuffle_here': False,
-    'timestep_flags': [],
-    'battery' : True
-}
+    # load model
 
-dir_list = ["_newquad1/150Hz_rand/"]
-other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
-df = load_dirs(dir_list, load_params)
+    # load initial state or generate.
+    load_params ={
+        'delta_state': True,
+        'takeoff_points': 180,
+        'trim_0_dX': True,
+        'trime_large_dX': True,
+        'bound_inputs': [20000,65500],
+        'stack_states': 4,
+        'collision_flag': False,
+        'shuffle_here': False,
+        'timestep_flags': [],
+        'battery' : True
+    }
 
-data_params = {
-    'states' : [],
-    'inputs' : [],
-    'change_states' : [],
-    'battery' : True
-}
+    dir_list = ["_newquad1/150Hz_rand/"]
+    other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
+    df = load_dirs(dir_list, load_params)
 
-X, U, dX = df_to_training(df, data_params)
+    data_params = {
+        'states' : [],
+        'inputs' : [],
+        'change_states' : [],
+        'battery' : True
+    }
+
+    X, U, dX = df_to_training(df, data_params)
 
 
-def pred_traj(x0, action, model, T):
-    # get dims
-    stack = int((len(x0)-1)/9)
-    xdim = 9
-    udim = 4
 
-    # function to generate trajectories
-    x_stored = np.zeros((T+1,len(x0)))
-    x_stored[0,:] = x0
-    x_shift = np.zeros(len(x0))
 
-    for t in range(T):
+    # generate actions / controller
 
-        # predict
-        if len(action.shape) > 1:       # if passed array of actions, iterate
-            x_pred = x_stored[t,:9]+ nn.predict(x_stored[t,:], action[t,:])
-        else:
-            x_pred = x_stored[t,:9]+ nn.predict(x_stored[t,:], action)
+    # init some variables
+    T = 150
+    stack_states = 4            # declared above
+    x_pred = np.zeros(9)        # a storage state vector
+    x_pred_stacked = np.zeros(stack_states*9)      # need a stacked vector to pass into network
+    u_stacked = np.zeros(stack_states*4)
 
-        # shift values
-        x_shift[:9] = x_pred
-        x_shift[9:-1] = x_stored[t,:-10]
+    # some reasonable seeds:
+    # 150hz: 3400, 485, 3850
 
-        # store values
-        x_stored[t+1,:] = x_shift
+    # 150Hz models`
+    model_single = '_models/temp/2018-10-05--15-42-42.8--Min error-782.69296875d=_150Hz_newnet_.pth'
 
-    x_stored[:,-1] = x0[-1]     # store battery for all (assume doesnt change on this time horizon)
+    model_ensemble = '_models/temp/2018-10-05--15-43-07.5--Min error-787.556328125d=_150Hz_newnet_.pth'
 
-    return x_stored
+    model = model_ensemble
 
-# generate actions / controller
+    # PID Params
+    kp = 100
+    ki = 500
+    kd = 2.5
+    ilimit = 250
+    outlimit = 5000
+    dt = 1/150
+    PWMequil = np.array([31687.1, 37954.7, 33384.8, 36220.11]) # new quad
 
-# init some variables
-T = 10
-stack_states = 4            # declared above
-x_pred = np.zeros(9)        # a storage state vector
-x_pred_stacked = np.zeros(stack_states*9)      # need a stacked vector to pass into network
-u_stacked = np.zeros(stack_states*4)
+    for i in range(1):
+        # Lets simulate some actions
+        pid_roll = PID(0, kp, ki, kd, ilimit, outlimit, dt, samplingRate=-1, cutoffFreq = -1, enableDFilter = False)
 
-for i in range(15):
-    # Lets simulate some actions
-    num_pts = np.shape(X)[0]
-    point = random.randint(0,num_pts)
-    print("`Seed` is: ", point)
-    x0 = X[point,:]
-    action = U[point:point+T+1,:]
-    action = U[point,:]
-    # action = np.tile([30000,30000,45000,45000],4)
-    # action = np.concatenate((action,[3900]))
-    # print(x0)
-    nn = torch.load(model)
-    nn.eval()
+        num_pts = np.shape(X)[0]
+        point = random.randint(0,num_pts)
+        print("`Seed` is: ", point)
+        x0 = X[point,:]
+        action = U[point:point+T+1,:]
+        # action = U[point,:]
+        # action = np.tile([45000,45000,30000,30000],4)
+        # action = np.concatenate((action,[3900]))
+        # print(x0)
+        nn_single = torch.load(model_single)
+        nn_single.eval()
 
-    x_stored = pred_traj(x0,action, model, T)
+        nn_ensemble = torch.load(model_ensemble)
+        nn_ensemble.eval()
 
-    font = {'size'   : 18}
+        x_stored_PID = pred_traj(x0, pid_roll, nn_ensemble, T)
+        x_stored_past = pred_traj(x0, action, nn_ensemble, T)
 
-    matplotlib.rc('font', **font)
-    matplotlib.rc('lines', linewidth=2.5)
+        font = {'size'   : 18}
 
-    # plt.tight_layout()
+        matplotlib.rc('font', **font)
+        matplotlib.rc('lines', linewidth=2.5)
 
-    with sns.axes_style("darkgrid"):
-        ax1 = plt.subplot(211)
-        ax2 = plt.subplot(212)
+        # plt.tight_layout()
 
-    dim = 4
-    plt.title("Comparing Model to Ground Truth")
-    ax1.set_ylim([-15,15])
-    ax2.set_ylim([-15,15])
-    ax1.plot(x_stored[:,dim], linestyle = '--', color='r', label ='Predicted')
-    ax1.plot(X[point:point+T+1,dim], color = 'k', label = 'Ground Truth')
-    ax2.plot(X[point:point+T+1,3:5])
-    plt.show()
-quit()
+        with sns.axes_style("darkgrid"):
+            ax1 = plt.subplot(111)
+            # ax2 = plt.subplot(212)
 
-# class PID():
+        dim = 4
+        plt.title("Comparing Model to Ground Truth")
+        ax1.set_ylim([-35,35])
+        # ax2.set_ylim([-35,35])
+        ax1.plot(x_stored_PID[:,dim], linestyle = '--', color='b', label ='Predicted PID')
+        ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
+        ax1.plot(X[point:point+T+1,dim], color = 'k', label = 'Ground Truth')
+        ax1.legend()
+        # ax2.plot(X[point:point+T+1,3:5])
+        plt.show()
+
+
+# TODO: implement a structured PID similar to the crazyflie to see if it helps performance
+
+
+
+if __name__ == "__main__":
+    print('\n---------------------------------------------------')
+    print('Running file generatePID')
+    print('\n')
+    main()

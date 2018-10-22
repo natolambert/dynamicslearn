@@ -26,10 +26,11 @@ def stack_dir_pd(dir, load_params):
     objv = []
     Ts = []
     times = []
+    terminals = []
 
     for f in files:
         # print(f)
-        X_t, U_t, dX_t, objv_t, Ts_t, time = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
+        X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
 
         # global time (ROS time)
         if times == []:
@@ -67,12 +68,17 @@ def stack_dir_pd(dir, load_params):
         else:
             objv = np.append(objv, objv_t, axis=0)
 
+        # end of trajectory marker
+        if terminals == []:
+            terminals = terminal
+        else:
+            terminals = np.append(terminals, terminal, axis=0)
+
     print('...has additional trimmed datapoints: ', np.shape(X)[0])
 
     ######################################################################
 
     # Start dataframe
-
 
     stack_states = load_params['stack_states']
     if stack_states > 0:
@@ -147,6 +153,9 @@ def stack_dir_pd(dir, load_params):
             'objective vals': objv[:],
             'flight times': times[:]
             }
+
+    track_terminals = load_params['stack_states']
+    if track_terminals: d['term'] = terminals
 
     # loads battery if needed
     battery = load_params['battery']
@@ -429,6 +438,10 @@ def trim_load_param(fname, load_params):
             Time -= min(Time)
             Time /= 1000000
 
+        # end of traj marker
+        terminals = np.zeros(len(Time))
+        terminals[-1] = 1
+
         return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time)
 
 def df_to_training(df, data_params):
@@ -436,9 +449,14 @@ def df_to_training(df, data_params):
     Takes in a loaded and trimmed dataframe and a set of (future) parameters to
     train the neural net on. Can take in many dataframes at once
     '''
+    battery = data_params['battery']
+
     cols = list(df.columns.values) # or list(df)
+
     xu_cols = cols[12:]
-    num_repeat = int((len(xu_cols)-1)/13)
+    num_repeat = int((len(xu_cols)-1)/13)+1
+    if battery: num_repeat -=1
+
     dX = df.loc[:,cols[:9]].values
     X = df.loc[:,xu_cols[:9*num_repeat]].values
     U = df.loc[:,xu_cols[9*num_repeat:]].values

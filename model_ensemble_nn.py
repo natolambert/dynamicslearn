@@ -76,13 +76,11 @@ class EnsembleNN(nn.Module):
 
 
         # iterate through the validation sets
-        for train_index, test_index in kf.split(X):
-
         for (i, net) in enumerate(self.networks):
 
             dataset_cust_ind = kf.split(X).__getitem__(i)
             dataset_cust = dataset[dataset_cust_ind]
-            
+
             # initializations that normally occur outside of loop
             # net.init_weights_orth()
             net.init_loss_fnc(dataset_cust[2],l_mean = 1,l_cov = 1) # data for std,
