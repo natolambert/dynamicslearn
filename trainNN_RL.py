@@ -50,32 +50,35 @@ date_str = date_str.replace(' ','--').replace(':', '-')
 print('Running... trainNN_RL.py' + date_str +'\n')
 
 load_params ={
-    'delta_state': True,
-    'takeoff_points': 180,
-    'trim_0_dX': True,
-    'trime_large_dX': True,
-    'bound_inputs': [20000,65500],
-    'stack_states': 4,
-    'collision_flag': False,
-    'shuffle_here': False,
-    'timestep_flags': [],
-    'battery' : True
-}
+    'delta_state': True,                # normally leave as True, prediction mode
+    'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
+    'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
+    'trime_large_dX': True,             # if the states change by a large amount, not realistic
+    'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
+    'stack_states': 1,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+    'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
+    'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
+    'timestep_flags': [],               # if you want to filter rostime stamps, do it here
+    'battery' : True,                   # if battery voltage is in the state data
+    'terminals': False,                 # adds a column to the dataframe tracking end of trajectories
+    'fastLog' : True,                   # if using the software with the new fast log
+    'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
+}                                       # for contFreq, use 1 if training at the same rate data was collected at
 
-dir_list = ["_newquad1/150Hz_rand/"]
+dir_list = ["_newquad1/new_samp/c50_samp400/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
 data_params = {
-    'states' : [],
+    'states' : [],                      # most of these are to be implented for easily training specific states etc
     'inputs' : [],
     'change_states' : [],
-    'battery' : True
+    'battery' : True                    # Need to include battery here too
 }
 
 X, U, dX = df_to_training(df, data_params)
 
-nn_params = {
+nn_params = {                           # all should be pretty self-explanatory
     'dx' : np.shape(X)[1],
     'du' : np.shape(U)[1],
     'dt' : np.shape(dX)[1],
@@ -90,11 +93,11 @@ nn_params = {
 }
 
 train_params = {
-    'epochs' : 75,
+    'epochs' : 120,
     'batch_size' : 32,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .001,
+    'lr': .002,
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -155,7 +158,7 @@ plt.show()
 
 # Saves NN params
 dir_str = str('_models/temp/')
-data_name = '_150Hz_newnet_'
+data_name = '_50Hz_try_stack1_'
 info_str = "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
 model_name = dir_str + date_str + info_str
 newNN.save_model(model_name + '.pth')

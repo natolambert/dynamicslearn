@@ -30,7 +30,8 @@ def stack_dir_pd(dir, load_params):
 
     for f in files:
         # print(f)
-        X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
+        if len(f) > 5 and f[-4:] == '.csv':
+            X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
 
         # global time (ROS time)
         if times == []:
@@ -77,6 +78,22 @@ def stack_dir_pd(dir, load_params):
     print('...has additional trimmed datapoints: ', np.shape(X)[0])
 
     ######################################################################
+
+    # font = {'size'   : 18}
+    #
+    # matplotlib.rc('font', **font)
+    # matplotlib.rc('lines', linewidth=2.5)
+    #
+    # # plt.tight_layout()
+    #
+    # with sns.axes_style("darkgrid"):
+    #     ax1 = plt.subplot(111)
+    #
+    # ax1.hist(Ts, bins=250)
+    # ax1.set_title("Hist of time between log packets")
+    # ax1.set_xlabel("Time Difference Between Packets (ms)")
+    # ax1.set_ylabel("Occurence")
+    # plt.show()
 
     # Start dataframe
 
@@ -154,7 +171,7 @@ def stack_dir_pd(dir, load_params):
             'flight times': times[:]
             }
 
-    track_terminals = load_params['stack_states']
+    track_terminals = load_params['terminals']
     if track_terminals: d['term'] = terminals
 
     # loads battery if needed
@@ -182,6 +199,8 @@ def trim_load_param(fname, load_params):
     shuffle_here = load_params['shuffle_here']
     timestep_flags = load_params['timestep_flags']
     battery = load_params['battery']
+    fastLog = load_params['fastLog']
+    contFreq = load_params['contFreq']
 
     with open(fname, "rb") as csvfile:
         # laod data
@@ -189,6 +208,33 @@ def trim_load_param(fname, load_params):
 
         ########### THESE BARS SEPARATE TRIMMING ACTIONS #########################
 
+
+        # Finds the points where the input changes
+        if fastLog:
+            Uchange = np.where(new_data[:-1,9] != new_data[1:,9])[0]
+
+            # If control freq is faster, sample twice in the interval for each unique PWM point
+            if contFreq > 1:
+                if contFreq == 2:       # training for twice control rate
+                    dT = Uchange[1:]-Uchange[:-1]
+                    add = Uchange[1:] - np.round(dT/2)
+                    Uchange = np.concatenate([Uchange, add])
+                    Uchange = np.sort(Uchange).astype(int)
+                    new_data = new_data[Uchange, :]
+
+                if contFreq == 3:       # training for three times control rate (150Hz when sampled at 50)
+                    dT = Uchange[1:]-Uchange[:-1]
+                    add = Uchange[1:] - np.round(dT/3)
+                    add2 = Uchange[1:] - np.round(2*dT/3)
+                    Uchange = np.concatenate([Uchange, add, add2])
+                    Uchange = np.sort(Uchange).astype(int)
+                    new_data = new_data[Uchange, :]
+
+            # Else sample each unique point once
+            else:
+                new_data = new_data[Uchange, :]
+
+        ###########################################################################
         # adding to make the input horizontally stacked set of inputs, rather than only the last input because of spinup time
         if input_stack >1:
             n, du = np.shape(new_data[:,9:13])
@@ -263,7 +309,7 @@ def trim_load_param(fname, load_params):
         ###########################################################################
 
         # trim some points from takeoff is so desired
-        if takeoff_points > 0:
+        if takeoff_points > 0 and not fastLog:
             takeoff_num = takeoff_points
             X = X[takeoff_num:,:]
             U = U[takeoff_num:,:]
@@ -413,6 +459,8 @@ def trim_load_param(fname, load_params):
             Time = Time[shuff]
             U = U[shuff,:]
 
+
+
         ###########################################################################
 
         # Can be used to plot trimmed data
@@ -438,11 +486,12 @@ def trim_load_param(fname, load_params):
             Time -= min(Time)
             Time /= 1000000
 
+
         # end of traj marker
         terminals = np.zeros(len(Time))
-        terminals[-1] = 1
+        if len(terminals)>0: terminals[-1] = 1
 
-        return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time)
+        return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time), terminals
 
 def df_to_training(df, data_params):
     '''
@@ -456,6 +505,7 @@ def df_to_training(df, data_params):
     xu_cols = cols[12:]
     num_repeat = int((len(xu_cols)-1)/13)+1
     if battery: num_repeat -=1
+
 
     dX = df.loc[:,cols[:9]].values
     X = df.loc[:,xu_cols[:9*num_repeat]].values
