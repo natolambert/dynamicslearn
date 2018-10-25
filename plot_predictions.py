@@ -31,33 +31,41 @@ date_str = str(datetime.datetime.now())[:-5]
 date_str = date_str.replace(' ','--').replace(':', '-')
 print('Running... plot_predictions.py' + date_str +'\n')
 
-load_params ={
-    'delta_state': True,
-    'takeoff_points': 180,
-    'trim_0_dX': True,
-    'trime_large_dX': True,
-    'bound_inputs': [20000,65500],
-    'stack_states': 4,
-    'collision_flag': False,
-    'shuffle_here': False,
-    'timestep_flags': [],
-    'battery' : True
-}
+print('\n')
+date_str = str(datetime.datetime.now())[:-5]
+date_str = date_str.replace(' ','--').replace(':', '-')
+print('Running... trainNN_RL.py' + date_str +'\n')
 
-dir_list = ["_newquad1/150Hz_rand/"]
+load_params ={
+    'delta_state': True,                # normally leave as True, prediction mode
+    'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
+    'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
+    'trime_large_dX': True,             # if the states change by a large amount, not realistic
+    'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
+    'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+    'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
+    'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
+    'timestep_flags': [],               # if you want to filter rostime stamps, do it here
+    'battery' : True,                   # if battery voltage is in the state data
+    'terminals': False,                 # adds a column to the dataframe tracking end of trajectories
+    'fastLog' : True,                   # if using the software with the new fast log
+    'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
+}                                       # for contFreq, use 1 if training at the same rate data was collected at
+
+dir_list = ["_newquad1/new_samp/c50_samp400/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
 data_params = {
-    'states' : [],
+    'states' : [],                      # most of these are to be implented for easily training specific states etc
     'inputs' : [],
     'change_states' : [],
-    'battery' : True
+    'battery' : True                    # Need to include battery here too
 }
 
 X, U, dX = df_to_training(df, data_params)
 
-model_single = '_models/temp/2018-10-04--13-07-31.6--Min error-784.8953125d=_150Hz_newnet_.pth'
+model_single = '_models/temp/2018-10-25--11-30-59.5--Min error-19.127888d=_50Hz_try_.pth'
 
 model_ensemble = '_models/temp/2018-10-04--13-06-23.9--Min error-767.918203125d=_150Hz_newnet_.pth'
 
@@ -190,8 +198,8 @@ ax1.plot(ground_dim_sort_1, label='Ground Truth', color='k', linewidth=1.8)
 ax1.plot(pred_dim_sort_1, ':', label='Model Prediction', markersize=.9, linewidth=.8)##, linestyle=':')
 # ax1.set_xlabel('Sorted Datapoints')
 ax1.set_ylabel('Pitch Step (Deg.)')
-ax1.set_ylim([-4,4])
-ax1.set_yticks(np.arange(-4,4.01,2))
+ax1.set_ylim([-5,5])
+ax1.set_yticks(np.arange(-5,5.01,2.5))
 
 # ax1.legend()
 # plt.show()
@@ -205,8 +213,8 @@ ax2.plot(pred_dim_sort_2, ':', label='Model Prediction',  markersize=.9,linewidt
 
 # ax2.set_xlabel('Sorted Datapoints')
 ax2.set_ylabel('Roll Step (Deg.)')
-ax2.set_ylim([-4,4])
-ax2.set_yticks(np.arange(-4,4.01,2))
+ax2.set_ylim([-5,5])
+ax2.set_yticks(np.arange(-5,5.01,2.5))
 # ax2.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"])
 
 # ax2.legend()
@@ -221,8 +229,8 @@ ax3.plot(pred_dim_sort_3, ':', label='Model Prediction', markersize=.9, linewidt
 
 ax3.set_xlabel('Sorted Datapoints')
 ax3.set_ylabel('Yaw Step (Deg.)')
-ax3.set_ylim([-4,4])
-ax3.set_yticks(np.arange(-4,4.01,2))
+ax3.set_ylim([-5,5])
+ax3.set_yticks(np.arange(-5,5.01,2.5))
 leg3 = ax3.legend(loc=8, ncol=2)
 for line in leg3.get_lines():
     line.set_linewidth(2.5)

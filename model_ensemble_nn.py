@@ -23,6 +23,8 @@ from sklearn.model_selection import train_test_split
 from sklearn import linear_model
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
 import pickle
+from sklearn.model_selection import KFold   # for dataset
+
 
 from _activation_swish import Swish
 from _lossfnc_pnngaussian import PNNLoss_Gaussian
@@ -63,14 +65,28 @@ class EnsembleNN(nn.Module):
 
         acctest_l = []
         acctrain_l = []
-        for net in self.networks:
+
+        # setup cross validation-ish datasets for training ensemble
+        kf = KFold(n_splits=self.E)
+        kf.get_n_splits(dataset)
+
+        # cross_val_err_test = []
+        # cross_val_err_train = []
+
+
+
+        # iterate through the validation sets
+        for (i, net) in enumerate(self.networks):
+
+            dataset_cust_ind = kf.split(X).__getitem__(i)
+            dataset_cust = dataset[dataset_cust_ind]
 
             # initializations that normally occur outside of loop
             # net.init_weights_orth()
-            net.init_loss_fnc(dataset[2],l_mean = 1,l_cov = 1) # data for std,
+            net.init_loss_fnc(dataset_cust[2],l_mean = 1,l_cov = 1) # data for std,
 
             # train
-            acctest, acctrain = net.train_cust(dataset, train_params)
+            acctest, acctrain = net.train_cust(dataset_cust, train_params)
             acctest_l.append(acctest)
             acctrain_l.append(acctrain)
 
