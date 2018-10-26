@@ -193,7 +193,7 @@ class GeneralNN(nn.Module):
         return np.array(dX)
 
 
-    def train_cust(self, dataset, train_params):
+    def train_cust(self, dataset, train_params, gradoff = False):
         """
         Train the neural network.
         if preprocess = False
@@ -237,13 +237,13 @@ class GeneralNN(nn.Module):
         if(optim=="Adam"):
             optimizer = torch.optim.Adam(super(GeneralNN, self).parameters(), lr=lr)
         elif(optim=="SGD"):
-            optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
+            optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr, gradoff=gradoff)
         else:
             raise ValueError(optim + " is not a valid optimizer type")
 
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.85) # most results at .6 gamma, tried .33 when got NaN
 
-        testloss, trainloss = self._optimize(self.loss_fnc, optimizer, scheduler, epochs, batch_size, dataset) # trainLoader, testLoader)
+        testloss, trainloss = self._optimize(self.loss_fnc, optimizer, split, scheduler, epochs, batch_size, dataset) # trainLoader, testLoader)
         return testloss, trainloss
 
     def predict(self, X, U):
@@ -268,10 +268,10 @@ class GeneralNN(nn.Module):
 
         return NNout
 
-    def _optimize(self, loss_fn, optim, scheduler, epochs, batch_size, dataset): #trainLoader, testLoader):
+    def _optimize(self, loss_fn, optim, split, scheduler, epochs, batch_size, dataset, gradoff=False): #trainLoader, testLoader):
         errors = []
         error_train = []
-        split = .8
+        split = split
 
         testLoader = DataLoader(dataset[int(split*len(dataset)):], batch_size=batch_size)
         trainLoader = DataLoader(dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
@@ -306,8 +306,9 @@ class GeneralNN(nn.Module):
 
                 if loss.data.numpy() == loss.data.numpy():
                     # print(self.max_logvar, self.min_logvar)
-                    loss.backward()                               # backpropagate from the loss to fill the gradient buffers
-                    optim.step()                                  # do a gradient descent step
+                    if not gradoff:
+                        loss.backward()                               # backpropagate from the loss to fill the gradient buffers
+                        optim.step()                                  # do a gradient descent step
                     # print('tain: ', loss.item())
                 # if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
                 else:
