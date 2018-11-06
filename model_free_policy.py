@@ -45,6 +45,19 @@ print(df['vbat'].mean())
 # print("Actual")
 # print(change)
 
+mins = []
+maxs = []
+for i in range(9):
+
+	states = df.iloc[:, 12+i].values
+	# print(states.shape)
+	# print(min(states))
+	mins.append(min(states))
+	maxs.append(max(states))
+
+print(mins)
+print(maxs)
+
 
 class Transition():
 	def __init__(self, s=0, a=0, a_index=0, s_next=0, r=0):
@@ -314,8 +327,8 @@ class QLearner():
 		plt.legend()
 		plt.show()
 
-qlearn = QLearner(dyn_nn, df)
-print("\n ====== TRAINING ====== \n")
-qlearn.train()
+# qlearn = QLearner(dyn_nn, df)
+# print("\n ====== TRAINING ====== \n")
+# qlearn.train()
 
 

@@ -65,7 +65,7 @@ load_params ={
     'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
 }                                       # for contFreq, use 1 if training at the same rate data was collected at
 
-dir_list = ["_newquad1/new_samp/c50_samp400/"]
+dir_list = ["c50_samp300_rand/", "c50_samp300_roll1/", "c50_samp300_roll2/", "c50_samp300_roll3/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
@@ -82,11 +82,11 @@ nn_params = {                           # all should be pretty self-explanatory
     'dx' : np.shape(X)[1],
     'du' : np.shape(U)[1],
     'dt' : np.shape(dX)[1],
-    'hid_width' : 500,
-    'hid_depth' : 3,
+    'hid_width' : 250,
+    'hid_depth' : 2,
     'bayesian_flag' : True,
     'activation': Swish(),
-    'dropout' : 0.5,
+    'dropout' : 0.0,
     'split_flag' : False,
     'pred_mode' : 'Delta State',
     'ensemble' : ensemble
@@ -167,4 +167,9 @@ print('Saving model to', model_name)
 normX, normU, normdX = newNN.getNormScalers()
 with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
   pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
+time.sleep(2)
+
+# Saves data file
+with open(model_name+"--data.pkl", 'wb') as pickle_file:
+  pickle.dump(df, pickle_file, protocol=2)
 time.sleep(2)
