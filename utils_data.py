@@ -178,7 +178,6 @@ def stack_dir_pd(dir, load_params):
     battery = load_params['battery']
     if battery:
         d['vbat'] = X[:,-1]
-        print("barreryer?")
 
     df = pd.DataFrame(data=d)
     # print(df)
@@ -240,7 +239,7 @@ def trim_load_param(fname, load_params):
             # Else sample each unique point once
             else:
                 new_data = new_data[Uchange, :]
-                print(new_data[-1,:])
+
 
         ###########################################################################
         # adding to make the input horizontally stacked set of inputs, rather than only the last input because of spinup time
@@ -519,6 +518,7 @@ def df_to_training(df, data_params):
     cols = list(df.columns.values) # or list(df)
 
     xu_cols = cols[12:]
+    if 'term' in xu_cols: xu_cols.remove('term')
     num_repeat = int((len(xu_cols)-1)/13)+1
     if battery: num_repeat -=1
 
@@ -526,6 +526,7 @@ def df_to_training(df, data_params):
     dX = df.loc[:,cols[:9]].values
     X = df.loc[:,xu_cols[:9*num_repeat]].values
     U = df.loc[:,xu_cols[9*num_repeat:]].values
+
 
     # NOTE: this makes battery part of the inputs. This is okay, but was originally uninteded
     #   It's okay because the inputs U are scaled by uniform scalers.
@@ -550,7 +551,7 @@ def load_dirs(dir_list, load_params):
     print('Processed data of shape: ', df.shape)
     return df
 
-def ged_rand_traj(df):
+def get_rand_traj(df):
     '''
     Given a loaded dataframe, calculates how many trajectories there are and
     returns a random trajectory, with its position
@@ -566,7 +567,7 @@ def ged_rand_traj(df):
     # print(start)
     df_sub = df[start+1:end+1]
     print(df_sub)
-    quit()
+
     return df_sub, end_index
 
 def get_traj(df,idx):
@@ -574,5 +575,15 @@ def get_traj(df,idx):
     Given a loaded dataframe and an index, returns the idx'th tajectory from the
     list. This is useful as a followup once you have gotten a random one you enjoy
     '''
+    if "term" not in list(df.columns.values):
+        raise ValueError("Did not have terminal column in dataframe")
+
+    ends = np.squeeze(np.where(df['term'].values==1))
+    points = np.concatenate((np.array([0]), ends))
+
+    end_index = idx
+    start, end = points[end_index:end_index+2]
+    # print(start)
+    df_sub = df[start+1:end+1]
 
     return df_sub
