@@ -176,7 +176,8 @@ def stack_dir_pd(dir, load_params):
 
     # loads battery if needed
     battery = load_params['battery']
-    if battery: d['vbat'] = X[:,-1]
+    if battery:
+        d['vbat'] = X[:,-1]
 
     df = pd.DataFrame(data=d)
     # print(df)
@@ -207,11 +208,16 @@ def trim_load_param(fname, load_params):
         new_data = np.loadtxt(csvfile, delimiter=",")
 
         ########### THESE BARS SEPARATE TRIMMING ACTIONS #########################
-
+        # For now, remove the last 4 columns becausee they're PWMS
+        if np.shape(new_data)[1] == 20:
+            new_data = new_data[:,:16]
 
         # Finds the points where the input changes
         if fastLog:
-            Uchange = np.where(new_data[:-1,9] != new_data[1:,9])[0]
+            Uchange = np.where(new_data[:-1,9:13] != new_data[1:,9:13])
+            Uchange = np.unique(Uchange)
+            # print(np.shape(Uchange))
+            # print(Uchange)
 
             # If control freq is faster, sample twice in the interval for each unique PWM point
             if contFreq > 1:
@@ -233,6 +239,7 @@ def trim_load_param(fname, load_params):
             # Else sample each unique point once
             else:
                 new_data = new_data[Uchange, :]
+
 
         ###########################################################################
         # adding to make the input horizontally stacked set of inputs, rather than only the last input because of spinup time
@@ -416,13 +423,21 @@ def trim_load_param(fname, load_params):
         # trims large change is state as we think they are non-physical and a
         #   result of the sensor fusion. Note, this could make prediction less stable
         if trime_large_dX and delta_state:
+            # glag = (
+            #     ((dX[:,0] > -40) & (dX[:,0] < 40)) &
+            #     ((dX[:,1] > -40) & (dX[:,1] < 40)) &
+            #     ((dX[:,2] > -40) & (dX[:,2] < 40)) &
+            #     ((dX[:,3] > -10) & (dX[:,3] < 10)) &
+            #     ((dX[:,4] > -10) & (dX[:,4] < 10)) &
+            #     ((dX[:,5] > -10) & (dX[:,5] < 10)) &
+            #     ((dX[:,6] > -8) & (dX[:,6] < 8)) &
+            #     ((dX[:,7] > -8) & (dX[:,7] < 8)) &
+            #     ((dX[:,8] > -8) & (dX[:,8] < 8))
+            # )
             glag = (
-                ((dX[:,0] > -40) & (dX[:,0] < 40)) &
-                ((dX[:,1] > -40) & (dX[:,1] < 40)) &
-                ((dX[:,2] > -40) & (dX[:,2] < 40)) &
-                ((dX[:,3] > -6) & (dX[:,3] < 6)) &
-                ((dX[:,4] > -6) & (dX[:,4] < 6)) &
-                ((dX[:,5] > -6) & (dX[:,5] < 6)) &
+                ((dX[:,3] > -7.5) & (dX[:,3] < 7.5)) &
+                ((dX[:,4] > -7.5) & (dX[:,4] < 7.5)) &
+                ((dX[:,5] > -7.5) & (dX[:,5] < 7.5)) &
                 ((dX[:,6] > -8) & (dX[:,6] < 8)) &
                 ((dX[:,7] > -8) & (dX[:,7] < 8)) &
                 ((dX[:,8] > -8) & (dX[:,8] < 8))
@@ -435,17 +450,17 @@ def trim_load_param(fname, load_params):
             Time = Time[glag]
             U = U[glag,:]
 
-        ###########################################################################
 
+
+        ###########################################################################
         # removes tuples with 0 change in an angle (floats should surely always change)
         if trim_0_dX and delta_state:
-            Objv = Objv[np.all(dX[:,3:6] !=0, axis=1)]
+            Objv = Objv[np.all(dX[:,3:6] != 0, axis=1)]
             Ts = Ts[np.all(dX[:,3:6] !=0, axis=1)]
             Time = Time[np.all(dX[:,3:6] !=0, axis=1)]
             X = X[np.all(dX[:,3:6] !=0, axis=1)]
             U = U[np.all(dX[:,3:6] !=0, axis=1)]
             dX = dX[np.all(dX[:,3:6] !=0, axis=1)]
-
         ###########################################################################
 
         # We do this again when training.
@@ -477,7 +492,7 @@ def trim_load_param(fname, load_params):
                 ax2 = plt.subplot(212)
 
 
-            ax1.plot(X[:,3:6])
+            ax1.plot(X[:,3:5])
             ax2.plot(U[:,:4])
             plt.show()
 
@@ -503,6 +518,7 @@ def df_to_training(df, data_params):
     cols = list(df.columns.values) # or list(df)
 
     xu_cols = cols[12:]
+    if 'term' in xu_cols: xu_cols.remove('term')
     num_repeat = int((len(xu_cols)-1)/13)+1
     if battery: num_repeat -=1
 
@@ -510,6 +526,7 @@ def df_to_training(df, data_params):
     dX = df.loc[:,cols[:9]].values
     X = df.loc[:,xu_cols[:9*num_repeat]].values
     U = df.loc[:,xu_cols[9*num_repeat:]].values
+
 
     # NOTE: this makes battery part of the inputs. This is okay, but was originally uninteded
     #   It's okay because the inputs U are scaled by uniform scalers.
@@ -533,3 +550,40 @@ def load_dirs(dir_list, load_params):
             df = df.append(df_t, ignore_index=True)
     print('Processed data of shape: ', df.shape)
     return df
+
+def get_rand_traj(df):
+    '''
+    Given a loaded dataframe, calculates how many trajectories there are and
+    returns a random trajectory, with its position
+    '''
+    if "term" not in list(df.columns.values):
+        raise ValueError("Did not have terminal column in dataframe")
+
+    ends = np.squeeze(np.where(df['term'].values==1))
+    points = np.concatenate((np.array([0]), ends))
+
+    end_index = np.random.randint(len(ends))
+    start, end = points[end_index:end_index+2]
+    # print(start)
+    df_sub = df[start+1:end+1]
+    print(df_sub)
+
+    return df_sub, end_index
+
+def get_traj(df,idx):
+    '''
+    Given a loaded dataframe and an index, returns the idx'th tajectory from the
+    list. This is useful as a followup once you have gotten a random one you enjoy
+    '''
+    if "term" not in list(df.columns.values):
+        raise ValueError("Did not have terminal column in dataframe")
+
+    ends = np.squeeze(np.where(df['term'].values==1))
+    points = np.concatenate((np.array([0]), ends))
+
+    end_index = idx
+    start, end = points[end_index:end_index+2]
+    # print(start)
+    df_sub = df[start+1:end+1]
+
+    return df_sub

@@ -57,7 +57,7 @@ class EnsembleNN(nn.Module):
         for i in range(E):
             self.networks.append(GeneralNN(nn_params))
 
-    def train_cust(self, dataset, train_params):
+    def train_cust(self, dataset, train_params, gradoff = False):
         '''
         To train the enemble model simply train each subnetwork on the same data
         Will return the test and train accuracy in lists of 1d arrays
@@ -74,21 +74,40 @@ class EnsembleNN(nn.Module):
         # cross_val_err_train = []
 
 
+        if gradoff:
+            err = 0
+            for (i, net) in enumerate(self.networks):
+                train_params = {
+                    'epochs' : 1,
+                    'batch_size' : 32,
+                    'optim' : 'Adam',
+                    'split' : 0.99,
+                    'lr': .002,
+                    'lr_schedule' : [30,.6],
+                    'test_loss_fnc' : [],
+                    'preprocess' : True,
+                    'noprint' : True
+                }
+                acctest, acctrain = net.train_cust((dataset), train_params, gradoff = True)
+                err += min(acctrain)/self.E
+            return 0, err
+        else:
+            # iterate through the validation sets
+            for (i, net), (train_idx, test_idx) in zip(enumerate(self.networks),kf.split(dataset[0])):
+                # only train on training data to ensure diversity
+                X_cust = dataset[0][train_idx,:]
+                U_cust = dataset[1][train_idx,:]
+                dX_cust = dataset[2][train_idx,:]
 
-        # iterate through the validation sets
-        for (i, net) in enumerate(self.networks):
+                # initializations that normally occur outside of loop
+                # net.init_weights_orth()
+                net.init_loss_fnc(dX_cust,l_mean = 1,l_cov = 1) # data for std,
 
-            dataset_cust_ind = kf.split(X).__getitem__(i)
-            dataset_cust = dataset[dataset_cust_ind]
+                # train
+                acctest, acctrain = net.train_cust((X_cust, U_cust, dX_cust), train_params)
+                acctest_l.append(acctest)
+                acctrain_l.append(acctrain)
 
-            # initializations that normally occur outside of loop
-            # net.init_weights_orth()
-            net.init_loss_fnc(dataset_cust[2],l_mean = 1,l_cov = 1) # data for std,
-
-            # train
-            acctest, acctrain = net.train_cust(dataset_cust, train_params)
-            acctest_l.append(acctest)
-            acctrain_l.append(acctrain)
 
         return np.transpose(np.array(acctest_l)), np.transpose(np.array(acctrain_l))
 
