@@ -129,7 +129,7 @@ def stack_dir_pd(dir, load_params):
             d['yaw'+st] = X[:,5+i]
             d['lina_x'+st] = X[:,6+i]
             d['lina_y'+st] = X[:,7+i]
-            d['liny_z'+st] = X[:,8+i]
+            d['lina_z'+st] = X[:,8+i]
 
         k = 0
         for j in input_idxs:
@@ -164,7 +164,7 @@ def stack_dir_pd(dir, load_params):
             'd_yaw': dX[:,5],
             'd_lina_x': dX[:,6],
             'd_lina_y': dX[:,7],
-            'd_liny_z': dX[:,8],
+            'd_lina_z': dX[:,8],
 
             'timesteps': Ts[:],
             'objective vals': objv[:],
@@ -191,6 +191,7 @@ def trim_load_param(fname, load_params):
 
     # Grab params
     delta_state = load_params['delta_state']
+    include_tplus1 = load_params['include_tplus1']
     takeoff_points = load_params['takeoff_points']
     trim_0_dX = load_params['trim_0_dX']
     trime_large_dX = load_params['trime_large_dX']
@@ -513,20 +514,36 @@ def df_to_training(df, data_params):
     Takes in a loaded and trimmed dataframe and a set of (future) parameters to
     train the neural net on. Can take in many dataframes at once
     '''
-    battery = data_params['battery']
 
+    # Grab data params
+    battery = data_params['battery']
+    states = data_params['states']
+    inputs = data_params['inputs']
+    change_states = data_params['change_states']
+    # 
+    # print(states)
+    # print(change_states)
+    # print(inputs)
+
+    # dataframe info
     cols = list(df.columns.values) # or list(df)
 
-    xu_cols = cols[12:]
-    if 'term' in xu_cols: xu_cols.remove('term')
-    num_repeat = int((len(xu_cols)-1)/13)+1
-    if battery: num_repeat -=1
+    # if nothing given, returns all. Old code below.
+    if states == [] and inputs == []:
+        xu_cols = cols[12:]
+        if 'term' in xu_cols: xu_cols.remove('term')
+        num_repeat = int((len(xu_cols)-1)/13)+1
+        if battery: num_repeat -=1
 
+        dX = df.loc[:,cols[:9]].values
+        X = df.loc[:,xu_cols[:9*num_repeat]].values
+        U = df.loc[:,xu_cols[9*num_repeat:]].values
 
-    dX = df.loc[:,cols[:9]].values
-    X = df.loc[:,xu_cols[:9*num_repeat]].values
-    U = df.loc[:,xu_cols[9*num_repeat:]].values
-
+    # Otherwise take lists
+    else:
+        dX = df[change_states].values
+        X = df[states].values
+        U = df[inputs].values
 
     # NOTE: this makes battery part of the inputs. This is okay, but was originally uninteded
     #   It's okay because the inputs U are scaled by uniform scalers.
@@ -566,7 +583,7 @@ def get_rand_traj(df):
     start, end = points[end_index:end_index+2]
     # print(start)
     df_sub = df[start+1:end+1]
-    print(df_sub)
+    # print(df_sub)
 
     return df_sub, end_index
 

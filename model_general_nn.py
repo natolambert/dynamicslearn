@@ -241,7 +241,7 @@ class GeneralNN(nn.Module):
         else:
             raise ValueError(optim + " is not a valid optimizer type")
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.85) # most results at .6 gamma, tried .33 when got NaN
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6, gamma=0.7) # most results at .6 gamma, tried .33 when got NaN
 
         testloss, trainloss = self._optimize(self.loss_fnc, optimizer, split, scheduler, epochs, batch_size, dataset) # trainLoader, testLoader)
         return testloss, trainloss
@@ -339,7 +339,7 @@ class GeneralNN(nn.Module):
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
             if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
-            if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
+            # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
             error_train.append(avg_loss.data[0].numpy())
             errors.append(test_error.data[0].numpy())
         #loss_fn.print_mmlogvars()

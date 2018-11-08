@@ -51,50 +51,91 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
+    'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
     'trime_large_dX': True,             # if the states change by a large amount, not realistic
     'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
-    'stack_states': 1,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+    'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
     'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
     'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
     'timestep_flags': [],               # if you want to filter rostime stamps, do it here
     'battery' : True,                   # if battery voltage is in the state data
-    'terminals': False,                 # adds a column to the dataframe tracking end of trajectories
+    'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
     'fastLog' : True,                   # if using the software with the new fast log
     'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
 }                                       # for contFreq, use 1 if training at the same rate data was collected at
 
-dir_list = ["_newquad1/new_samp/c50_samp400/"]
+# dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
+dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
+'''
+['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
+ 'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
+ 'omega_x0' 'omega_y0' 'omega_z0' 'pitch0' 'roll0' 'yaw0' 'lina_x0'
+ 'lina_y0' 'lina_z0' 'omega_x1' 'omega_y1' 'omega_z1' 'pitch1' 'roll1'
+ 'yaw1' 'lina_x1' 'lina_y1' 'lina_z1' 'omega_x2' 'omega_y2' 'omega_z2'
+ 'pitch2' 'roll2' 'yaw2' 'lina_x2' 'lina_y2' 'liny_z2' 'm1_pwm_0'
+ 'm2_pwm_0' 'm3_pwm_0' 'm4_pwm_0' 'm1_pwm_1' 'm2_pwm_1' 'm3_pwm_1'
+ 'm4_pwm_1' 'm1_pwm_2' 'm2_pwm_2' 'm3_pwm_2' 'm4_pwm_2' 'vbat']
+'''
+
 data_params = {
-    'states' : [],                      # most of these are to be implented for easily training specific states etc
-    'inputs' : [],
-    'change_states' : [],
+    'states' : ['omega_x0', 'omega_x1', 'omega_x2',
+                'omega_y0', 'omega_y1', 'omega_y2',
+                'omega_z0', 'omega_z1', 'omega_z2',
+                'pitch0',   'pitch1',   'pitch2',
+                'roll0',    'roll1',    'roll2',
+                'yaw0',     'yaw1',     'yaw2',
+                'lina_x0',  'lina_x1',  'lina_x2',
+                'lina_y0',  'lina_y1',  'lina_y2',
+                'lina_z0',  'lina_z1',  'lina_z2'],
+
+    'inputs' : ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
+                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2', 'vbat'],
+
+    'change_states' : ['d_omega_x', 'd_omega_y', 'd_omega_z',
+                        'd_pitch', 'd_roll', 'd_yaw',
+                        'd_lina_x', 'd_lina_y', 'd_liny_z'],
+
     'battery' : True                    # Need to include battery here too
 }
 
+# data_params = {
+#     'states' : [],                      # most of these are to be implented for easily training specific states etc
+#     'inputs' : [],
+#     'change_states' : [],
+#     'battery' : True                    # Need to include battery here too
+# }
+
 X, U, dX = df_to_training(df, data_params)
+
+print('---')
+print("X has shape: ", np.shape(X))
+print("U has shape: ", np.shape(U))
+print("dX has shape: ", np.shape(dX))
+print('---')
 
 nn_params = {                           # all should be pretty self-explanatory
     'dx' : np.shape(X)[1],
     'du' : np.shape(U)[1],
     'dt' : np.shape(dX)[1],
-    'hid_width' : 500,
-    'hid_depth' : 3,
+    'hid_width' : 250,
+    'hid_depth' : 2,
     'bayesian_flag' : True,
     'activation': Swish(),
-    'dropout' : 0.5,
+    'dropout' : 0.0,
     'split_flag' : False,
     'pred_mode' : 'Delta State',
     'ensemble' : ensemble
 }
 
 train_params = {
-    'epochs' : 120,
-    'batch_size' : 32,
+    'epochs' : 25,
+    'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
     'lr': .002,
@@ -103,6 +144,7 @@ train_params = {
     'preprocess' : True,
     'noprint' : noprint
 }
+
 
 # log file
 if log:
@@ -158,7 +200,7 @@ plt.show()
 
 # Saves NN params
 dir_str = str('_models/temp/')
-data_name = '_50Hz_try_stack1_'
+data_name = '_100Hz_roll3_stack3_'
 info_str = "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
 model_name = dir_str + date_str + info_str
 newNN.save_model(model_name + '.pth')
@@ -168,3 +210,6 @@ normX, normU, normdX = newNN.getNormScalers()
 with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
   pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
 time.sleep(2)
+
+# import IPython
+# IPython.embed()
