@@ -211,5 +211,7 @@ with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
   pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
 time.sleep(2)
 
-# import IPython
-# IPython.embed()
+# Saves data file
+with open(model_name+"--data.pkl", 'wb') as pickle_file:
+  pickle.dump(df, pickle_file, protocol=2)
+time.sleep(2)
