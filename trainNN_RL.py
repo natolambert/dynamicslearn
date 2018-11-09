@@ -30,18 +30,23 @@ import argparse
 
 # adding arguments to make code easier to work with
 parser = argparse.ArgumentParser(description='Train a Neural Netowrk off Autonomous Data')
+parser.add_argument('model_name', type=str, help='Give this string to give your model a memorable name')
 parser.add_argument('--log', action='store_true',
                     help='a flag for storing a training log in a txt file')
 parser.add_argument('--noprint', action='store_false',
                     help='turn off printing in the terminal window for epochs')
 parser.add_argument('--ensemble', action='store_true',
                     help='trains an ensemble of models instead of one network')
+parser.add_argument('--nosave', action='store_false',
+                    help='if you want to test code and not save the model')
 
 args = parser.parse_args()
 
 log = args.log
 noprint = args.noprint
 ensemble = args.ensemble
+model_name = args.model_name
+
 ######################################################################
 
 print('\n')
@@ -52,6 +57,7 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
     'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
+    'trim_high_vbat': 3880,             # trims high vbat because these points the quad is not moving
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
     'trime_large_dX': True,             # if the states change by a large amount, not realistic
@@ -68,6 +74,7 @@ load_params ={
 
 # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
+# dir_list = ["ex_sing_file/"]#, "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
@@ -83,19 +90,24 @@ df = load_dirs(dir_list, load_params)
 '''
 
 data_params = {
-    'states' : ['omega_x0', 'omega_x1', 'omega_x2',
-                'omega_y0', 'omega_y1', 'omega_y2',
-                'omega_z0', 'omega_z1', 'omega_z2',
-                'pitch0',   'pitch1',   'pitch2',
-                'roll0',    'roll1',    'roll2',
-                'yaw0',     'yaw1',     'yaw2',
-                'lina_x0',  'lina_x1',  'lina_x2',
-                'lina_y0',  'lina_y1',  'lina_y2',
-                'lina_z0',  'lina_z1',  'lina_z2'],
+    # Note the order of these matters. that is the order your array will be in
+    'states' : ['omega_x0', 'omega_y0', 'omega_z0',
+                'pitch0',   'roll0',    'yaw0',
+                'lina_x0',  'lina_y0',  'lina_z0',
+                'omega_x1', 'omega_y1', 'omega_z1',
+                'pitch1',   'roll1',    'yaw1',
+                'lina_x1',  'lina_y1',  'lina_z1',
+                'omega_x2', 'omega_y2', 'omega_z2',
+                'pitch2',   'roll2',    'yaw2',
+                'lina_x2',  'lina_y2',  'lina_z2'],
+                # 'omega_x3', 'omega_y3', 'omega_z3',
+                # 'pitch3',   'roll3',    'yaw3',
+                # 'lina_x3',  'lina_y3',  'lina_z3'],
 
     'inputs' : ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
                 'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
                 'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2', 'vbat'],
+                # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
     'change_states' : ['d_omega_x', 'd_omega_y', 'd_omega_z',
                         'd_pitch', 'd_roll', 'd_yaw',
@@ -104,12 +116,7 @@ data_params = {
     'battery' : True                    # Need to include battery here too
 }
 
-# data_params = {
-#     'states' : [],                      # most of these are to be implented for easily training specific states etc
-#     'inputs' : [],
-#     'change_states' : [],
-#     'battery' : True                    # Need to include battery here too
-# }
+
 
 X, U, dX = df_to_training(df, data_params)
 
@@ -177,6 +184,7 @@ else:
     newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
+newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['change_states'])
 
 # plot
 min_err = np.min(acctrain)
@@ -199,19 +207,21 @@ ax1.legend()
 plt.show()
 
 # Saves NN params
-dir_str = str('_models/temp/')
-data_name = '_100Hz_roll3_stack3_'
-info_str = "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-model_name = dir_str + date_str + info_str
-newNN.save_model(model_name + '.pth')
-print('Saving model to', model_name)
+if args.nosave:
+    dir_str = str('_models/temp/')
+    data_name = '_100Hz_'
+    # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+    info_str = "_" + model_name +"_" + "stack" + str(load_params['stack_states']) + "_" #+ "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+    model_name = dir_str + date_str + info_str
+    newNN.save_model(model_name + '.pth')
+    print('Saving model to', model_name)
 
-normX, normU, normdX = newNN.getNormScalers()
-with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
-  pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
-time.sleep(2)
+    normX, normU, normdX = newNN.getNormScalers()
+    with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
+      pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
+    time.sleep(2)
 
-# Saves data file
-with open(model_name+"--data.pkl", 'wb') as pickle_file:
-  pickle.dump(df, pickle_file, protocol=2)
-time.sleep(2)
+    # Saves data file
+    with open(model_name+"--data.pkl", 'wb') as pickle_file:
+      pickle.dump(df, pickle_file, protocol=2)
+    time.sleep(2)
