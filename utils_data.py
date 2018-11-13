@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib
 import seaborn as sns
+import csv
+
 
 def stack_dir_pd(dir, load_params):
     '''
@@ -33,47 +35,47 @@ def stack_dir_pd(dir, load_params):
         if len(f) > 5 and f[-4:] == '.csv':
             X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
 
-        # global time (ROS time)
-        if times == []:
-            times = time
-        else:
-            times = np.append(times,time)
+            # global time (ROS time)
+            if times == []:
+                times = time
+            else:
+                times = np.append(times,time)
 
-        # State data
-        if X == []:
-            X = X_t
-        else:
-            X = np.append(X, X_t, axis=0)
+            # State data
+            if X == []:
+                X = X_t
+            else:
+                X = np.append(X, X_t, axis=0)
 
-        # inputs
-        if U == []:
-            U = U_t
-        else:
-            U = np.append(U, U_t, axis=0)
+            # inputs
+            if U == []:
+                U = U_t
+            else:
+                U = np.append(U, U_t, axis=0)
 
-        # change in state
-        if dX == []:
-            dX = dX_t
-        else:
-            dX = np.append(dX, dX_t, axis=0)
+            # change in state
+            if dX == []:
+                dX = dX_t
+            else:
+                dX = np.append(dX, dX_t, axis=0)
 
-        # time step
-        if Ts_t == []:
-            Ts = Ts_t
-        else:
-            Ts = np.append(Ts, Ts_t, axis=0)
+            # time step
+            if Ts_t == []:
+                Ts = Ts_t
+            else:
+                Ts = np.append(Ts, Ts_t, axis=0)
 
-        # objective value
-        if objv_t == []:
-            objv = objv_t
-        else:
-            objv = np.append(objv, objv_t, axis=0)
+            # objective value
+            if objv_t == []:
+                objv = objv_t
+            else:
+                objv = np.append(objv, objv_t, axis=0)
 
-        # end of trajectory marker
-        if terminals == []:
-            terminals = terminal
-        else:
-            terminals = np.append(terminals, terminal, axis=0)
+            # end of trajectory marker
+            if terminals == []:
+                terminals = terminal
+            else:
+                terminals = np.append(terminals, terminal, axis=0)
 
     print('...has additional trimmed datapoints: ', np.shape(X)[0])
 
@@ -203,6 +205,7 @@ def trim_load_param(fname, load_params):
     battery = load_params['battery']
     fastLog = load_params['fastLog']
     contFreq = load_params['contFreq']
+    bat_trim = load_params['trim_high_vbat']
 
     with open(fname, "rb") as csvfile:
         # laod data
@@ -212,6 +215,10 @@ def trim_load_param(fname, load_params):
         # For now, remove the last 4 columns becausee they're PWMS
         if np.shape(new_data)[1] == 20:
             new_data = new_data[:,:16]
+
+        if bat_trim > 0:
+            vbat = new_data[:,-1]
+            new_data = new_data[vbat<bat_trim,:]
 
         # Finds the points where the input changes
         if fastLog:
@@ -520,10 +527,7 @@ def df_to_training(df, data_params):
     states = data_params['states']
     inputs = data_params['inputs']
     change_states = data_params['change_states']
-    # 
-    # print(states)
-    # print(change_states)
-    # print(inputs)
+
 
     # dataframe info
     cols = list(df.columns.values) # or list(df)
@@ -567,6 +571,40 @@ def load_dirs(dir_list, load_params):
             df = df.append(df_t, ignore_index=True)
     print('Processed data of shape: ', df.shape)
     return df
+
+def dir_summary_csv(dir, load_params):
+    # takes in a directory with loading parameters and saves a csv summarizing each flight
+    print('Loading dir: ', dir)
+    files = os.listdir("_logged_data_autonomous/"+dir)
+    print('...number of flights: ', len(files))
+
+    # init arrays
+    X = []
+    U = []
+    dX = []
+    objv = []
+    Ts = []
+    times = []
+    terminals = []
+
+    save_dir = "_summaries/"
+    end_idx = dir[-2::-1].find('/')
+    saved_name = save_dir + "summary-" + dir[-end_idx-1:-1]+'.csv'
+    with open(saved_name, 'w') as outcsv:
+        writer = csv.writer(outcsv, delimiter=',')
+        writer.writerow(["Flight Idx", "Flight Time (ms)", "Mean Objective", "RMS Pitch Roll"])
+        for i,f in enumerate(files):
+            # print(f)
+            if len(f) > 5 and f[-4:] == '.csv':
+                X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
+
+                flight_time = np.round(np.max(time),2)
+                mean_obj =  np.round(np.mean(objv_t[objv_t != -1]),2)
+                rmse =  np.round(np.sqrt(np.mean(np.sum(X_t[:,3]**2+X_t[:,4]**2))),2)
+                writer.writerow([str(i), str(flight_time), str(mean_obj), str(rmse)])
+
+
+
 
 def get_rand_traj(df):
     '''

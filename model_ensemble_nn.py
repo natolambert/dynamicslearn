@@ -57,6 +57,11 @@ class EnsembleNN(nn.Module):
         for i in range(E):
             self.networks.append(GeneralNN(nn_params))
 
+        # Can store with a helper function for when re-loading and figuring out what was trained on
+        self.state_list = []
+        self.input_list = []
+        self.change_state_list = []
+
     def train_cust(self, dataset, train_params, gradoff = False):
         '''
         To train the enemble model simply train each subnetwork on the same data
@@ -122,6 +127,16 @@ class EnsembleNN(nn.Module):
     def getNormScalers(self):
         # all the data passed in is the same, so the scalers are identical
         return self.networks[0].getNormScalers()
+
+    def store_training_lists(self, state_list = [], input_list = [], change_state_list = []):
+        # stores the column labels of the generated dataframe used to train this network
+        self.state_list = state_list
+        self.input_list = input_list
+        self.change_state_list = change_state_list
+
+    def get_training_lists(self):
+        # return the training lists for inspection
+        return self.state_list, self.input_list, self.change_state_list
 
 
     def save_model(self, filepath):

@@ -283,7 +283,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         raise ValueError("This function requires battery voltage in the loaded dataframe for contextual plotting")
 
     ################# Make sure the model is in eval mode ################
-    # model.eval()
+    model.eval()
 
     ################### Take the specific action rnage! #####################
     # going to need to set a specific range of actions that we are looking at.
@@ -316,21 +316,31 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
 
 
     ######################## batch data by rounding voltages ################
-    # df = df_action_filtered.sort_values('vbat')
-    df = df_action_filtered
+    df = df_action_filtered.sort_values('vbat')
+    # df = df_action_filtered
 
     num_pts = len(df)
-
-    # print("Battery voltages in play are:", np.unique(df['vbat'].values))
-    print("Creating color gradient....")
 
     # spacing = np.linspace(0,num_pts,num_ranges+1, dtype=np.int)
 
     # parameters can be changed if desired
+    state_list, input_list, change_list = model.get_training_lists()
+
+    # For this function append vbat if not in
+    v_in_flag = True
+    if 'vbat' not in input_list:
+        v_in_flag = False
+        input_list.append('vbat')
+
+
     data_params = {
-        'states' : [],                      # most of these are to be implented for easily training specific states etc
-        'inputs' : [],
-        'change_states' : [],
+        # Note the order of these matters. that is the order your array will be in
+        'states' : state_list,
+
+        'inputs' : input_list,
+
+        'change_states' : change_list,
+
         'battery' : True                    # Need to include battery here too
     }
 
@@ -339,22 +349,17 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
 
     X, U, dX = df_to_training(df, data_params)
 
-
     # gather predictions
     for n, (x, u, dx) in enumerate(zip(X, U, dX)):
-
         # predictions[i, n, 9:] = x[:9]+model.predict(x,u)
         if ground_truth:
             predictions[n, 9:-1] = dx
         else:
-            # print('...')
-            # print(x)
-            # print(u)
-            # print(model.predict(x,u))
-            # print(model.predict(x,u))
-            # print(dx)
-            # print('^^^')
-            predictions[n, 9:-1] = model.predict(x,u)
+            # hacky solution to comparing models tranined with and without battery
+            if v_in_flag:
+                predictions[n, 9:-1] = model.predict(x,u)
+            else:
+                predictions[n, 9:-1] = model.predict(x,u[:-1])
         predictions[n, :9] = x[:9]     # stores for easily separating generations from plotting
         predictions[n, -1] = u[-1]
 
@@ -367,7 +372,8 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         predictions[:,:9] = scalarX.transform(prediction_holder)[:,:9]
         predictions[:,9:-1] = scalardX.transform(predictions[:,9:-1])
 
-
+    ############################################################################
+    ############################################################################
     ######################### plot this dataset on Euler angles ################
     # this will a subplot with a collection of points showing the next state
     #   that originates from a initial state. The different battery voltages will
@@ -445,9 +451,10 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         cbar.ax.set_ylabel('Battery Voltage (mV)')
 
         plt.show()
+        ###############################################################
 
     ############## PLOT Pitch for battery cutoff ###################
-    if True:
+    if False:
         battery_cutoff = 3800
         battery_cutoff = int(np.mean(predictions[:, -1]))
         battery_cutoff = int(np.median(predictions[:, -1]))
@@ -456,6 +463,9 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         with sns.axes_style("darkgrid"):
             fig2, axes2 = plt.subplots(nrows=1, ncols=2, sharey=True)
             ax21, ax22 = axes2[:]
+
+            cmap = matplotlib.cm.viridis
+            norm = matplotlib.colors.Normalize(vmin=np.min(predictions[:, -1]), vmax=np.max(predictions[:, -1]))
 
             if ground_truth:
                 plt.suptitle("Measured Pitch Transitions Above and Below Mean Vbat: {0}".format(battery_cutoff))
@@ -470,8 +480,8 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
                 else:
                     ax21.set_ylabel("Predicted Change in state (Degrees)")
 
-            ax21.set_title("Pitch, Vbat < {0}".format(battery_cutoff))
-            ax22.set_title("Pitch, Vbat > {0}".format(battery_cutoff))
+            ax21.set_title("Pitch, Vbat > {0}".format(battery_cutoff))
+            ax22.set_title("Pitch, Vbat < {0}".format(battery_cutoff))
 
             if normalize:
                 ax21.set_xlabel("Normalized Pitch")
@@ -489,6 +499,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
             fig2.subplots_adjust(right=0.8)
             cbar_ax = fig2.add_axes([0.85, 0.15, 0.02, 0.7])
 
+        dim = 3
         base = 50
         prec = 1
         vbats = np.around(base * np.around(predictions[:, -1]/base),prec)
@@ -496,14 +507,78 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         notflag = np.invert(flag)
         # hm2 = plt.scatter(predictions[:,3], predictions[:,3+9], c=predictions[:, -1], alpha = .7, s=3)
         # plt.clf()
-        ax21.scatter(predictions[flag,3], predictions[flag,3+9], c=vbats[flag], alpha = .7, s=3)
-        ax22.scatter(predictions[notflag,3], predictions[notflag,3+9], c=vbats[notflag], alpha = .7, s=3)
+        ax21.scatter(predictions[flag, dim], predictions[flag, dim+9], cmap=cmap, norm=norm, c=vbats[flag], alpha = .7, s=3)
+        ax22.scatter(predictions[notflag, dim], predictions[notflag, dim+9], cmap=cmap, norm=norm, c=vbats[notflag], alpha = .7, s=3)
         cbar = fig2.colorbar(hm, cax=cbar_ax)
         cbar.ax.set_ylabel('Battery Voltage (mV)')
 
-        #########
         plt.show()
+        ###############################################################
 
-    # TODO: Make big plot of one dimension where each subplot is of 50 mv steps
+    if True:
+        num_subplots = 9
+        vbats = predictions[:, -1]
 
-    raise NotImplementedError("tbd")
+        # generate battery ranges for the plot
+        pts = len(vbats)
+        pts_breaks = np.linspace(0,pts-1, num_subplots+1, dtype =np.int)
+        bat_ranges = vbats[pts_breaks]
+
+
+        # bat_ranges = np.linspace(np.min(vbats), np.max(vbats),num_subplots+1)
+
+        with sns.axes_style("darkgrid"):
+            fig3, axes3 = plt.subplots(nrows=3, ncols=3, sharey=True, sharex=True)
+            # ax31, ax32, ax33, ax34, ax35, ax36 = axes3[:,:]
+
+            cmap = matplotlib.cm.viridis
+            norm = matplotlib.colors.Normalize(vmin=bat_ranges[0], vmax=bat_ranges[-1])
+
+            if ground_truth:
+                plt.suptitle("Measured Pitch Transitions For Varying Battery Voltage")
+                if normalize:
+                    fig3.text(0.5, 0.04, 'Normalize Global State', ha='center')
+                    fig3.text(0.04, 0.5, 'Normalized Measured Change in State', va='center', rotation='vertical')
+                else:
+                    fig3.text(0.5, 0.04, 'Global State', ha='center')
+                    fig3.text(0.04, 0.5, 'Measured Change in State', va='center', rotation='vertical')
+            else:
+                plt.suptitle("Predicted Pitch Transitions For Varying Battery Voltage")
+                if normalize:
+                    fig3.text(0.5, 0.04, 'Normalize Global State', ha='center')
+                    fig3.text(0.04, 0.5, 'Normalized Predicted Change in State', va='center', rotation='vertical')
+                else:
+                    fig3.text(0.5, 0.04, 'Global State', ha='center')
+                    fig3.text(0.04, 0.5, 'Predicted Change in State', va='center', rotation='vertical')
+
+
+            for i, ax in enumerate(axes3.flatten()):
+                # get range values
+                low = bat_ranges[i]
+                high = bat_ranges[i+1]
+
+
+                ax.set_title("Voltage [{0},{1}]".format(int(low), int(high)))
+                if normalize:
+                    # ax.set_xlabel("Normalized Pitch")
+                    ax.set_ylim([-1,1])
+                else:
+                    # ax.set_xlabel("Global Pitch")
+                    ax.set_xlim([-45,45])
+
+                dim = 4
+                flag = (vbats > low) & (vbats < high)
+                hm = ax.scatter(predictions[flag, dim], predictions[flag, dim+9], cmap = cmap, norm = norm, c=vbats[flag], alpha = .7, s=3)
+
+                if normalize:
+                    ax.set_ylim([-1,1])
+                else:
+                    ax.set_ylim([-3,3])
+
+            fig3.subplots_adjust(right=0.8)
+            cbar_ax1 = fig3.add_axes([0.85, 0.15, 0.02, 0.7])
+            cbar = fig3.colorbar(hm, cax=cbar_ax1)
+            cbar.ax.set_ylabel('Battery Voltage (mV)')
+
+            plt.show()
+            ###############################################################

@@ -57,7 +57,7 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
     'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
-    'trim_high_vbat': 3880,             # trims high vbat because these points the quad is not moving
+    'trim_high_vbat': 4000,             # trims high vbat because these points the quad is not moving
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
     'trime_large_dX': True,             # if the states change by a large amount, not realistic
@@ -70,10 +70,13 @@ load_params ={
     'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
     'fastLog' : True,                   # if using the software with the new fast log
     'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
-}                                       # for contFreq, use 1 if training at the same rate data was collected at
+}
 
-# dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
-dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
+dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
+# dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp250_roll1/","_newquad1/fixed_samp/c100_samp250_roll2/"]#,"_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
+# for dir in dir_list:
+#     dir_summary_csv(dir, load_params)
+
 # dir_list = ["ex_sing_file/"]#, "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
@@ -145,7 +148,7 @@ train_params = {
     'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .002,
+    'lr': .001,
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -221,7 +224,7 @@ if args.nosave:
       pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
     time.sleep(2)
 
-    # Saves data file
-    with open(model_name+"--data.pkl", 'wb') as pickle_file:
-      pickle.dump(df, pickle_file, protocol=2)
-    time.sleep(2)
+    # # Saves data file
+    # with open(model_name+"--data.pkl", 'wb') as pickle_file:
+    #   pickle.dump(df, pickle_file, protocol=2)
+    # time.sleep(2)

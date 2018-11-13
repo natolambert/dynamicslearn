@@ -46,12 +46,11 @@ class GeneralNN(nn.Module):
         self.activation = nn_params['activation']
         self.d = nn_params['dropout']
         self.split_flag = nn_params['split_flag']
-        # print(self.n_in)
-        # increases number of inputs and outputs if cos/sin is used
-        # plus 1 per angle because they need a pair (cos, sin) for each output
-        # if len(self.ang_trans_idx) > 0:
-        #     self.n_in += len(self.ang_trans_idx)
-        #     self.n_out += len(self.ang_trans_idx)
+
+        # Can store with a helper function for when re-loading and figuring out what was trained on
+        self.state_list = []
+        self.input_list = []
+        self.change_state_list = []
 
         self.scalarX = StandardScaler()# MinMaxScaler(feature_range=(-1,1))#StandardScaler()# RobustScaler()
         self.scalarU = MinMaxScaler(feature_range=(-1,1))
@@ -67,7 +66,6 @@ class GeneralNN(nn.Module):
         else:
             self.loss_fnc = nn.MSELoss()
 
-        # print(self.n_out)
         # If using split model, initiate here:
         if self.split_flag:
             self.features = nn.Sequential(
@@ -92,7 +90,6 @@ class GeneralNN(nn.Module):
             layers.append(nn.Linear(self.hidden_w, self.n_out))
             self.features = nn.Sequential(*layers)
 
-
     def init_weights_orth(self):
         # inits the NN with orthogonal weights
         def init_weights(m):
@@ -109,6 +106,19 @@ class GeneralNN(nn.Module):
         self.loss_fnc.scalers = torch.Tensor(np.std(targets,axis=0))
 
         self.loss_fnc.set_lambdas(l_mean, l_cov)
+
+    def getNormScalers(self):
+        return self.scalarX, self.scalarU, self.scalardX
+
+    def store_training_lists(self, state_list = [], input_list = [], change_state_list = []):
+        # stores the column labels of the generated dataframe used to train this network
+        self.state_list = state_list
+        self.input_list = input_list
+        self.change_state_list = change_state_list
+
+    def get_training_lists(self):
+        # return the training lists for inspection
+        return self.state_list, self.input_list, self.change_state_list
 
     def forward(self, x):
         """
@@ -146,24 +156,6 @@ class GeneralNN(nn.Module):
 
         # Tool for plotting the scaled inputs as a histogram
         if False:
-            # plt.title('Scaled State In')
-            # plt.hist(normX[:,0], bins=1000, label='omeg_x')
-            # plt.hist(normX[:,1], bins=1000, label='omeg_y')
-            # plt.hist(normX[:,2], bins=1000, label='omeg_z')
-            # plt.legend()
-            # plt.show()
-            plt.title('Scaled State In')
-            plt.hist(normX[:,3], bins=1000, label='lx')
-            plt.hist(normX[:,4], bins=1000, label='ly')
-            plt.hist(normX[:,5], bins=1000, label='lz')
-            plt.legend()
-            plt.show()
-            # plt.title('Scaled State In')
-            # plt.hist(normX[:,0], bins=1000, label='pitch')
-            # plt.hist(normX[:,1], bins=1000, label='roll')
-            # plt.hist(normX[:,2], bins=1000, label='yaw')
-            # plt.legend()
-            # plt.show()
             plt.title('Scaled Inputs')
             plt.hist(normU[:,0], bins=1000)
             plt.hist(normU[:,1], bins=1000)
@@ -172,14 +164,12 @@ class GeneralNN(nn.Module):
             plt.legend()
             plt.show()
 
-
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
 
         return list(zip(inputs, outputs))
 
-    def getNormScalers(self):
-        return self.scalarX, self.scalarU, self.scalardX
+
 
     def postprocess(self, dX):
         """
@@ -188,8 +178,6 @@ class GeneralNN(nn.Module):
         # de-normalize so to say
         dX = self.scalardX.inverse_transform(dX.reshape(1,-1))
         dX = dX.ravel()
-
-
         return np.array(dX)
 
 
@@ -355,24 +343,12 @@ def predict_nn(model, x, u, indexlist):
     x, u are vectors of current state and input to get next state or change in state
     indexlist is is an ordered index list for which state variable the indices of the input to the NN correspond to. Assumes states come before any u
     '''
-    # constructs input to nn
-    #x_nn = []
-    #for idx in indexlist:
-    #    x_nn.append(x[idx])
-    #x_nn = np.array(x_nn)
 
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
     prediction = np.copy(x)
-    # pred_mode = model.pred_mode
-    # if pred_mode == 'Next State':
-    #     pred = model.predict(x,u)
-    #     for i, idx in enumerate(indexlist):
-    #         prediction[idx] = pred[i]
-    # else:
     pred = model.predict(x,u)
     for i, idx in enumerate(indexlist):
         #print('x_nn = ', x[idx], 'predicted', pred)
         prediction[idx] = x[idx] + pred[i]
-
 
     return prediction
