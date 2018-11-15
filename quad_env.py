@@ -6,6 +6,10 @@ import numpy as np
 
 
 class QuadEnv(gym.Env):
+	"""
+	Gym environment for our custom system (Crazyflie quad).
+
+	"""
 	def __init__(self):
 		gym.Env.__init__(self)
 		# self.dyn_nn = torch.load("_models/temp/2018-11-01--16-20-11.5--Min error-21.66078d=_50Hz_try_stack1_.pth")
