@@ -38,6 +38,7 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
+    'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
     'trime_large_dX': True,             # if the states change by a large amount, not realistic
@@ -47,12 +48,13 @@ load_params ={
     'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
     'timestep_flags': [],               # if you want to filter rostime stamps, do it here
     'battery' : True,                   # if battery voltage is in the state data
-    'terminals': False,                 # adds a column to the dataframe tracking end of trajectories
+    'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
     'fastLog' : True,                   # if using the software with the new fast log
     'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
-}                                       # for contFreq, use 1 if training at the same rate data was collected at
+}                                          # for contFreq, use 1 if training at the same rate data was collected at
 
-dir_list = ["_newquad1/new_samp/c50_samp400/"]
+# dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
+dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
@@ -65,11 +67,21 @@ data_params = {
 
 X, U, dX = df_to_training(df, data_params)
 
-model_single = '_models/temp/2018-10-25--11-30-59.5--Min error-19.127888d=_50Hz_try_.pth'
 
-model_ensemble = '_models/temp/2018-10-04--13-06-23.9--Min error-767.918203125d=_150Hz_newnet_.pth'
+model_r0 = '_models/temp/2018-10-29--13-33-23.0--Min error-19.431143d=_50Hz_roll1_stack3_.pth'
 
-model = model_single
+model_r1 = '_models/temp/2018-10-29--14-28-23.9--Min error-29.397131d=_50Hz_roll1_stack3_.pth'
+
+model_r2 = '_models/temp/2018-10-29--15-10-10.3--Min error-25.488068d=_50Hz_roll2_stack3_.pth'
+
+model_r3 = '_models/temp/2018-10-29--15-53-36.5--Min error-27.653141d=_50Hz_roll3_stack3_.pth'
+
+model_r4 = '_models/temp/2018-10-30--10-12-27.2--Min error-27.827824d=_50Hz_roll3_stack3_.pth'
+
+model_r4_tuned = '_models/temp/2018-10-31--06-56-01.0--Min error-28.411377d=_50Hz_roll3_stack3_.pth'
+model_r4_tuned2 = '_models/temp/2018-10-31--06-58-45.2--Min error-27.99523d=_50Hz_roll3_stack3_.pth'
+model_temp = '_models/temp/2018-11-08--20-32-42.6--Min error-41.806355d=_100Hz_roll3_stack3_.pth'
+model = model_temp
 # Load a NN model with:
 nn1 = torch.load(model)
 nn1.training = False
@@ -78,6 +90,20 @@ with open(model[:-4]+'--normparams.pkl', 'rb') as pickle_file:
     normX1,normU1,normdX1 = pickle.load(pickle_file)
 
 
+train_params = {
+    'epochs' : 1,
+    'batch_size' : 32,
+    'optim' : 'Adam',
+    'split' : 0.999,
+    'lr': .002,
+    'lr_schedule' : [30,.6],
+    'test_loss_fnc' : [],
+    'preprocess' : True,
+    'noprint' : False
+}
+_, trainloss = nn1.train_cust((X,U,dX), train_params, gradoff = True)
+print("Training Set Likelihood is: ", trainloss)
+# quit()
 xs = X
 us = U
 dxs = dX #[:,3:6]
@@ -111,7 +137,7 @@ print(np.shape(predictions_1))
 
 # Return evaluation along each dimension of the model
 MSE = np.zeros(len(pred_dims))
-for i, d in enumerate([3,4,5]):
+for i, d in enumerate([0,1,2,3,4,5,6,7,8]):
     se = (predictions_1[:,d] - dxs[:,d])**2
     # se = (predictions_1[:,d] - dxs[:,i])**2
     mse = np.mean(se)
@@ -123,7 +149,7 @@ print(MSE)
 # wx wy wz p  r  y  lx ly lz
 dim = 3
 shift = 0
-lx = int(n*.8)
+lx = int(n*.99)
 # Grab correction dimension data # for training :int(.8*n)
 if True:
     if delta:
@@ -198,8 +224,8 @@ ax1.plot(ground_dim_sort_1, label='Ground Truth', color='k', linewidth=1.8)
 ax1.plot(pred_dim_sort_1, ':', label='Model Prediction', markersize=.9, linewidth=.8)##, linestyle=':')
 # ax1.set_xlabel('Sorted Datapoints')
 ax1.set_ylabel('Pitch Step (Deg.)')
-ax1.set_ylim([-5,5])
-ax1.set_yticks(np.arange(-5,5.01,2.5))
+# ax1.set_ylim([-5,5])
+# ax1.set_yticks(np.arange(-5,5.01,2.5))
 
 # ax1.legend()
 # plt.show()
@@ -213,8 +239,8 @@ ax2.plot(pred_dim_sort_2, ':', label='Model Prediction',  markersize=.9,linewidt
 
 # ax2.set_xlabel('Sorted Datapoints')
 ax2.set_ylabel('Roll Step (Deg.)')
-ax2.set_ylim([-5,5])
-ax2.set_yticks(np.arange(-5,5.01,2.5))
+# ax2.set_ylim([-5,5])
+# ax2.set_yticks(np.arange(-5,5.01,2.5))
 # ax2.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"])
 
 # ax2.legend()

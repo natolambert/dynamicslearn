@@ -350,6 +350,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     X, U, dX = df_to_training(df, data_params)
 
     # gather predictions
+    rmse = np.zeros((9))
     for n, (x, u, dx) in enumerate(zip(X, U, dX)):
         # predictions[i, n, 9:] = x[:9]+model.predict(x,u)
         if ground_truth:
@@ -360,8 +361,16 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
                 predictions[n, 9:-1] = model.predict(x,u)
             else:
                 predictions[n, 9:-1] = model.predict(x,u[:-1])
+
+            # calculate root mean squared error for predictions
+            rmse += (predictions[n, 9:-1] - dx)**2
+
         predictions[n, :9] = x[:9]     # stores for easily separating generations from plotting
         predictions[n, -1] = u[-1]
+
+    rmse /= n
+    rmse = np.sqrt(rmse)
+    print(rmse)
 
 
     # if normalize, normalizes both the raw states and the change in states by
@@ -387,7 +396,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     matplotlib.rc('lines', linewidth=2.5)
 
     ############## PLOT ALL POINTS ON 3 EULER ANGLES ###################
-    if True:
+    if False:
         with sns.axes_style("darkgrid"):
             fig1, axes = plt.subplots(nrows=1, ncols=3, sharey=True)
             ax1, ax2, ax3 = axes[:]
@@ -515,7 +524,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
         plt.show()
         ###############################################################
 
-    if True:
+    if False:
         num_subplots = 9
         vbats = predictions[:, -1]
 

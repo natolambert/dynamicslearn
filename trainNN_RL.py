@@ -56,7 +56,7 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
-    'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
+    'include_tplus1': True,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
     'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
@@ -74,15 +74,20 @@ load_params ={
 }
 
 # for generating summaries
-# output = [dI for dI in os.listdir("_logged_data_autonomous/_newquad1/publ_data/") if os.path.isdir(os.path.join("_logged_data_autonomous/_newquad1/publ_data/",dI))]
+# output = [dI for dI in os.listdir("_logged_data_autonomous/_newquad1/publ2/") if os.path.isdir(os.path.join("_logged_data_autonomous/_newquad1/publ2/",dI))]
 # print(output)
 # for dir in output:
 #     dir_summary_csv(dir, load_params)
+# quit()
+
+# rollouts_summary_csv("_summaries/trainedpoints/25hz/")
+# rollouts_summary_csv("_summaries/trainedpoints/50hz/")
+# rollouts_summary_csv("_summaries/trainedpoints/75hz/")
 
 
 # For generating flight time plot vs rollouts
-# flight_time_plot("_summaries/plots_summaries/")
-# quit()
+# flight_time_plot("_summaries/trainedpoints/")
+# trained_points_plot("_summaries/trainedpoints/")
 
 dir_list = ["_newquad1/publ_data/c75_samp300_rand/",
     "_newquad1/publ_data/c75_samp300_roll1/",
@@ -97,7 +102,9 @@ dir_list = ["_newquad1/publ_data/c75_samp300_rand/",
 # dir_list = ["ex_sing_file/"]#, "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
 other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
-
+print(df)
+print(df.columns.values)
+quit()
 '''
 ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
  'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
@@ -136,7 +143,12 @@ data_params = {
     'battery' : True                    # Need to include battery here too
 }
 
+# the true state target values
+# 't1_omega_x', 't1_omega_y', 't1_omega_z', 't1_pitch', 't1_roll', 't1_yaw', 't1_lina_x', 't1_lina_y' 't1_lina_z'
 
+st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
+                    'd_pitch', 't1_omega_z', 't1_pitch',
+                    'd_lina_x', 'd_lina_y', 'd_liny_z']
 
 X, U, dX = df_to_training(df, data_params)
 
