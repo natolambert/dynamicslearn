@@ -570,7 +570,7 @@ def df_to_training(df, data_params):
     battery = data_params['battery']
     states = data_params['states']
     inputs = data_params['inputs']
-    change_states = data_params['change_states']
+    targets = data_params['targets']
 
 
     # dataframe info
@@ -589,7 +589,7 @@ def df_to_training(df, data_params):
 
     # Otherwise take lists
     else:
-        dX = df[change_states].values
+        dX = df[targets].values
         X = df[states].values
         U = df[inputs].values
 

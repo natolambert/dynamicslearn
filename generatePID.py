@@ -104,8 +104,19 @@ def main():
     model_single = '_models/temp/2018-11-09--10-48-05.2_100hz_bat_trimmed_.pth'
     model_single_nobat = '_models/temp/2018-11-09--10-46-56.7_100hz_bat_trimmed_.pth'
 
-    nn = torch.load(model_single_50)
+    # intitial trained
+    model_50_truestate = '_models/temp/2018-11-20--12-32-18.5_c50_true_stack3_.pth'
+    # trained on more takeoff points
+    model_50_truestate2 = '_models/temp/2018-11-20--12-41-59.8_c50_true2_stack3_.pth'
+    # ensemble
+    model_50_true_ensemble ='_models/temp/2018-11-20--12-40-00.4_c50_trueaccel_ensem_stack3_.pth'
+
+    #25hz true state
+    model_25 = '_models/temp/2018-11-20--12-55-45.6_c25_true_stack3_.pth'
+
+    nn = torch.load(model_25)
     nn.eval()
+
 
     '''
     RMSES
@@ -122,13 +133,13 @@ def main():
     # load initial state or generate.
     load_params ={
         'delta_state': True,                # normally leave as True, prediction mode
-        'include_tplus1': False,
+        'include_tplus1': True,
         'find_move': True,
         'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
-        'trim_high_vbat': 3880,             # trims high vbat because these points the quad is not moving
+        'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
         'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
         'trime_large_dX': True,             # if the states change by a large amount, not realistic
-        'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
+        'bound_inputs': [25000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
         'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
         'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
         'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
@@ -140,12 +151,27 @@ def main():
     }
 
     # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
-    dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
+
+    dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+        "_newquad1/publ_data/c50_samp300_roll1/",
+        "_newquad1/publ_data/c50_samp300_roll2/",
+        "_newquad1/publ_data/c50_samp300_roll3/",
+        "_newquad1/publ_data/c50_samp300_roll4/"]
+    dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
+        "_newquad1/publ_data/c25_samp300_roll1/",
+        "_newquad1/publ_data/c25_samp300_roll2/",
+        "_newquad1/publ_data/c25_samp300_roll3/",
+        "_newquad1/publ_data/c25_samp300_roll4/"]
+
 # other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
     df = load_dirs(dir_list, load_params)
 
-    plot_voltage_context(nn, df)
-    quit()
+    # for i in range(1):
+    #     df_traj, idx = get_rand_traj(df)
+    #
+    #     # plot_traj_model(df_traj, nn_ensemble)
+    #     plot_traj_model(df_traj, nn)
+
 
     data_params = {
         # Note the order of these matters. that is the order your array will be in
@@ -153,7 +179,7 @@ def main():
 
         'inputs' : input_list,
 
-        'change_states' : change_list,
+        'targets' : change_list,
 
         'battery' : True                    # Need to include battery here too
     }
@@ -175,16 +201,14 @@ def main():
     u_stacked = np.zeros(stack_states*4)
 
 
-
-
-    # PID Params
-    kp = 100
+    # PID Params 250.0, 500.0, 2.5, 33.3
+    kp = 250
     ki = 500
     kd = 2.5
-    ilimit = 250
-    outlimit = 5000
+    ilimit = 33.3
+    outlimit = 10000
     dt = 1/100
-    PWMequil = np.array([31687.1, 37954.7, 33384.8, 36220.11]) # new quad
+    PWMequil = np.array([34687.1, 37954.7, 38384.8, 36220.11]) # new quad
 
     for i in range(1):
         # Lets simulate some actions
@@ -194,7 +218,7 @@ def main():
         X, U, dX = df_to_training(df_traj, data_params)
 
         # plot_traj_model(df_traj, nn_ensemble)
-        plot_traj_model(df_traj, nn_single)
+        # plot_traj_model(df_traj, nn)
 
         print("Trajectory idx is: ", idx)
         x0 = X[0,:]
@@ -205,7 +229,7 @@ def main():
         # print(x0)
 
 
-        x_stored_PID = pred_traj(x0, pid_roll, nn_single,T) # len(df_traj))
+        x_stored_PID = pred_traj(x0, pid_roll, nn,T) # len(df_traj))
         # x_stored_past = pred_traj(x0, U, nn_ensemble, T)
 
         font = {'size'   : 18}
@@ -225,7 +249,7 @@ def main():
         # ax2.set_ylim([-35,35])
         ax1.plot(x_stored_PID[:,dim], linestyle = '--', color='b', label ='Predicted PID')
         # ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
-        ax1.plot(X[:,dim], color = 'k', label = 'Ground Truth')
+        # ax1.plot(X[:,dim], color = 'k', label = 'Ground Truth')
         ax1.legend()
         # ax2.plot(X[point:point+T+1,3:5])
         plt.show()

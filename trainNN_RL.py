@@ -89,22 +89,23 @@ load_params ={
 # flight_time_plot("_summaries/trainedpoints/")
 # trained_points_plot("_summaries/trainedpoints/")
 
-dir_list = ["_newquad1/publ_data/c75_samp300_rand/",
-    "_newquad1/publ_data/c75_samp300_roll1/",
-    "_newquad1/publ_data/c75_samp300_roll2/",
-    "_newquad1/publ_data/c75_samp300_roll3/",
-    "_newquad1/publ_data/c75_samp300_roll4/"]
+dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+    "_newquad1/publ_data/c50_samp300_roll1/",
+    "_newquad1/publ_data/c50_samp300_roll2/",
+    "_newquad1/publ_data/c50_samp300_roll3/",
+    "_newquad1/publ_data/c50_samp300_roll4/"]
+dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
+    "_newquad1/publ_data/c25_samp300_roll1/",
+    "_newquad1/publ_data/c25_samp300_roll2/",
+    "_newquad1/publ_data/c25_samp300_roll3/",
+    "_newquad1/publ_data/c25_samp300_roll4/"]
 # dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
 # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp250_roll1/","_newquad1/fixed_samp/c100_samp250_roll2/"]#,"_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-# dir_list = ["ex_sing_file/"]#, "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
-other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
-print(df)
-print(df.columns.values)
-quit()
+
 '''
 ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
  'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
@@ -133,12 +134,12 @@ data_params = {
 
     'inputs' : ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
                 'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2', 'vbat'],
+                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],# 'vbat'],
                 # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
-    'change_states' : ['d_omega_x', 'd_omega_y', 'd_omega_z',
+    'targets' : ['t1_omega_x', 't1_omega_y', 't1_omega_z',
                         'd_pitch', 'd_roll', 'd_yaw',
-                        'd_lina_x', 'd_lina_y', 'd_liny_z'],
+                        't1_lina_x', 't1_lina_y', 't1_lina_z'],
 
     'battery' : True                    # Need to include battery here too
 }
@@ -216,7 +217,7 @@ else:
     newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
-newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['change_states'])
+newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['targets'])
 
 # plot
 min_err = np.min(acctrain)

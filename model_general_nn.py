@@ -360,7 +360,7 @@ def predict_nn_v2(model, x, u, targetlist = []):
     Training list tells whether or not each input is a raw state or a change in state
     '''
     # important this list is in order
-    if targetlist = []:
+    if targetlist == []:
         _, _, targetlist = model.get_training_lists()
 
     # generate labels as to whether or not it true state or delta
@@ -368,7 +368,7 @@ def predict_nn_v2(model, x, u, targetlist = []):
     lab = [t[:2] == 'd_' for t in targetlist]
 
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
-    prediction = np.copy(x)
+    prediction = np.zeros(9)
     pred = model.predict(x,u)
     for i, l in enumerate(lab):
         if l:

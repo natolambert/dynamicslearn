@@ -6,7 +6,7 @@ import pickle
 import random
 
 # neural nets
-from model_general_nn import GeneralNN, predict_nn
+from model_general_nn import *
 from model_split_nn import SplitModel
 from _activation_swish import Swish
 from model_ensemble_nn import EnsembleNN
@@ -33,15 +33,18 @@ def get_action(cur_state, model, method = 'Random'):
 def plot_traj_model(df_traj, model):
     # plots all the states predictions over time
 
+    state_list, input_list, target_list = model.get_training_lists()
     data_params = {
-        'states' : [],
-        'inputs' : [],
-        'change_states' : [],
+        'states' : state_list,
+        'inputs' : input_list,
+        'targets' : target_list,
         'battery' : True
     }
 
     X, U, dX = df_to_training(df_traj, data_params)
 
+    num_skip = 0
+    X, U, dX = X[num_skip:,:], U[num_skip:,:], dX[num_skip:,:]
     # Gets starting state
     x0 = X[0,:]
 
@@ -51,7 +54,7 @@ def plot_traj_model(df_traj, model):
     udim = 4
 
     # store values
-    pts = len(df_traj)
+    pts = len(df_traj)-num_skip
     x_stored = np.zeros((pts, stack*xdim))
     x_stored[0,:] = x0
     x_shift = np.zeros(len(x0))
@@ -59,7 +62,8 @@ def plot_traj_model(df_traj, model):
     ####################### Generate Data #######################
     for t in range(pts-1):
         # predict
-        x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], U[t,:])
+        # x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], U[t,:])
+        x_pred = predict_nn_v2(model, x_stored[t,:], U[t,:])
 
         if stack > 1:
             # shift values
@@ -85,15 +89,15 @@ def plot_traj_model(df_traj, model):
 
     plt.title("Comparing Dynamics Model to Ground Truth")
 
-    ax1.set_ylim([-100,100])
-    ax2.set_ylim([-100,100])
-    ax3.set_ylim([-100,100])
+    ax1.set_ylim([-150,150])
+    ax2.set_ylim([-150,150])
+    ax3.set_ylim([-150,150])
     ax4.set_ylim([-35,35])
     ax5.set_ylim([-35,35])
     # ax6.set_ylim([-35,35])
-    ax7.set_ylim([-10,10])
-    ax8.set_ylim([-10,10])
-    ax9.set_ylim([-0,20])
+    ax7.set_ylim([-6,6])
+    ax8.set_ylim([-6,6])
+    ax9.set_ylim([5,15])
 
     ax1.plot(x_stored[:,0], linestyle = '--', color='b', label ='Predicted')
     ax1.plot(X[:,0], color = 'k', label = 'Ground Truth')
@@ -127,7 +131,6 @@ def plot_traj_model(df_traj, model):
     plt.show()
 
 
-    quit()
 
 class PID():
     def __init__(self, desired,
@@ -210,6 +213,9 @@ def pred_traj(x0, action, model, T):
     xdim = 9
     udim = 4
 
+    state_list, input_list, target_list = model.get_training_lists()
+
+
     # figure out if given an action or a controller
     if not isinstance(action, np.ndarray):
         # given PID controller. Generate actions as it goes
@@ -218,11 +224,12 @@ def pred_traj(x0, action, model, T):
         PID = copy.deepcopy(action) # for easier naming and resuing code
 
         # create initial action
-        action_eq = np.array([31687.1, 37954.7, 33384.8, 36220.11])
-        action = np.array([31687.1, 37954.7, 33384.8, 36220.11])
+        action_eq = np.array([30687.1, 33954.7, 34384.8, 36220.11]) #[31687.1, 37954.7, 33384.8, 36220.11])
+        action = np.array([30687.1, 33954.7, 34384.8, 36220.11])
         if stack > 1:
             action = np.tile(action, stack)
-        action = np.concatenate((action,[3900]))
+        if 'vbat' in input_list:
+            action = np.concatenate((action,[3900]))
 
         # step 0 PID response
         action[:udim] += PID.update(x0[4])
@@ -238,12 +245,14 @@ def pred_traj(x0, action, model, T):
         if mode == 1:
             # predict with actions coming from controller
             if stack > 1:       # if passed array of actions, iterate
-                x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
-
+                # x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
+                x_pred = predict_nn_v2(model, x_stored[t,:], action)
                 # slide action here
                 action[udim:-1] = action[:-udim-1]
+
             else:
-                x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
+                # x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
+                x_pred = predict_nn_v2(model, x_stored[t,:], action)
 
             # update action
             PIDout = PID.update(x_pred[4])
@@ -257,9 +266,11 @@ def pred_traj(x0, action, model, T):
         elif mode == 0:
             # predict
             if stack > 1:       # if passed array of actions, iterate
-                x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action[t,:])
+                # x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action[t,:])
+                x_pred = predict_nn_v2(model, x_stored[t,:], action[t,:])
             else:
-                x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
+                # x_pred = x_stored[t,:9]+ model.predict(x_stored[t,:], action)
+                x_pred = predict_nn_v2(model, x_stored[t,:], action)
 
         # shift values
         x_shift[:9] = x_pred
