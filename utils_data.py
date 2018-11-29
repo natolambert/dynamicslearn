@@ -257,6 +257,14 @@ def trim_load_param(fname, load_params):
             vbat = new_data[:,-1]
             new_data = new_data[vbat<bat_trim,:]
 
+        # add pwm latency calculations
+        pwm_rec = new_data[:,9:13]
+        pwm_com = new_data[:,16:]
+        # for each pwm in pwm_com
+        # find the earliest next index in the pwm_rec
+        # for each command record the delta index in a new array
+        #    this new array should be of length Uchange?
+
         # Finds the points where the input changes
         if fastLog:
             Uchange = np.where(new_data[:-1,9:13] != new_data[1:,9:13])
@@ -749,11 +757,12 @@ def flight_time_plot(csv_dir):
                 stds.append(std_sub)
                 labels.append(roll)
 
-                # new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
+                
                 # mean = np.mean(new_data[:,1])
                 # std = np.std(new_data[:,1])
 
                 if print_flag:
+                    new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
                     print("   Mean flight length is: ", np.mean(new_data[:,1]))
                     print("   Std flight length is: ", np.std(new_data[:,1]))
 
@@ -849,11 +858,12 @@ def trained_points_plot(csv_dir):
                 stds.append(std_sub)
                 labels.append(data_points)
 
-                # new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
+                
                 # mean = np.mean(new_data[:,1])
                 # std = np.std(new_data[:,1])
 
                 if print_flag:
+                    new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
                     print("   Mean flight length is: ", np.mean(new_data[:,1]))
                     print("   Std flight length is: ", np.std(new_data[:,1]))
 

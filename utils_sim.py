@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 def get_action(cur_state, model, method = 'Random'):
-    # Returns an action for the robot given the current state and the model
+    '''Returns an action for the robot given the current state and the model'''
     print("NOT DONE")
 
 def plot_traj_model(df_traj, model):
@@ -130,82 +130,72 @@ def plot_traj_model(df_traj, model):
     # ax2.plot(X[point:point+T+1,3:5])
     plt.show()
 
+def plot_battery_thrust(df_traj, model):
+    '''
+    Function that will display a plot of the battery voltage verses motor thrust, for the appendix of the papel
+    '''
+    state_list, input_list, target_list = model.get_training_lists()
+    data_params = {
+        'states': state_list,
+        'inputs': input_list,
+        'targets': target_list,
+        'battery': True
+    }
 
+    if 'vbat' not in input_list:
+        raise ValueError("Did not include battery voltage for battery plotting")
 
-class PID():
-    def __init__(self, desired,
-                    kp, ki, kd,
-                    ilimit, outlimit,
-                    dt, samplingRate, cutoffFreq = -1,
-                    enableDFilter = False):
+    X, U, dX = df_to_training(df_traj, data_params)
 
-        # internal variables
-        self.error = 0
-        self.error_prev = 0
-        self.integral = 0
-        self.deriv = 0
+    # plot properties
+    font = {'size': 18}
 
-        # constants
-        self.desired = desired
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=2.5)
 
-        # limits integral growth
-        self.ilimit = ilimit
+    # num_skip = 0
+    # X, U, dX = X[num_skip:, :], U[num_skip:, :], dX[num_skip:, :]
+    # # Gets starting state
+    # x0 = X[0, :]
 
-        # limits ridiculous actions. Should set to variance
-        self.outlimit = outlimit
+    # # get dims
+    # stack = int((len(X[0, :]))/9)
+    # xdim = 9
+    # udim = 4
 
-        # timee steps for changing step size of PID response
-        self.dt = dt
-        self.samplingRate = samplingRate    # sample rate is for filtering
+    # # store values
+    # pts = len(df_traj)-num_skip
+    # x_stored = np.zeros((pts, stack*xdim))
+    # x_stored[0, :] = x0
+    # x_shift = np.zeros(len(x0))
 
-        self.cutoffFreq = cutoffFreq
-        self.enableDFilter = enableDFilter
+    thrust = np.mean(U[:,:4],axis=1)
+    vbat =  U[:,-1]
 
-        if cutoffFreq != -1 or enableDFilter:
-            raise NotImplementedError('Have not implemnted filtering yet')
+    ####################### PLOT #######################
+    with sns.axes_style("darkgrid"):
+        ax1 = plt.subplot(111)
+        # ax2 = plt.subplot(212)
 
-    def update(self, measured):
+    plt.title("Comparing Battery Voltage to Thrust")
 
-        # init
-        out = 0.
+    # ax1.set_ylim([-150, 150])
+    # ax2.set_ylim([-150, 150])
+    time = np.linspace(0,len(thrust)*.02,len(thrust))
+    ln1 = ax1.plot(time, thrust, color ='r', label='Crazyflie Thrust')
+    ax1.set_ylabel("Crazyflie Thrust (PWM)")
 
-        # update error
-        self.error_prev = self.error
+    ax2 = ax1.twinx()
+    ln2 = ax2.plot(time, vbat, label='Crazyflie Logged Battery Voltage')
+    ax2.set_ylabel("Crazyflie Battery Voltage (mV)")
+    ax1.set_xlabel("Time (s)")
+    
+    lns = ln1+ln2
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs)
 
-        # calc new error
-        self.error = self.desired - measured
+    plt.show()
 
-        # proportional gain is easy
-        out += self.kp*self.error
-
-        # calculate deriv term
-        self.deriv = (self.error-self.error_prev) / self.dt
-
-        # filtter if needed (DT function_)
-        if self.enableDFilter:
-            print('Do Filter')
-            self.deriv = self.deriv
-
-        # calcualte error value added
-        out += self.deriv*self.kd
-
-        # accumualte normalized eerror
-        self.integral = self.error*self.dt
-
-        # limitt the integral term
-        if self.ilimit !=0:
-            self.integral = np.clip(self.integral,-self.ilimit, self.ilimit)
-
-        out += self.ki*self.integral
-
-        # limitt the total output
-        if self.outlimit !=0:
-            out = np.clip(out,-self.outlimit, self.outlimit)
-
-        return out
 
 def pred_traj(x0, action, model, T):
     # get dims
@@ -256,7 +246,7 @@ def pred_traj(x0, action, model, T):
 
             # update action
             PIDout = PID.update(x_pred[4])
-            action[:udim] = action_eq-np.array([1,1,-1,-1])*PIDout
+            action[:udim] = action_eq+np.array([1,1,-1,-1])*PIDout
             print("=== Timestep: ", t)
             print("Predicted angle: ", x_pred[4])
             print("PIDoutput: ", PIDout)
@@ -283,7 +273,7 @@ def pred_traj(x0, action, model, T):
 
     return x_stored
 
-def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_range = 25000, normalize = True, ground_truth = False):
+def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_range = 25000, normalize = False, ground_truth = False, model_nobat = []):
     '''
     Takes in a dynamics model and plots the distributions of points in the dataset
       and plots various lines verses different voltage levels
@@ -350,7 +340,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
 
         'inputs' : input_list,
 
-        'change_states' : change_list,
+        'targets' : change_list,
 
         'battery' : True                    # Need to include battery here too
     }
@@ -359,6 +349,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     predictions = np.zeros((num_pts, 2*9+1))
 
     X, U, dX = df_to_training(df, data_params)
+
 
     # gather predictions
     rmse = np.zeros((9))
@@ -401,7 +392,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     #   in an (x,y) case without sorting
 
     # plot properties
-    font = {'size'   : 18}
+    font = {'size'   : 14}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
@@ -594,6 +585,124 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
                     ax.set_ylim([-1,1])
                 else:
                     ax.set_ylim([-3,3])
+
+            fig3.subplots_adjust(right=0.8)
+            cbar_ax1 = fig3.add_axes([0.85, 0.15, 0.02, 0.7])
+            cbar = fig3.colorbar(hm, cax=cbar_ax1)
+            cbar.ax.set_ylabel('Battery Voltage (mV)')
+
+            plt.show()
+            ###############################################################
+
+    ############## PLOT single angle for ground truth, with battery, without battery ###################
+    if True:
+
+        # gather predictions for second model
+        # this will hold predictions and the current state for ease of plotting
+        predictions_nobat = np.zeros((num_pts, 2*9+1))
+        pred_ground_truth = np.zeros((num_pts, 2*9+1))
+
+        # gather predictions
+        rmse = np.zeros((9))
+        for n, (x, u, dx) in enumerate(zip(X, U, dX)):
+            # predictions[i, n, 9:] = x[:9]+model.predict(x,u)
+            pred_ground_truth[n, 9:-1] = dx
+            predictions_nobat[n, 9:-1] = model_nobat.predict(x, u[:-1])
+
+            # calculate root mean squared error for predictions
+            rmse += (predictions_nobat[n, 9:-1] - dx)**2
+
+            # stores for easily separating generations from plotting
+            predictions_nobat[n, :9] = x[:9]
+            predictions_nobat[n, -1] = u[-1]
+
+        # rmse /= n
+        # rmse = np.sqrt(rmse)
+        # print(rmse)
+
+        if normalize:
+            scalarX, scalarU, scalardX = model.getNormScalers()
+            pred_ground_truth_holder = np.concatenate(
+                (pred_ground_truth[:, :9], np.zeros((num_pts, (np.shape(X)[1]-9)))), axis=1)
+            pred_ground_truth[:, :9] = scalarX.transform(
+                pred_ground_truth_holder)[:, :9]
+            pred_ground_truth[:, 9:-
+                              1] = scalardX.transform(pred_ground_truth[:, 9:-1])
+
+            prediction_nobat_holder = np.concatenate(
+                (predictions_nobat[:, :9], np.zeros((num_pts, (np.shape(X)[1]-9)))), axis=1)
+            predictions_nobat[:, :9] = scalarX.transform(
+                prediction_nobat_holder)[:, :9]
+            predictions_nobat[:, 9:-
+                              1] = scalardX.transform(predictions_nobat[:, 9:-1])
+
+
+        # Plot here, will be a 3x5 plot of voltage context
+        n_row = 3
+        num_subplots = 5
+        vbats = predictions[:, -1]
+
+        # generate battery ranges for the plot
+        pts = len(vbats)
+        pts_breaks = np.linspace(0, pts-1, num_subplots+1, dtype=np.int)
+        bat_ranges = vbats[pts_breaks]
+
+        # bat_ranges = np.linspace(np.min(vbats), np.max(vbats),num_subplots+1)
+
+        with sns.axes_style("darkgrid"):
+            fig3, axes3 = plt.subplots(nrows=n_row, ncols=num_subplots, sharey=True, sharex=True)
+            # ax31, ax32, ax33, ax34, ax35, ax36 = axes3[:,:]
+
+            plt.suptitle("Voltage Context Effect on Prediction")
+            fig3.text(0.45, 0.01, 'Pitch (Degrees)', ha='center')
+
+
+            cmap = matplotlib.cm.viridis
+            norm = matplotlib.colors.Normalize(vmin=bat_ranges[0], vmax=bat_ranges[-1])
+
+
+            for i, ax in enumerate(axes3.flatten()):
+
+                if (i % 5 == 0):
+                    if i < num_subplots:
+                        ax.set_ylabel("Ground Truth Changes")
+                    elif i < 2*num_subplots:
+                        ax.set_ylabel("Predicted with Battery")
+                    else:
+                        ax.set_ylabel("Predicted  without Battery")
+
+                j = (i % num_subplots)
+                # get range values
+                low = bat_ranges[j]
+                high = bat_ranges[j+1]
+                
+                if i < num_subplots: 
+                    ax.set_title("Voltage [{0},{1}]".format(int(low), int(high)))
+                    
+                if normalize:
+                    if i < num_subplots:
+                        ax.set_xlabel("Normalized Pitch")
+                    ax.set_ylim([-1, 1])
+                else:
+                    if i < num_subplots:
+                        ax.set_xlabel("Global Pitch")
+                    ax.set_xlim([-45, 45])
+
+                dim = 4
+                flag = (vbats > low) & (vbats < high)
+                if i < num_subplots:
+                    hm = ax.scatter(predictions[flag, dim], pred_ground_truth[flag, dim+9],
+                                    cmap=cmap, norm=norm, c=vbats[flag], alpha=.7, s=3)
+                elif i < 2* num_subplots:
+                    hm = ax.scatter(predictions[flag, dim], predictions[flag, dim+9],
+                                    cmap=cmap, norm=norm, c=vbats[flag], alpha=.7, s=3)
+                else:
+                    hm = ax.scatter(predictions[flag, dim], predictions_nobat[flag, dim+9],
+                                    cmap=cmap, norm=norm, c=vbats[flag], alpha=.7, s=3)
+                # if normalize:
+                #     ax.set_ylim([-1, 1])
+                # else:
+                #     ax.set_ylim([-3, 3])
 
             fig3.subplots_adjust(right=0.8)
             cbar_ax1 = fig3.add_axes([0.85, 0.15, 0.02, 0.7])
