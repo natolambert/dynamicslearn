@@ -1,5 +1,5 @@
 # Our infrastucture files
-from utils_data import *
+from utils_data import * 
 
 # data packages
 import pickle
@@ -56,10 +56,11 @@ print('Running... trainNN_RL.py' + date_str +'\n')
 
 load_params ={
     'delta_state': True,                # normally leave as True, prediction mode
-    'include_tplus1': False,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
-    'trim_high_vbat': 4000,             # trims high vbat because these points the quad is not moving
+    'include_tplus1': True,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
+    'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
+    'find_move': True,
     'trime_large_dX': True,             # if the states change by a large amount, not realistic
     'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
     'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
@@ -72,13 +73,38 @@ load_params ={
     'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
 }
 
-dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
+# for generating summaries
+# output = [dI for dI in os.listdir("_logged_data_autonomous/_newquad1/publ2/") if os.path.isdir(os.path.join("_logged_data_autonomous/_newquad1/publ2/",dI))]
+# print(output)
+# for dir in output:
+#     dir_summary_csv(dir, load_params)
+# quit()
+
+# rollouts_summary_csv("_summaries/trainedpoints/25hz/")
+# rollouts_summary_csv("_summaries/trainedpoints/50hz/")
+# rollouts_summary_csv("_summaries/trainedpoints/75hz/")
+
+
+# For generating flight time plot vs rollouts
+flight_time_plot("_summaries/trainedpoints/")
+quit()
+# trained_points_plot("_summaries/trainedpoints/")
+
+dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+    "_newquad1/publ_data/c50_samp300_roll1/",
+    "_newquad1/publ_data/c50_samp300_roll2/",
+    "_newquad1/publ_data/c50_samp300_roll3/",
+    "_newquad1/publ_data/c50_samp300_roll4/"]
+dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
+    "_newquad1/publ_data/c25_samp300_roll1/",
+    "_newquad1/publ_data/c25_samp300_roll2/",
+    "_newquad1/publ_data/c25_samp300_roll3/",
+    "_newquad1/publ_data/c25_samp300_roll4/"]
+# dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
 # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp250_roll1/","_newquad1/fixed_samp/c100_samp250_roll2/"]#,"_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-# dir_list = ["ex_sing_file/"]#, "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]
-other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
 df = load_dirs(dir_list, load_params)
 
 '''
@@ -109,17 +135,22 @@ data_params = {
 
     'inputs' : ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
                 'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2', 'vbat'],
+                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],# 'vbat'],
                 # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
-    'change_states' : ['d_omega_x', 'd_omega_y', 'd_omega_z',
+    'targets' : ['t1_omega_x', 't1_omega_y', 't1_omega_z',
                         'd_pitch', 'd_roll', 'd_yaw',
-                        'd_lina_x', 'd_lina_y', 'd_liny_z'],
+                        't1_lina_x', 't1_lina_y', 't1_lina_z'],
 
     'battery' : True                    # Need to include battery here too
 }
 
+# the true state target values
+# 't1_omega_x', 't1_omega_y', 't1_omega_z', 't1_pitch', 't1_roll', 't1_yaw', 't1_lina_x', 't1_lina_y' 't1_lina_z'
 
+st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
+                    'd_pitch', 'd_omega_z', 'd_pitch',
+                    'd_lina_x', 'd_lina_y', 'd_liny_z']
 
 X, U, dX = df_to_training(df, data_params)
 
@@ -144,11 +175,11 @@ nn_params = {                           # all should be pretty self-explanatory
 }
 
 train_params = {
-    'epochs' : 25,
+    'epochs' : 28,
     'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .001,
+    'lr': .00175,
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -187,7 +218,7 @@ else:
     newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
-newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['change_states'])
+newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['targets'])
 
 # plot
 min_err = np.min(acctrain)
@@ -200,12 +231,12 @@ if log:
 
 ax1 = plt.subplot(211)
 # ax1.set_yscale('log')
-ax1.plot(acctest, label = 'Test Accurcay')
-plt.title('Test Accuracy')
+ax1.plot(acctest, label = 'Test Loss')
+plt.title('Test Loss')
 ax2 = plt.subplot(212)
 # ax2.set_yscale('log')
-ax2.plot(acctrain, label = 'Train Accurcay')
-plt.title('Training Accuracy')
+ax2.plot(acctrain, label = 'Train Loss')
+plt.title('Training Loss')
 ax1.legend()
 plt.show()
 

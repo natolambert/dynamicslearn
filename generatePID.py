@@ -1,5 +1,7 @@
 # Our infrastucture files
 from utils_data import *
+from utils_sim import *
+from pid import *
 
 # data packages
 import pickle
@@ -91,88 +93,152 @@ def main():
 
 
     # Code outline to predict states given an action or control scheme
-
+    
     # load model
+    # some reasonable seeds:
+    # 150hz: 3400, 485, 3850
+    # 50Hz  models`
+    model_single_50_nobat = '_models/temp/2018-11-09--10-52-58.0_50hz_nobat_.pth'
+    model_single_50 = '_models/temp/2018-11-09--10-55-12.9_50hz_withbat_stack3_.pth'
+
+    # 100Hz models`
+    model_single = '_models/temp/2018-11-09--10-48-05.2_100hz_bat_trimmed_.pth'
+    model_single_nobat = '_models/temp/2018-11-09--10-46-56.7_100hz_bat_trimmed_.pth'
+
+    # intitial trained
+    model_50_truestate = '_models/temp/2018-11-20--12-32-18.5_c50_true_stack3_.pth'
+    # trained on more takeoff points
+    model_50_truestate2 = '_models/temp/2018-11-20--12-41-59.8_c50_true2_stack3_.pth'
+    # ensemble
+    model_50_true_ensemble ='_models/temp/2018-11-20--12-40-00.4_c50_trueaccel_ensem_stack3_.pth'
+
+    #25hz true state
+    model_25 = '_models/temp/2018-11-20--12-55-45.6_c25_true_stack3_.pth'
+
+    nn = torch.load(model_single_50)
+    nn.eval()
+
+   
+    '''
+    RMSES
+    100Hz no bat: [6.3130932  5.8711117  2.20496666 0.34913389 0.40612083 0.2069013 0.59639823 0.82310533 0.52682769]
+    100Hz with bat: [6.31994656 5.92266344 2.09359516 0.35665752 0.41530902 0.2053187 0.59421848 0.80986195 0.52297999]
+
+    50Hz no bat: [10.21272868 11.03302467  2.83940086  0.51089872  0.44949222  0.24415286 0.64122414  1.05109164  0.53779281]
+    50Hz with bat: [10.2567613  11.142001    2.86625326  0.52282885  0.44307055  0.24636216 0.63476385  1.06089197  0.53843009]
+
+    '''
+
+    state_list, input_list, change_list = nn.get_training_lists()
 
     # load initial state or generate.
     load_params ={
-        'delta_state': True,
-        'takeoff_points': 180,
-        'trim_0_dX': True,
-        'trime_large_dX': True,
-        'bound_inputs': [20000,65500],
-        'stack_states': 4,
-        'collision_flag': False,
-        'shuffle_here': False,
-        'timestep_flags': [],
-        'battery' : True
+        'delta_state': True,                # normally leave as True, prediction mode
+        'include_tplus1': True,
+        'find_move': True,
+        'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
+        'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
+        'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
+        'trime_large_dX': True,             # if the states change by a large amount, not realistic
+        'bound_inputs': [25000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
+        'stack_states': 4,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+        'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
+        'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
+        'timestep_flags': [],               # if you want to filter rostime stamps, do it here
+        'battery' : True,                   # if battery voltage is in the state data
+        'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
+        'fastLog' : True,                   # if using the software with the new fast log
+        'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
     }
 
-    dir_list = ["_newquad1/150Hz_rand/"]
-    other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
+    dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
+
+    dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+        "_newquad1/publ_data/c50_samp300_roll1/",
+        "_newquad1/publ_data/c50_samp300_roll2/",
+        "_newquad1/publ_data/c50_samp300_roll3/",
+        "_newquad1/publ_data/c50_samp300_roll4/"]
+    # dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
+    #     "_newquad1/publ_data/c25_samp300_roll1/",
+    #     "_newquad1/publ_data/c25_samp300_roll2/",
+    #     "_newquad1/publ_data/c25_samp300_roll3/",
+    #     "_newquad1/publ_data/c25_samp300_roll4/"]
+
+# other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
     df = load_dirs(dir_list, load_params)
 
-    data_params = {
-        'states' : [],
-        'inputs' : [],
-        'change_states' : [],
-        'battery' : True
-    }
+    # for i in range(1):
+    #     df_traj, idx = get_rand_traj(df)
+    #
+    #     # plot_traj_model(df_traj, nn_ensemble)
+    #     plot_traj_model(df_traj, nn)
+    
+    # # for vbat plot for updated paper
+    # nn1 = torch.load(model_single)
+    # nn1.eval()
+    # nn2 = torch.load(model_single_nobat)
+    # nn2.eval()
+
+    # plot_voltage_context(nn1, df, model_nobat=nn2)
+    # quit()
+
+    # for vbat plot for updated paper
+    # nn1 = torch.load(model_single_50)
+    # nn1.eval()
+    # nn2 = torch.load(model_single_50_nobat)
+    # nn2.eval()
+
+    # plot_voltage_context(nn1, df, model_nobat=nn2)
+    # quit()
+
+    data_params = {'states' : state_list, 'inputs' : input_list, 'targets' : change_list, 'battery' : True}
 
     X, U, dX = df_to_training(df, data_params)
 
-
-
+    ###########################################################################
+    ######################## BELOW NO IN USE NOW ##############################
 
     # generate actions / controller
 
     # init some variables
     T = 150
-    stack_states = 4            # declared above
+    stack_states = 3           # declared above
     x_pred = np.zeros(9)        # a storage state vector
     x_pred_stacked = np.zeros(stack_states*9)      # need a stacked vector to pass into network
     u_stacked = np.zeros(stack_states*4)
 
-    # some reasonable seeds:
-    # 150hz: 3400, 485, 3850
 
-    # 150Hz models`
-    model_single = '_models/temp/2018-10-05--15-42-42.8--Min error-782.69296875d=_150Hz_newnet_.pth'
-
-    model_ensemble = '_models/temp/2018-10-05--15-43-07.5--Min error-787.556328125d=_150Hz_newnet_.pth'
-
-    model = model_ensemble
-
-    # PID Params
-    kp = 100
+    # PID Params 250.0, 500.0, 2.5, 33.3
+    kp = 250
     ki = 500
     kd = 2.5
-    ilimit = 250
+    ilimit = 33.3
     outlimit = 5000
-    dt = 1/150
-    PWMequil = np.array([31687.1, 37954.7, 33384.8, 36220.11]) # new quad
+    dt = 1/100
+    PWMequil = np.array([34687.1, 37954.7, 38384.8, 36220.11]) # new quad
 
-    for i in range(1):
+    for i in range(7):
         # Lets simulate some actions
         pid_roll = PID(0, kp, ki, kd, ilimit, outlimit, dt, samplingRate=-1, cutoffFreq = -1, enableDFilter = False)
 
-        num_pts = np.shape(X)[0]
-        point = random.randint(0,num_pts)
-        print("`Seed` is: ", point)
-        x0 = X[point,:]
-        action = U[point:point+T+1,:]
+        df_traj, idx = get_rand_traj(df)
+        X, U, dX = df_to_training(df_traj, data_params)
+
+        # plot_traj_model(df_traj, nn_ensemble)
+        # plot_traj_model(df_traj, nn)
+        plot_battery_thrust(df_traj, nn)
+
+        print("Trajectory idx is: ", idx)
+        x0 = X[0,:]
+        # action = U[point:point+T+1,:]
         # action = U[point,:]
-        # action = np.tile([45000,45000,30000,30000],4)
-        # action = np.concatenate((action,[3900]))
+        action = np.tile([45000,45000,30000,30000],4)
+        action = np.concatenate((action,[3900]))
         # print(x0)
-        nn_single = torch.load(model_single)
-        nn_single.eval()
 
-        nn_ensemble = torch.load(model_ensemble)
-        nn_ensemble.eval()
 
-        x_stored_PID = pred_traj(x0, pid_roll, nn_ensemble, T)
-        x_stored_past = pred_traj(x0, action, nn_ensemble, T)
+        x_stored_PID = pred_traj(x0, pid_roll, nn,T) # len(df_traj))
+        # x_stored_past = pred_traj(x0, U, nn_ensemble, T)
 
         font = {'size'   : 18}
 
@@ -186,12 +252,12 @@ def main():
             # ax2 = plt.subplot(212)
 
         dim = 4
-        plt.title("Comparing Model to Ground Truth")
+        plt.title("Pid Response")
         ax1.set_ylim([-35,35])
         # ax2.set_ylim([-35,35])
         ax1.plot(x_stored_PID[:,dim], linestyle = '--', color='b', label ='Predicted PID')
-        ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
-        ax1.plot(X[point:point+T+1,dim], color = 'k', label = 'Ground Truth')
+        # ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
+        # ax1.plot(X[:,dim], color = 'k', label = 'Ground Truth')
         ax1.legend()
         # ax2.plot(X[point:point+T+1,3:5])
         plt.show()

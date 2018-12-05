@@ -30,10 +30,30 @@ def stack_dir_pd(dir, load_params):
     times = []
     terminals = []
 
+    # init if needed. This will play with terminals a little bit
+    if load_params['include_tplus1']:
+        tplus1 = []
+
     for f in files:
         # print(f)
         if len(f) > 5 and f[-4:] == '.csv':
             X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
+
+            # shortens length by one point
+            if load_params['include_tplus1']:
+                if times == []:
+                    tplus1 = X_t[1:,:]
+                else:
+                    tplus1 = np.append(tplus1, X_t[1:,:],axis=0)
+
+                X_t = X_t[:-1,:]
+                U_t = U_t[:-1,:]
+                dX_t = dX_t[:-1,:]
+                objv_t = objv_t[:-1]
+                Ts_t = Ts_t[:-1]
+                time = time[:-1]
+                terminal = terminal[:-1]
+                terminal[-1] = 1
 
             # global time (ROS time)
             if times == []:
@@ -81,21 +101,22 @@ def stack_dir_pd(dir, load_params):
 
     ######################################################################
 
-    # font = {'size'   : 18}
-    #
-    # matplotlib.rc('font', **font)
-    # matplotlib.rc('lines', linewidth=2.5)
-    #
-    # # plt.tight_layout()
-    #
-    # with sns.axes_style("darkgrid"):
-    #     ax1 = plt.subplot(111)
-    #
-    # ax1.hist(Ts, bins=250)
-    # ax1.set_title("Hist of time between log packets")
-    # ax1.set_xlabel("Time Difference Between Packets (ms)")
-    # ax1.set_ylabel("Occurence")
-    # plt.show()
+    if False:
+        font = {'size'   : 18}
+
+        matplotlib.rc('font', **font)
+        matplotlib.rc('lines', linewidth=2.5)
+
+        # plt.tight_layout()
+
+        with sns.axes_style("darkgrid"):
+            ax1 = plt.subplot(111)
+
+        ax1.hist(Ts, bins=250)
+        ax1.set_title("Hist of time between log packets")
+        ax1.set_xlabel("Time Difference Between Packets (ms)")
+        ax1.set_ylabel("Occurence")
+        plt.show()
 
     # Start dataframe
 
@@ -173,6 +194,19 @@ def stack_dir_pd(dir, load_params):
             'flight times': times[:]
             }
 
+    # if including tplus 1 (for predicting some raw next states rather than change)
+    if load_params['include_tplus1']:
+        d['t1_omega_x'] = tplus1[:,0]
+        d['t1_omega_y'] = tplus1[:,1]
+        d['t1_omega_z'] = tplus1[:,2]
+        d['t1_pitch'] = tplus1[:,3]
+        d['t1_roll'] = tplus1[:,4]
+        d['t1_yaw'] = tplus1[:,5]
+        d['t1_lina_x'] = tplus1[:,6]
+        d['t1_lina_y'] = tplus1[:,7]
+        d['t1_lina_z'] = tplus1[:,8]
+
+    # terminals is useful for training and testing trajectories
     track_terminals = load_params['terminals']
     if track_terminals: d['term'] = terminals
 
@@ -180,6 +214,8 @@ def stack_dir_pd(dir, load_params):
     battery = load_params['battery']
     if battery:
         d['vbat'] = X[:,-1]
+
+
 
     df = pd.DataFrame(data=d)
     # print(df)
@@ -196,6 +232,7 @@ def trim_load_param(fname, load_params):
     include_tplus1 = load_params['include_tplus1']
     takeoff_points = load_params['takeoff_points']
     trim_0_dX = load_params['trim_0_dX']
+    find_move = load_params['find_move']
     trime_large_dX = load_params['trime_large_dX']
     bound_inputs = load_params['bound_inputs']
     input_stack = load_params['stack_states']
@@ -219,6 +256,14 @@ def trim_load_param(fname, load_params):
         if bat_trim > 0:
             vbat = new_data[:,-1]
             new_data = new_data[vbat<bat_trim,:]
+
+        # add pwm latency calculations
+        pwm_rec = new_data[:,9:13]
+        pwm_com = new_data[:,16:]
+        # for each pwm in pwm_com
+        # find the earliest next index in the pwm_rec
+        # for each command record the delta index in a new array
+        #    this new array should be of length Uchange?
 
         # Finds the points where the input changes
         if fastLog:
@@ -482,6 +527,11 @@ def trim_load_param(fname, load_params):
             Time = Time[shuff]
             U = U[shuff,:]
 
+        if find_move:
+            # move_idx = np.argmax(np.all(dX[:,3:5] > 0.005, axis=1))
+            move_idx = np.argmax(Objv != -1)
+            move_idx = int(2*move_idx/3)
+
 
 
         ###########################################################################
@@ -496,17 +546,19 @@ def trim_load_param(fname, load_params):
             # plt.tight_layout()
 
             with sns.axes_style("darkgrid"):
-                ax1 = plt.subplot(211)
-                ax2 = plt.subplot(212)
+                ax1 = plt.subplot(311)
+                ax2 = plt.subplot(312)
+                ax3 = plt.subplot(313)
 
 
             ax1.plot(X[:,3:5])
             ax2.plot(U[:,:4])
+            ax3.plot(X[:,6:9])
             plt.show()
 
         # Make time counting up from first point
         if len(Time) > 0:
-            Time -= min(Time)
+            Time -= min(Time[move_idx:])
             Time /= 1000000
 
 
@@ -526,7 +578,7 @@ def df_to_training(df, data_params):
     battery = data_params['battery']
     states = data_params['states']
     inputs = data_params['inputs']
-    change_states = data_params['change_states']
+    targets = data_params['targets']
 
 
     # dataframe info
@@ -545,7 +597,7 @@ def df_to_training(df, data_params):
 
     # Otherwise take lists
     else:
-        dX = df[change_states].values
+        dX = df[targets].values
         X = df[states].values
         U = df[inputs].values
 
@@ -574,9 +626,11 @@ def load_dirs(dir_list, load_params):
 
 def dir_summary_csv(dir, load_params):
     # takes in a directory with loading parameters and saves a csv summarizing each flight
+    print('-------------------')
     print('Loading dir: ', dir)
-    files = os.listdir("_logged_data_autonomous/"+dir)
-    print('...number of flights: ', len(files))
+    files = os.listdir("_logged_data_autonomous/_newquad1/publ2/"+dir)
+    # files = os.listdir(dir)
+    # print('...number of flights: ', len(files))
 
     # init arrays
     X = []
@@ -589,22 +643,259 @@ def dir_summary_csv(dir, load_params):
 
     save_dir = "_summaries/"
     end_idx = dir[-2::-1].find('/')
-    saved_name = save_dir + "summary-" + dir[-end_idx-1:-1]+'.csv'
+    saved_name = save_dir + "summary-" + dir[-end_idx-1:]+'.csv'
+    print(dir)
+    # print(saved_name)
     with open(saved_name, 'w') as outcsv:
         writer = csv.writer(outcsv, delimiter=',')
-        writer.writerow(["Flight Idx", "Flight Time (ms)", "Mean Objective", "RMS Pitch Roll"])
+        writer.writerow(["Flight Idx", "Flight Time (ms)", "Trainable Points", "Mean Objective", "RMS Pitch Roll"])
         for i,f in enumerate(files):
-            # print(f)
+            print(f)
             if len(f) > 5 and f[-4:] == '.csv':
-                X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/"+dir+f, load_params)
+                X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/_newquad1/publ2/"+dir+"/"+f, load_params)
 
                 flight_time = np.round(np.max(time),2)
                 mean_obj =  np.round(np.mean(objv_t[objv_t != -1]),2)
                 rmse =  np.round(np.sqrt(np.mean(np.sum(X_t[:,3]**2+X_t[:,4]**2))),2)
-                writer.writerow([str(i), str(flight_time), str(mean_obj), str(rmse)])
+                num_points = len(time)
+                writer.writerow([str(i), str(flight_time), str(num_points), str(mean_obj), str(rmse)])
 
+def rollouts_summary_csv(dir):
+    # takes in a directory with loading parameters and saves a csv summarizing each flight
+    print('-------------------')
+    print('Loading dir: ', dir)
+    files = os.listdir(dir)
+    # files = os.listdir(dir)
+    # print('...number of flights: ', len(files))
 
+    # init arrays
 
+    save_dir = "_summaries/"
+    end_idx = dir[-2::-1].find('/')
+    saved_name = save_dir + "summary-" + dir[-end_idx-1:-1]+'.csv'
+    print(dir)
+    # print(saved_name)
+    with open(saved_name, 'w') as outcsv:
+        writer = csv.writer(outcsv, delimiter=',')
+        writer.writerow(["Rollout", "Mean Flight Time", "Std Flight Time", "Total Trained Points", "RMS Pitch Roll"])
+        for i,f in enumerate(sorted(files)):
+            # print(f)
+            if len(f) > 5 and f[-4:] == '.csv':
+                df = pd.read_csv(dir+"/"+f, sep=",")
+
+                flight_time_mean = np.round(np.mean(df["Flight Time (ms)"]),2)
+                flight_time_std = np.round(np.std(df["Flight Time (ms)"]),2)
+                num_points = np.round(np.sum([df["Trained Points"]]),2)
+                mean_obj =  np.round(np.mean(df["Mean Objective"]),2)
+                rmse =  np.round(np.mean(df["RMS Pitch Roll"]),2)
+
+                writer.writerow([f[-f[::-1].find('_'):-f[::-1].find('.')-1],
+                                 str(flight_time_mean),
+                                 str(flight_time_std),
+                                 str(num_points),
+                                 str(rmse)])
+
+def flight_time_plot(csv_dir):
+    # tool to take in a directory of flight summaries and plot the flight time vs rollouts
+    # the file structure should be as follows:
+    #     flights/
+    #       ..freq1
+    #           ..rand
+    #           ..roll1
+    #           ..roll2
+    #       ..freq2
+    #           ..rand
+    #           ..roll1
+    #           ..roll2
+    #       ....
+
+    print_flag = False
+
+    if print_flag: print('~~~~~~~~~~~~')
+
+    # gather dirs (each will be one line on the plot)
+    dirs = [dI for dI in os.listdir(csv_dir) if os.path.isdir(os.path.join(csv_dir,dI))]
+    # print(dirs)
+
+    font = {'size'   : 22}
+
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=2.5)
+
+    with sns.axes_style("darkgrid"):
+        ax1 = plt.subplot(111)
+
+    colors = ['#008080', '#E53273', '#808000']
+
+    for dir, c in zip(reversed(sorted(dirs)),colors):
+        if print_flag: print('---' + dir + '---')
+        # Load each frequency fo rollouts individually
+        label = dir
+        files = os.listdir(csv_dir+dir)
+
+        # create list for dataframes
+        data = []
+        df_main = pd.DataFrame(columns=["Flight Idx", "Flight Time (ms)", "Mean Objective", "RMS Pitch Roll", "roll"])
+
+        means = []
+        stds = []
+        labels = []
+
+        for f in sorted(files):
+            if f != '.DS_Store':
+                if print_flag: print("-> Rollout: " + f[-10:-3])
+                with open(csv_dir+dir+'/'+f, "rb") as csvfile:
+                    # laod data
+                    roll = f[-f[::-1].find('_'):-f[::-1].find('.')-1]
+                    df = pd.read_csv(csvfile, sep=",")
+                    df['roll'] = roll
+                    df_main = df_main.append(df)
+
+                    mean_sub = df["Flight Time (ms)"].mean()
+                    std_sub = df["Flight Time (ms)"].std()
+
+                    means.append(mean_sub)
+                    stds.append(std_sub)
+                    labels.append(roll)
+
+                    
+                    # mean = np.mean(new_data[:,1])
+                    # std = np.std(new_data[:,1])
+
+                    if print_flag:
+                        new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
+                        print("   Mean flight length is: ", np.mean(new_data[:,1]))
+                        print("   Std flight length is: ", np.std(new_data[:,1]))
+
+        means = np.array(means)
+        stds = np.array(stds)
+
+        x = np.arange(0,len(labels))
+        ax1.plot(x, means, label=label, color=c)
+
+        ax1.axhline(np.max(means),linestyle='--', label=str("Max" + dir),alpha=.5, color=c)
+
+        ax1.set_ylabel("Flight Time (ms)")
+        ax1.set_xlabel("Rollout (10 Flights Per)")
+        ax1.set_title("Flight Time vs Rollout")
+
+        ax1.set_ylim([0,2500])
+
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels, rotation = 75, fontsize = 18)
+
+        ax1.legend()
+
+        plt.fill_between(x, means-stds, means+stds, alpha=0.2, color=c)#, edgecolor='#CC4F1B', facecolor='#FF9848')
+
+        ###############
+
+    plt.show()
+
+    print('\n')
+
+def trained_points_plot(csv_dir):
+    # tool to take in a directory of flight summaries and plot the flight time vs rollouts
+    # the file structure should be as follows:
+    #     flights/
+    #       ..freq1
+    #           ..rand
+    #           ..roll1
+    #           ..roll2
+    #       ..freq2
+    #           ..rand
+    #           ..roll1
+    #           ..roll2
+    #       ....
+
+    print_flag = False
+
+    if print_flag: print('~~~~~~~~~~~~')
+
+    # gather dirs (each will be one line on the plot)
+    dirs = [dI for dI in os.listdir(csv_dir) if os.path.isdir(os.path.join(csv_dir,dI))]
+    # print(dirs)
+
+    font = {'size'   : 18}
+
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=2.5)
+
+    with sns.axes_style("darkgrid"):
+        ax1 = plt.subplot(111)
+
+    colors = [ '#E53273','#008080', '#808000']
+
+    for dir, c in zip(reversed(sorted(dirs)),colors):
+        if print_flag: print('---' + dir + '---')
+        # Load each frequency fo rollouts individually
+        label = dir
+        files = os.listdir(csv_dir+dir)
+
+        # create list for dataframes
+        data = []
+        df_main = pd.DataFrame(columns=["Flight Idx", "Flight Time (ms)", "Trained Points", "Mean Objective", "RMS Pitch Roll", "roll"])
+
+        means = []
+        stds = []
+        labels = []
+        cum_points = 0
+
+        for f in sorted(files):
+            print(f)
+            if print_flag: print("-> Rollout: " + f[-10:-3])
+            with open(csv_dir+dir+'/'+f, "rb") as csvfile:
+                # laod data
+                roll = f[-f[::-1].find('_'):-f[::-1].find('.')-1]
+                df = pd.read_csv(csvfile, sep=",")
+                df['roll'] = roll
+                df_main = df_main.append(df)
+
+                mean_sub = df["Flight Time (ms)"].mean()
+                std_sub = df["Flight Time (ms)"].std()
+                data_points = np.sum(df["Trained Points"])
+
+                means.append(mean_sub)
+                stds.append(std_sub)
+                labels.append(data_points)
+
+                
+                # mean = np.mean(new_data[:,1])
+                # std = np.std(new_data[:,1])
+
+                if print_flag:
+                    new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
+                    print("   Mean flight length is: ", np.mean(new_data[:,1]))
+                    print("   Std flight length is: ", np.std(new_data[:,1]))
+
+        means = np.array(means)
+        stds = np.array(stds)
+        labels = np.array(labels)
+        labels = np.cumsum(labels)
+        print(labels)
+
+        x = np.arange(0,len(labels))
+        ax1.scatter(labels, means, label=label, color=c)
+
+        # ax1.axhline(np.max(means),linestyle='--', label=str("Max" + dir),alpha=.5, color=c)
+        ax1.set_xscale("log", nonposx='clip')
+        ax1.set_xlim([100,10000])
+
+        ax1.set_ylabel("Flight Time (ms)")
+        ax1.set_xlabel("Trained Datapoints")
+        ax1.set_title("Flight Time vs Datapoints")
+
+        # ax1.set_ylim([0,5000])
+
+        # ax1.set_xticks(x)
+        # ax1.set_xticklabels(labels, rotation = 75, fontsize = 14)
+
+        ax1.legend()
+        ###############
+
+    plt.show()
+
+    print('\n')
 
 def get_rand_traj(df):
     '''
