@@ -717,7 +717,7 @@ def flight_time_plot(csv_dir):
     dirs = [dI for dI in os.listdir(csv_dir) if os.path.isdir(os.path.join(csv_dir,dI))]
     # print(dirs)
 
-    font = {'size'   : 18}
+    font = {'size'   : 22}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
@@ -725,7 +725,7 @@ def flight_time_plot(csv_dir):
     with sns.axes_style("darkgrid"):
         ax1 = plt.subplot(111)
 
-    colors = [ '#E53273','#008080', '#808000']
+    colors = ['#008080', '#E53273', '#808000']
 
     for dir, c in zip(reversed(sorted(dirs)),colors):
         if print_flag: print('---' + dir + '---')
@@ -742,29 +742,30 @@ def flight_time_plot(csv_dir):
         labels = []
 
         for f in sorted(files):
-            if print_flag: print("-> Rollout: " + f[-10:-3])
-            with open(csv_dir+dir+'/'+f, "rb") as csvfile:
-                # laod data
-                roll = f[-f[::-1].find('_'):-f[::-1].find('.')-1]
-                df = pd.read_csv(csvfile, sep=",")
-                df['roll'] = roll
-                df_main = df_main.append(df)
+            if f != '.DS_Store':
+                if print_flag: print("-> Rollout: " + f[-10:-3])
+                with open(csv_dir+dir+'/'+f, "rb") as csvfile:
+                    # laod data
+                    roll = f[-f[::-1].find('_'):-f[::-1].find('.')-1]
+                    df = pd.read_csv(csvfile, sep=",")
+                    df['roll'] = roll
+                    df_main = df_main.append(df)
 
-                mean_sub = df["Flight Time (ms)"].mean()
-                std_sub = df["Flight Time (ms)"].std()
+                    mean_sub = df["Flight Time (ms)"].mean()
+                    std_sub = df["Flight Time (ms)"].std()
 
-                means.append(mean_sub)
-                stds.append(std_sub)
-                labels.append(roll)
+                    means.append(mean_sub)
+                    stds.append(std_sub)
+                    labels.append(roll)
 
-                
-                # mean = np.mean(new_data[:,1])
-                # std = np.std(new_data[:,1])
+                    
+                    # mean = np.mean(new_data[:,1])
+                    # std = np.std(new_data[:,1])
 
-                if print_flag:
-                    new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
-                    print("   Mean flight length is: ", np.mean(new_data[:,1]))
-                    print("   Std flight length is: ", np.std(new_data[:,1]))
+                    if print_flag:
+                        new_data = np.loadtxt(csvfile, delimiter=",",skiprows=1)
+                        print("   Mean flight length is: ", np.mean(new_data[:,1]))
+                        print("   Std flight length is: ", np.std(new_data[:,1]))
 
         means = np.array(means)
         stds = np.array(stds)
@@ -778,10 +779,10 @@ def flight_time_plot(csv_dir):
         ax1.set_xlabel("Rollout (10 Flights Per)")
         ax1.set_title("Flight Time vs Rollout")
 
-        ax1.set_ylim([0,5000])
+        ax1.set_ylim([0,2500])
 
         ax1.set_xticks(x)
-        ax1.set_xticklabels(labels, rotation = 75, fontsize = 14)
+        ax1.set_xticklabels(labels, rotation = 75, fontsize = 18)
 
         ax1.legend()
 

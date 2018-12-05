@@ -1,5 +1,5 @@
 # Our infrastucture files
-from utils_data import *
+from utils_data import * 
 
 # data packages
 import pickle
@@ -86,7 +86,8 @@ load_params ={
 
 
 # For generating flight time plot vs rollouts
-# flight_time_plot("_summaries/trainedpoints/")
+flight_time_plot("_summaries/trainedpoints/")
+quit()
 # trained_points_plot("_summaries/trainedpoints/")
 
 dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
@@ -148,7 +149,7 @@ data_params = {
 # 't1_omega_x', 't1_omega_y', 't1_omega_z', 't1_pitch', 't1_roll', 't1_yaw', 't1_lina_x', 't1_lina_y' 't1_lina_z'
 
 st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
-                    'd_pitch', 't1_omega_z', 't1_pitch',
+                    'd_pitch', 'd_omega_z', 'd_pitch',
                     'd_lina_x', 'd_lina_y', 'd_liny_z']
 
 X, U, dX = df_to_training(df, data_params)
