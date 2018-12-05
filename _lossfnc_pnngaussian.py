@@ -1,4 +1,5 @@
 # Implementation of the loss function from the following paper: https://arxiv.org/abs/1805.12114
+# -*- coding: utf-8 -*-
 
 import torch
 import numpy as np
