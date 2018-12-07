@@ -19,6 +19,7 @@ def experiment(variant):
     import gym
     env = QuadEnv()
     env = NormalizedBoxEnv(env)
+    # env = NormalizedBoxEnv(gym.make('HalfCheetah-v2'))
     obs_dim = int(np.prod(env.observation_space.shape))
     action_dim = int(np.prod(env.action_space.shape))
 
@@ -59,10 +60,10 @@ if __name__ == "__main__":
     # noinspection PyTypeChecker
     variant = dict(
         algo_params=dict(
-            num_epochs=200,
+            num_epochs=150,
             num_steps_per_epoch=500,
             num_steps_per_eval=500,
-            max_path_length=100,
+            max_path_length=300,
             batch_size=128,
             discount=0.99,
 
@@ -73,5 +74,6 @@ if __name__ == "__main__":
         ),
         net_size=300,
     )
-    setup_logger('tsac_quad', variant=variant)
+
+    setup_logger('tsac-cheetah', variant=variant)
     experiment(variant)
