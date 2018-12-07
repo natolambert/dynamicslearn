@@ -132,6 +132,8 @@ Yaw Rate: [120.0, 16.7, 0.0, 166.7]
 Pitch Attitude: [6.0, 3.0, 0.0, 20.0]
 Roll Attitude: [6.0, 3.0, 0.0, 20.0]
 Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
+
+"the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
 # class to mimic the PID structure onboard the crazyflie
 class crazyPID(PID):

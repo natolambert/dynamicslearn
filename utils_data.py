@@ -933,3 +933,120 @@ def get_traj(df,idx):
     df_sub = df[start+1:end+1]
 
     return df_sub
+
+def sensor_quality_test(dir):
+    """
+    Goes through subfolders of a given directory to see if there is any noticable changes 
+      in how the data is logged that may indicated why some flights are so much better
+
+    Takes the mean and variance of the state data through each takeoff. 
+    Will return a matrix of dimesnions (n, dx), so 
+    - n number of rollouts 
+    - dx is the dimension of the state
+    """
+
+    print('------------')
+    print('RUNNING TEST OF LOGGEST STATE DATA NOISE')
+    dirs = os.listdir("_logged_data_autonomous/"+dir)
+    # init arrays for the means of each rollout for large scale analysis
+    means = np.zeros([len(dirs), 9]) 
+    noises = np.zeros([len(dirs), 9])
+
+    # init array for a long list of all flights 
+    total_list = np.zeros([len(dirs)*10,9])
+
+    # dim = 1
+    l1 = []
+    l2 = []
+    l3 = []
+
+    l7 = []
+    l8 = []
+    l9 = []
+
+    flight_times =[]
+    
+    for d in sorted(dirs)[:-1]:
+        if d != '.DS_Store':
+            print('~~~ dir:', d, ' ~~~')
+            files = os.listdir("_logged_data_autonomous/"+dir+'/'+d+'/')
+            i=0
+            for f in sorted(files):
+                if len(f) > 5 and f[-4:] == '.csv':
+                    # print("File num: ", i)
+                    new_data = np.loadtxt("_logged_data_autonomous/"+dir+'/'+d+'/'+f, delimiter=",")
+
+                    Objv = new_data[:,14]
+                    move_idx = np.argmax(Objv != -1)
+
+                    Time = new_data[:,13]
+                    flight_len = Time[-1]-Time[move_idx-5]
+                    flight_times.append(flight_len)
+
+                    # GRABS DATA DURING AND BEFORE TAKEOFF
+                    state_data = new_data[:move_idx-5, :9]
+                    means = np.mean(state_data, axis=0)
+                    noise = np.std(state_data, axis=0)
+                    # print("Means: ", means)
+                    # print("Noises: ", noise)
+
+                    l1.append(noise[0])
+                    l2.append(noise[1])
+                    l3.append(noise[2])
+
+                    l7.append(noise[6])
+                    l8.append(noise[7])
+                    l9.append(noise[8])
+                    i+= 1 # not using enumarate becase DS_Store
+
+    plotting_keys = np.loadtxt("_logged_data_autonomous/"+dir+'/'+"data.csv",delimiter='\t')
+    print(np.shape(plotting_keys))
+    print(np.shape(l1))
+    
+    font = {'size': 18}
+
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=2.5)
+
+    with sns.axes_style("darkgrid"):
+        ax1 = plt.subplot(111)  
+
+    for i, row in enumerate(plotting_keys):
+
+        # drift fails
+        if row[0] == 1:
+            lab1 = plt.axvline(i, linestyle='--', color = 'r', alpha = .3, label='Drift Failures')
+
+        # sensor fails
+        elif row[1] ==1:
+            lab2 = plt.axvline(i, linestyle='--', color = 'b', alpha = .3, label = 'Sensor Failures')
+
+        # replace parts
+        elif row[2]==1:
+            lab3 = plt.axvline(i, linestyle='--', color = 'k', alpha = .3, label= 'Replace Parts')
+
+    # Lines for frequency cutoffs
+    lab50 = plt.axvline(160, linestyle='-', color = 'k', alpha = .8, label='50Hz Begins')
+    lab75 = plt.axvline(290, linestyle='-', color = 'k', alpha = .8, label='75Hz Begins')
+
+    ax1.set_title("Noise on certain variables across flights")
+    ax1.set_xlabel("Flight (Chronological from new quad)")
+    ax1.set_ylabel("Noise")
+    p1 = plt.plot(l1, label='angular_x')
+    p2 = plt.plot(l2, label='angular_y')
+    p3 = plt.plot(l3, label='angular_z')
+
+    # p4 = plt.plot(l7, label='linear_x')
+    # p5 = plt.plot(l8, label='linear_y')
+    # p6 = plt.plot(l9, label='linear_z')
+
+    lns = p1+p2+p3+[lab1]+[lab2]+[lab3]+[lab50]+[lab75]
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs, fancybox=True, framealpha=1, shadow=True, borderpad=1)
+
+    # ax2 = ax1.twinx()
+    # ax2.plot(flight_times, linestyle='-', color = 'k', label='Flight Time')
+    # ax2.set_ylabel("Flight Time (ms)")
+    plt.show()
+
+    
