@@ -148,7 +148,7 @@ def plot_battery_thrust(df_traj, model):
     X, U, dX = df_to_training(df_traj, data_params)
 
     # plot properties
-    font = {'size': 18}
+    font = {'size': 22}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
@@ -173,26 +173,36 @@ def plot_battery_thrust(df_traj, model):
     vbat =  U[:,-1]
 
     ####################### PLOT #######################
-    with sns.axes_style("darkgrid"):
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
         ax1 = plt.subplot(111)
         # ax2 = plt.subplot(212)
 
-    plt.title("Comparing Battery Voltage to Thrust")
+    # plt.title("Comparing Battery Voltage to Thrust")
 
     # ax1.set_ylim([-150, 150])
     # ax2.set_ylim([-150, 150])
     time = np.linspace(0,len(thrust)*.02,len(thrust))
-    ln1 = ax1.plot(time, thrust, color ='r', label='Crazyflie Thrust')
-    ax1.set_ylabel("Crazyflie Thrust (PWM)")
+    ln1 = ax1.plot(time, thrust, color='r', label='Crazyflie Thrust',
+                   markevery=3, marker='*', markersize='20')
+    ax1.set_ylabel("Crazyflie Thrust (PWM)", color='k')
+    ax1.tick_params('y', colors='r')
+
+    ax1.grid(b=True, which='major', color='k', linestyle='-', linewidth=1, alpha=.5)
+
 
     ax2 = ax1.twinx()
-    ln2 = ax2.plot(time, vbat, label='Crazyflie Logged Battery Voltage')
-    ax2.set_ylabel("Crazyflie Battery Voltage (mV)")
+    ln2 = ax2.plot(
+        time, vbat, label='Crazyflie Battery Voltage', color='b', markevery=3, marker='.', markersize='20')
+    ax2.set_ylabel("Crazyflie Battery Voltage (mV)", color ='k')
+    ax2.tick_params('y', colors='b')
+
     ax1.set_xlabel("Time (s)")
     
     lns = ln1+ln2
     labs = [l.get_label() for l in lns]
-    ax1.legend(lns, labs)
+    ax1.legend(lns, labs)#, loc=5)
 
     plt.show()
 
@@ -399,7 +409,9 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
 
     ############## PLOT ALL POINTS ON 3 EULER ANGLES ###################
     if False:
-        with sns.axes_style("darkgrid"):
+        with sns.axes_style("whitegrid"):
+            plt.rcParams["axes.edgecolor"] = "0.15"
+            plt.rcParams["axes.linewidth"] = 1.5
             fig1, axes = plt.subplots(nrows=1, ncols=3, sharey=True)
             ax1, ax2, ax3 = axes[:]
 
@@ -649,12 +661,14 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
 
         # bat_ranges = np.linspace(np.min(vbats), np.max(vbats),num_subplots+1)
 
-        with sns.axes_style("darkgrid"):
+        with sns.axes_style("whitegrid"):
+            plt.rcParams["axes.edgecolor"] = "0.15"
+            plt.rcParams["axes.linewidth"] = 1.5
             fig3, axes3 = plt.subplots(nrows=n_row, ncols=num_subplots, sharey=True, sharex=True)
             # ax31, ax32, ax33, ax34, ax35, ax36 = axes3[:,:]
 
-            plt.suptitle("Voltage Context Effect on Prediction")
-            fig3.text(0.45, 0.01, 'Pitch (Degrees)', ha='center')
+            # plt.suptitle("Voltage Context Effect on Prediction")
+            fig3.text(0.475, 0.05, 'Measured Pitch (Degrees)', ha='center')
 
 
             cmap = matplotlib.cm.viridis
@@ -712,6 +726,126 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
             plt.show()
             ###############################################################
 
+
+def waterfall_plot(model, df, equil, var, N, T, plt_idx = []):
+    """
+    The long overdue plot that takes in a point of a dataframe at random. This is useful for assesing the 
+      usefullness of the model predictive controller
+    """
+
+    # generate actions in the same manner as the MPC computer
+    #  1. sample integers betweeen 0 and num_bins
+    #  2. multiple by step size (256)
+    #  in our case, we will want an output of dimensions (Nx4) - sample and hold N actions
+    
+    # need to sample actions individually for bins
+    actions_bin_1 = np.random.randint(
+        int((equil[0]-var)/256), int((equil[0]+var)/256), (N,1))
+    actions_bin_2 = np.random.randint(
+        int((equil[1]-var)/256), int((equil[1]+var)/256), (N,1))
+    actions_bin_3 = np.random.randint(
+        int((equil[2]-var)/256), int((equil[2]+var)/256), (N,1))
+    actions_bin_4 = np.random.randint(
+        int((equil[3]-var)/256), int((equil[3]+var)/256), (N,1))
+
+    # stack them into an array of (Nx4)
+    action_bin = np.hstack(
+        (actions_bin_1, actions_bin_2, actions_bin_3, actions_bin_4))
+    
+    actions = action_bin*256
+
+    # get initial x state
+    points = np.squeeze(np.where(df['term'].values == 0))       # not last 
+    num_pts = len(points)
+    x0_idx = np.random.randint(10,len(points)-20)               # not first few points or towards end
+
+    states = model.state_list                                   # gather these for use
+    inputs = model.input_list
+
+    x0 = df[states].values[x0_idx]                              # Values
+    u0 = df[inputs].values[x0_idx]
+
+    # initialize large array to store the results in
+    predictions = np.zeros((N,T+1,len(x0)))
+    predictions[:,0,:] = x0
+
+    truth = df[states[:9]].values[x0_idx:x0_idx+T]
+
+    stack = int(len(x0)/9)
+    print(states)
+    
+    # loop to gather all the predictions
+    for n, action in enumerate(actions):
+        u = u0
+        x = x0
+        for t in range(T):
+
+            # get action to pass with history
+            u = np.concatenate((action, u[:-5], [u[-1]]))
+
+            predictions[n, t+1, :9] = predict_nn_v2(model, x, u)
+            # print(predictions[n, t+1, :9])
+
+            # get state with history
+            x = np.concatenate((predictions[n, t+1, :9], x[:-9]))
+            # print(u)
+            # print(u.shape)
+            # print(x)
+            # print(x.shape)
+        # quit()
+
+
+    # *******************************************************************************************
+    # PLOTTING
+    font = {'size': 23}
+
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=2.5)
+
+    # plt.tight_layout()
+
+    with sns.axes_style("whitegrid"):
+            plt.rcParams["axes.edgecolor"] = "0.15"
+            plt.rcParams["axes.linewidth"] = 1.5
+            plt.subplots_adjust(wspace=.15, left=.1, right=1-.07)  # , hspace=.15)
+            ax1 = plt.subplot(111)
+
+    N = np.shape(predictions)[0]
+    my_dpi = 96
+    plt.figure(figsize=(3200/my_dpi, 4000/my_dpi), dpi=my_dpi)
+    dim = 4
+    pred_dim = predictions[:, :, dim]
+    
+    i=0
+    for traj in pred_dim:
+        if i==0:
+            ax1.plot(traj, linestyle=':', linewidth=4,
+                     label='Predicted State', alpha=.75)
+        else:
+            ax1.plot(traj, linestyle=':', linewidth=4, alpha=.75)
+        i += 1
+
+    ax1.plot(truth[:,dim], linestyle='-', linewidth=4.5, color='k', marker = 'o', alpha=.8, markersize='10',label = 'Ground Truth')
+    ax1.set_ylim([-40,40])
+
+    # find best action
+    print(predictions[:, 3:5]**2)
+    print(np.sum(np.sum(predictions[:,:, 3:5]**2,axis=2),axis=1))
+    best_id = np.argmin(np.sum(np.sum(predictions[:, :, 3:5]**2, axis=2), axis=1))
+    ax1.plot(predictions[best_id, :, dim], linestyle='-', linewidth=4.5, color='r', alpha = .8, label='Chosen Action')
+    ax1.legend()
+    ax1.set_ylabel('Roll (deg)')
+    ax1.set_xlabel('Timestep (T)')
+    # ax1.set_xticks(np.arange(0, 5.1, 1))
+    # ax1.set_xticklabels(["s(t)", "1", "2", "3", "4", "5"])
+    
+
+    ax1.grid(b=True, which='major', color='k',
+             linestyle='-', linewidth=1.2, alpha=.75)
+    ax1.grid(b=True, which='minor', color='b',
+             linestyle='--', linewidth=.9, alpha=.5)
+
+    plt.show()
 
 class CrazyFlie():
     def __init__(self, dt, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):

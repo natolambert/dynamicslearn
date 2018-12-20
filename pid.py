@@ -1,27 +1,10 @@
-# Our infrastucture files
-from utils_data import *
-from utils_sim import *
-
-# data packages
-import pickle
-import random
-
-# neural nets
-from model_general_nn import *
-from model_split_nn import SplitModel
-from _activation_swish import Swish
-from model_ensemble_nn import EnsembleNN
-
-# Torch Packages
-import torch
-import torch.nn as nn
-from torch.nn import MSELoss
 
 # timing etc
 import time
 import datetime
 import os
 import copy
+import numpy as np
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -31,8 +14,8 @@ import matplotlib
 class PID():
     def __init__(self, desired,
                     kp, ki, kd,
-                    ilimit, outlimit,
-                    dt, samplingRate = 0, cutoffFreq = -1,
+                    ilimit, dt, outlimit = np.inf,
+                    samplingRate = 0, cutoffFreq = -1,
                     enableDFilter = False):
 
         # internal variables
@@ -40,6 +23,7 @@ class PID():
         self.error_prev = 0
         self.integral = 0
         self.deriv = 0
+        self.out = 0
 
         # constants
         self.desired = desired
@@ -66,7 +50,7 @@ class PID():
     def update(self, measured):
 
         # init
-        out = 0.
+        self.out = 0.
 
         # update error
         self.error_prev = self.error
@@ -75,7 +59,7 @@ class PID():
         self.error = self.desired - measured
 
         # proportional gain is easy
-        out += self.kp*self.error
+        self.out += self.kp*self.error
 
         # calculate deriv term
         self.deriv = (self.error-self.error_prev) / self.dt
@@ -86,7 +70,7 @@ class PID():
             self.deriv = self.deriv
 
         # calcualte error value added
-        out += self.deriv*self.kd
+        self.out += self.deriv*self.kd
 
         # accumualte normalized eerror
         self.integral = self.error*self.dt
@@ -95,13 +79,13 @@ class PID():
         if self.ilimit !=0:
             self.integral = np.clip(self.integral,-self.ilimit, self.ilimit)
 
-        out += self.ki*self.integral
+        self.out += self.ki*self.integral
 
         # limitt the total output
         if self.outlimit !=0:
-            out = np.clip(out,-self.outlimit, self.outlimit)
+            self.out = np.clip(self.out, -self.outlimit, self.outlimit)
 
-        return out
+        return self.out
 
 '''
 Some notes on the crazyflie PID structure. Essentially there is a trajectory planner
@@ -136,12 +120,20 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 "the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
 # class to mimic the PID structure onboard the crazyflie
-class crazyPID(PID):
-    def __init__(self, equil, dt, out_lim = 5000,
+class crazyPID():
+    """
+    Class for bootstrapping PID controllers off of a learned dynamics model.
+    """
+    def __init__(self, equil, dt, min_pwm = 0, max_pwm = 65535, out_lim = 5000,
                 att_pitch = [], att_roll = [], att_yaw = [],
                 rate_pitch = [], rate_roll = [], rate_yaw = []):
 
+        self.equil = equil
         self.dt = dt
+        self.min_pwm = 0
+        self.max_pwm = 65535
+
+        self.output = equil
 
         # PIDs
         self.PID_att_pitch = []
@@ -159,31 +151,31 @@ class crazyPID(PID):
                                         att_pitch[2],
                                         att_pitch[3], dt)
 
-        if PID_att_roll != []:
-            self.PID_att_roll = PID(0, PID_att_roll[0],
-                                        PID_att_roll[1],
-                                        PID_att_roll[2],
-                                        PID_att_roll[3], dt)
+        if att_roll != []:
+            self.PID_att_roll = PID(0, att_roll[0],
+                                        att_roll[1],
+                                    att_roll[2],
+                                        att_roll[3], dt)
 
-        if att_pitch != []:
+        if att_yaw != []:
             self.PID_att_yaw = PID(0, att_yaw[0],
                                         att_yaw[1],
                                         att_yaw[2],
                                         att_yaw[3], dt)
 
-        if PID_att_roll != []:
+        if rate_pitch != []:
             self.PID_rate_pitch = PID(0, rate_pitch[0],
                                         rate_pitch[1],
                                         rate_pitch[2],
                                         rate_pitch[3], dt)
 
-        if att_pitch != []:
+        if rate_roll != []:
             self.PID_rate_roll = PID(0, rate_roll[0],
                                         rate_roll[1],
                                         rate_roll[2],
                                         rate_roll[3], dt)
 
-        if PID_att_roll != []:
+        if rate_yaw != []:
             self.PID_rate_yaw = PID(0, rate_yaw[0],
                                         rate_yaw[1],
                                         rate_yaw[2],
@@ -198,5 +190,58 @@ class crazyPID(PID):
         if self.PID_rate_roll != []: self.PIDs.append(self.PID_rate_roll)
         if self.PID_rate_yaw != []: self.PIDs.append(self.PID_rate_yaw)
 
-        # def update(self, x):
-        #     # this function will take in the current state, and based on
+        if len(self.PIDs) == 3:
+            print("INIT PID IN ATTITUDE MODE")
+            self.mode = 1
+        elif len(self.PIDs) == 6:
+            print("INIT PID IN ATTITUDE+RATE MODE")
+            self.mode = 0
+
+        def update(self, x):
+            """
+            This function will take in the current state, and update the PID's output.
+
+            Takes x: 9 dimensional state
+            Returns u: 4 dimensional action
+            """
+
+            def limit_thrust(PWM):
+                """
+                Limits thrust, can be adjusted for different robots
+                """
+                return np.clip(PWM, self.min_pwm, self.max_pwm)
+
+            # Update Attitude PIDs first
+            out_pitch = self.PID_att_pitch.update(x[3])
+            out_roll = self.PID_att_roll.update(x[4])
+            out_yaw = self.PID_att_yaw.update(x[5])
+
+            # Pass their outputs into the rate PIDs, and update
+            out_pitch_rate = self.PID_rate_pitch.update(out_pitch)
+            out_roll_rate = self.PID_rate_roll.update(out_roll)
+            out_yaw_rate = self.PID_rate_yaw.update(out_yaw)
+
+            # Update output from attitude PIDS
+            if self.mode == 1:
+                self.output[0] = limit_thrust(
+                    self.equil[0] + self.PID_att_pitch.out + self.PID_att_yaw.out)
+                self.output[1] = limit_thrust(
+                    self.equil[1] - self.PID_att_roll.out - self.PID_att_yaw.out)
+                self.output[2] = limit_thrust(
+                    self.equil[2] - self.PID_att_pitch.out + self.PID_att_yaw.out)
+                self.output[3] = limit_thrust(
+                    self.equil[3] + self.PID_att_roll.out - self.PID_att_yaw.out)
+
+            # Update output from Rate PIDs, which were updated from Attitude setpoints
+            elif self.mode == 0:
+                self.output[0] = limit_thrust(
+                    self.equil[0] + self.PID_rate_pitch.out + self.PID_rate_yaw.out)
+                self.output[1] = limit_thrust(
+                    self.equil[1] - self.PID_rate_roll.out - self.PID_rate_yaw.out)
+                self.output[2] = limit_thrust(
+                    self.equil[2] - self.PID_rate_pitch.out + self.PID_rate_yaw.out)
+                self.output[3] = limit_thrust(
+                    self.equil[3] + self.PID_rate_roll.out - self.PID_rate_yaw.out)
+
+            return self.output
+

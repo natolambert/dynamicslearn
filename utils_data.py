@@ -225,6 +225,8 @@ def stack_dir_pd(dir, load_params):
 def trim_load_param(fname, load_params):
     '''
     Opens the directed csv file and returns the arrays we want
+
+    Returns: X_t, U_t, dX_t, objv_t, Ts_t, time, terminal
     '''
 
     # Grab params
@@ -717,16 +719,21 @@ def flight_time_plot(csv_dir):
     dirs = [dI for dI in os.listdir(csv_dir) if os.path.isdir(os.path.join(csv_dir,dI))]
     # print(dirs)
 
-    font = {'size'   : 22}
+    font = {'size'   : 23}
 
     matplotlib.rc('font', **font)
-    matplotlib.rc('lines', linewidth=2.5)
+    matplotlib.rc('lines', linewidth=4.5)
 
-    with sns.axes_style("darkgrid"):
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
+        plt.subplots_adjust(wspace=.15, left=.07, right=1-.07)  # , hspace=.15)
         ax1 = plt.subplot(111)
+        
 
-    colors = ['#008080', '#E53273', '#808000']
-
+    colors = ['#208080', '#F83030', '#808000']
+    markers = ['*', '.','x']
+    i=0
     for dir, c in zip(reversed(sorted(dirs)),colors):
         if print_flag: print('---' + dir + '---')
         # Load each frequency fo rollouts individually
@@ -756,6 +763,10 @@ def flight_time_plot(csv_dir):
 
                     means.append(mean_sub)
                     stds.append(std_sub)
+                    if roll == 'rand':
+                        roll = '00'
+                    else:
+                        roll = roll[-2:]
                     labels.append(roll)
 
                     
@@ -771,23 +782,29 @@ def flight_time_plot(csv_dir):
         stds = np.array(stds)
 
         x = np.arange(0,len(labels))
-        ax1.plot(x, means, label=label, color=c)
+        ax1.plot(x, means/1000, label=label, color=c, marker=markers[i], markersize ='19')
 
-        ax1.axhline(np.max(means),linestyle='--', label=str("Max" + dir),alpha=.5, color=c)
+        ax1.axhline(np.max(means)/1000,linestyle='--',  label=str("Max" + dir),alpha=1, color=c)
 
-        ax1.set_ylabel("Flight Time (ms)")
+        ax1.set_ylabel("Flight Time (s)")
         ax1.set_xlabel("Rollout (10 Flights Per)")
-        ax1.set_title("Flight Time vs Rollout")
 
-        ax1.set_ylim([0,2500])
+        ax1.grid(b=True, which='major', color='k', linestyle='-', linewidth=1, alpha=.5)
+        # ax.grid(b=True, which='minor', color='r', linestyle='--')
+        # ax1.set_title("Flight Time vs Rollout")
+
+        ax1.set_ylim([0,2.500])
 
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, rotation = 75, fontsize = 18)
 
         ax1.legend()
 
-        plt.fill_between(x, means-stds, means+stds, alpha=0.2, color=c)#, edgecolor='#CC4F1B', facecolor='#FF9848')
 
+        plt.fill_between(x, (means-stds)/1000, (means+stds)/1000, alpha=0.3, color=c)#, edgecolor='#CC4F1B', facecolor='#FF9848')
+         
+
+        i+=1
         ###############
 
     plt.show()
@@ -816,20 +833,25 @@ def trained_points_plot(csv_dir):
     dirs = [dI for dI in os.listdir(csv_dir) if os.path.isdir(os.path.join(csv_dir,dI))]
     # print(dirs)
 
-    font = {'size'   : 18}
+    font = {'size'   : 22}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
 
-    with sns.axes_style("darkgrid"):
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
         ax1 = plt.subplot(111)
+        plt.subplots_adjust(wspace=.15, left=.1, right=1-.07)  # , hspace=.15)
 
-    colors = [ '#E53273','#008080', '#808000']
 
-    for dir, c in zip(reversed(sorted(dirs)),colors):
+    colors = ['#208080', '#F83030', '#808000']
+    markers = ['*', 'x', '.']
+
+    for i,(dir, c) in enumerate(zip(reversed(sorted(dirs)),colors)):
         if print_flag: print('---' + dir + '---')
         # Load each frequency fo rollouts individually
-        label = dir
+        label = dir +" Rollouts"
         files = os.listdir(csv_dir+dir)
 
         # create list for dataframes
@@ -875,15 +897,25 @@ def trained_points_plot(csv_dir):
         print(labels)
 
         x = np.arange(0,len(labels))
-        ax1.scatter(labels, means, label=label, color=c)
+        ax1.scatter(labels, means/1000, label=label,
+                    marker=markers[i], color=c, linewidth='16')
 
         # ax1.axhline(np.max(means),linestyle='--', label=str("Max" + dir),alpha=.5, color=c)
         ax1.set_xscale("log", nonposx='clip')
-        ax1.set_xlim([100,10000])
+        ax1.set_xlim([50,20000])
 
-        ax1.set_ylabel("Flight Time (ms)")
+        ax1.set_ylabel("Flight Time (s)")
         ax1.set_xlabel("Trained Datapoints")
-        ax1.set_title("Flight Time vs Datapoints")
+
+        ax1.grid(b=True, which='major', color='k',
+                linestyle='-', linewidth=1.2, alpha=.75)
+        ax1.grid(b=True, which='minor', color='b', linestyle='--', linewidth=1.2, alpha=.5)
+        # ax1.set_title("Flight Time vs Datapoints")
+
+        # Customize the major grid
+        # ax1.grid(which='major', linestyle='-', linewidth='0.5', color='red')
+        # Customize the minor grid
+        # plt.grid(True, which='majorminor', linestyle=':', linewidth='0.75', color='black')
 
         # ax1.set_ylim([0,5000])
 
@@ -1008,8 +1040,11 @@ def sensor_quality_test(dir):
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
 
-    with sns.axes_style("darkgrid"):
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
         ax1 = plt.subplot(111)  
+        plt.subplots_adjust(wspace=.15, left=.1, right=1-.07)  # , hspace=.15)
 
     for i, row in enumerate(plotting_keys):
 
@@ -1026,15 +1061,17 @@ def sensor_quality_test(dir):
             lab3 = plt.axvline(i, linestyle='--', color = 'k', alpha = .3, label= 'Replace Parts')
 
     # Lines for frequency cutoffs
-    lab50 = plt.axvline(160, linestyle='-', color = 'k', alpha = .8, label='50Hz Begins')
-    lab75 = plt.axvline(290, linestyle='-', color = 'k', alpha = .8, label='75Hz Begins')
+    lab50 = plt.axvline(160, linestyle=':', color = 'k', alpha = .8, label='50Hz Begins')
+    lab75 = plt.axvline(290, linestyle='-.', color = 'k', alpha = .8, label='75Hz Begins')
 
-    ax1.set_title("Noise on certain variables across flights")
-    ax1.set_xlabel("Flight (Chronological from new quad)")
-    ax1.set_ylabel("Noise")
+    # ax1.set_title("Noise on certain variables across flights")
+    ax1.set_xlabel("Chronological Flight")
+    ax1.set_ylabel("Std. Dev. Data (deg/s^2) - Noise")
     p1 = plt.plot(l1, label='angular_x')
     p2 = plt.plot(l2, label='angular_y')
     p3 = plt.plot(l3, label='angular_z')
+
+    ax1.set_ylim([0,6])
 
     # p4 = plt.plot(l7, label='linear_x')
     # p5 = plt.plot(l8, label='linear_y')
@@ -1042,7 +1079,8 @@ def sensor_quality_test(dir):
 
     lns = p1+p2+p3+[lab1]+[lab2]+[lab3]+[lab50]+[lab75]
     labs = [l.get_label() for l in lns]
-    ax1.legend(lns, labs, fancybox=True, framealpha=1, shadow=True, borderpad=1)
+    ax1.legend(lns, labs, fancybox=True, framealpha=1,
+               shadow=True, borderpad=1, ncol=3)
 
     # ax2 = ax1.twinx()
     # ax2.plot(flight_times, linestyle='-', color = 'k', label='Flight Time')

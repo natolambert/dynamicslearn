@@ -47,10 +47,11 @@ class EnsembleNN(nn.Module):
         (Do I have to check random seeds for this?)
 
     '''
-    def __init__(self, nn_params, E=5, forward_mode = ''):
+    def __init__(self, nn_params, E=10, forward_mode = ''):
         super(EnsembleNN, self).__init__()
         self.E = E              # number of networks to use in each ensemble
         self.forward_mode = ''  # TODO: implement a weighted set of predictions based on confidence
+        self.prob = nn_params['bayesian_flag']
 
         # create networks
         self.networks = []
@@ -106,7 +107,7 @@ class EnsembleNN(nn.Module):
 
                 # initializations that normally occur outside of loop
                 # net.init_weights_orth()
-                net.init_loss_fnc(dX_cust,l_mean = 1,l_cov = 1) # data for std,
+                if self.prob: net.init_loss_fnc(dX_cust,l_mean = 1,l_cov = 1) # data for std,
 
                 # train
                 acctest, acctrain = net.train_cust((X_cust, U_cust, dX_cust), train_params)

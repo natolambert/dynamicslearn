@@ -59,6 +59,8 @@ Yaw Rate: [120.0, 16.7, 0.0, 166.7]
 Pitch Attitude: [6.0, 3.0, 0.0, 20.0]
 Roll Attitude: [6.0, 3.0, 0.0, 20.0]
 Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
+
+"the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
 
 ######################################################################
@@ -137,11 +139,11 @@ def main():
         'include_tplus1': True,
         'find_move': True,
         'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
-        'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
+        'trim_high_vbat': 4000,             # trims high vbat because these points the quad is not moving
         'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
         'trime_large_dX': True,             # if the states change by a large amount, not realistic
         'bound_inputs': [25000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
-        'stack_states': 4,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+        'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
         'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
         'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
         'timestep_flags': [],               # if you want to filter rostime stamps, do it here
@@ -153,10 +155,10 @@ def main():
 
     dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 
-    dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
-        "_newquad1/publ_data/c50_samp300_roll1/",
-        "_newquad1/publ_data/c50_samp300_roll2/",
-        "_newquad1/publ_data/c50_samp300_roll3/",
+    # dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+    #     "_newquad1/publ_data/c50_samp300_roll1/",
+    #     "_newquad1/publ_data/c50_samp300_roll2/",
+    dir_list = ["_newquad1/publ_data/c50_samp300_roll3/",
         "_newquad1/publ_data/c50_samp300_roll4/"]
     # dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
     #     "_newquad1/publ_data/c25_samp300_roll1/",
@@ -173,7 +175,7 @@ def main():
     #     # plot_traj_model(df_traj, nn_ensemble)
     #     plot_traj_model(df_traj, nn)
     
-    # # for vbat plot for updated paper
+    # for vbat plot for updated paper
     # nn1 = torch.load(model_single)
     # nn1.eval()
     # nn2 = torch.load(model_single_nobat)
@@ -182,16 +184,8 @@ def main():
     # plot_voltage_context(nn1, df, model_nobat=nn2)
     # quit()
 
-    # for vbat plot for updated paper
-    # nn1 = torch.load(model_single_50)
-    # nn1.eval()
-    # nn2 = torch.load(model_single_50_nobat)
-    # nn2.eval()
 
-    # plot_voltage_context(nn1, df, model_nobat=nn2)
-    # quit()
-
-    data_params = {'states' : state_list, 'inputs' : input_list, 'targets' : change_list, 'battery' : True}
+    data_params = {'states' : state_list, 'inputs' : input_list, 'targets' : change_list, 'battery' : False}
 
     X, U, dX = df_to_training(df, data_params)
 
@@ -201,7 +195,7 @@ def main():
     # generate actions / controller
 
     # init some variables
-    T = 150
+    T = 350
     stack_states = 3           # declared above
     x_pred = np.zeros(9)        # a storage state vector
     x_pred_stacked = np.zeros(stack_states*9)      # need a stacked vector to pass into network
@@ -210,57 +204,57 @@ def main():
 
     # PID Params 250.0, 500.0, 2.5, 33.3
     kp = 250
-    ki = 500
+    ki = 100
     kd = 2.5
     ilimit = 33.3
     outlimit = 5000
-    dt = 1/100
+    dt = 1/50
     PWMequil = np.array([34687.1, 37954.7, 38384.8, 36220.11]) # new quad
 
-    for i in range(7):
+    for i in range(15):
         # Lets simulate some actions
         pid_roll = PID(0, kp, ki, kd, ilimit, outlimit, dt, samplingRate=-1, cutoffFreq = -1, enableDFilter = False)
 
-        df_traj, idx = get_rand_traj(df)
+        # df_traj, idx = get_rand_traj(df)
+        df_traj= get_traj(df, 33)
         X, U, dX = df_to_training(df_traj, data_params)
 
-        # plot_traj_model(df_traj, nn_ensemble)
         # plot_traj_model(df_traj, nn)
         plot_battery_thrust(df_traj, nn)
-
-        print("Trajectory idx is: ", idx)
-        x0 = X[0,:]
+        # waterfall_plot(nn, df_traj, PWMequil, 5000, 50, 20, plt_idx=[])
+        # print("Trajectory idx is: ", idx)
+        # x0 = X[0,:]
         # action = U[point:point+T+1,:]
         # action = U[point,:]
-        action = np.tile([45000,45000,30000,30000],4)
-        action = np.concatenate((action,[3900]))
+        # action = np.tile([45000,45000,30000,30000],4)
+        # action = np.concatenate((action,[3900]))
         # print(x0)
 
 
-        x_stored_PID = pred_traj(x0, pid_roll, nn,T) # len(df_traj))
-        # x_stored_past = pred_traj(x0, U, nn_ensemble, T)
+        # # x_stored_PID = pred_traj(x0, pid_roll, nn,T) # len(df_traj))
+        # # x_stored_past = pred_traj(x0, U, nn_ensemble, T)
 
-        font = {'size'   : 18}
+        # font = {'size'   : 18}
 
-        matplotlib.rc('font', **font)
-        matplotlib.rc('lines', linewidth=2.5)
+        # matplotlib.rc('font', **font)
+        # matplotlib.rc('lines', linewidth=2.5)
 
-        # plt.tight_layout()
+        # # plt.tight_layout()
 
-        with sns.axes_style("darkgrid"):
-            ax1 = plt.subplot(111)
-            # ax2 = plt.subplot(212)
+        # with sns.axes_style("darkgrid"):
+        #     ax1 = plt.subplot(111)
+        #     # ax2 = plt.subplot(212)
 
-        dim = 4
-        plt.title("Pid Response")
-        ax1.set_ylim([-35,35])
-        # ax2.set_ylim([-35,35])
-        ax1.plot(x_stored_PID[:,dim], linestyle = '--', color='b', label ='Predicted PID')
-        # ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
-        # ax1.plot(X[:,dim], color = 'k', label = 'Ground Truth')
-        ax1.legend()
-        # ax2.plot(X[point:point+T+1,3:5])
-        plt.show()
+        # dim = 4
+        # plt.title("Pid Response")
+        # ax1.set_ylim([-45,45])
+        # # ax2.set_ylim([-35,35])
+        # ax1.plot(x_stored_PID[:,dim], linestyle = '--', color='b', label ='Predicted PID')
+        # # ax1.plot(x_stored_past[:,dim], linestyle = '--', color='g', label ='Predicted Past')
+        # # ax1.plot(X[:,dim], color = 'k', label = 'Ground Truth')
+        # ax1.legend()
+        # # ax2.plot(X[point:point+T+1,3:5])
+        # plt.show()
 
 
 

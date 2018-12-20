@@ -86,7 +86,8 @@ load_params ={
 
 
 # For generating flight time plot vs rollouts
-flight_time_plot("_summaries/trainedpoints/")
+# flight_time_plot("_summaries/trainedpoints/")
+trained_points_plot("_summaries/trainedpoints/")
 quit()
 # trained_points_plot("_summaries/trainedpoints/")
 
@@ -179,7 +180,7 @@ train_params = {
     'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .00175,
+    'lr': .00175, # bayesian .00175, mse:  .0001
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -209,13 +210,13 @@ if log:
 
 
 if ensemble:
-    newNN = EnsembleNN(nn_params,5)
+    newNN = EnsembleNN(nn_params,10)
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
 else:
     newNN = GeneralNN(nn_params)
     newNN.init_weights_orth()
-    newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
+    if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
 newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['targets'])
