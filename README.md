@@ -11,7 +11,29 @@ and in the future for transfer learning of dynamics on the Crazyflie 2.0 Platfor
 Some potentially noteable implementations include:
 - probablistic nueral network in pytorch
 - gaussian loss function for said pytorch probablistic neural network
-- random shooting MPC implementation with customizable cost / reward function
+- random shooting MPC implementation with customizable cost / reward function (See cousin repo: https://github.com/natolambert/ros-crazyflie-mbrl)
+
+File Breakdown:
+---------------
+- utils/ holds utility files for reading data (reach out for dataset to collaborate on), plotting tools, and some nn functions that were written before being added to pytorch.
+- execute_gen_PID and execute_train_nn are used to generate either a PID or a dynamics model from data. Expect another to be added for model free policies.
+- gymenv's take a dynamics model and provide a wrapper for it to be used as a standard gym environement.
+- model_'s are our various implementations of different dynamics models and policies.
+- pid contains the PID class, not currently used.
+- plot_'s contain plotting code used for papers, could be a good reference for plotting dynamics model function.
+- policy_'s contain implementations of different state of the art model free algorithms in coordination with rlkit (), but there is a strong chance with branch from this.
+
+Requirements:
+-------------
+TBD, currently code runs on pytorch 0.4.1, but we wish to update to 1.0.
+
+Future Implementations:
+---------------------
+
+Feel free to request feature additions if you are interested in the line of work, but things in our pipeline:
+- Implementation of regularization term for training policies on a learned neural network dynamics model, as introduced here: http://proceedings.mlr.press/v80/parmas18a.html
+- Additional tools for training dynamics models on two step predictions, improved ensemble implementation, and simpler models
+- PID tuning with gaussian processes
 
 Literature Breakdown:
 ---------------------
