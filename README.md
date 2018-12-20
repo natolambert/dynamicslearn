@@ -21,7 +21,7 @@ File Breakdown:
 - model_'s are our various implementations of different dynamics models and policies.
 - pid contains the PID class, not currently used.
 - plot_'s contain plotting code used for papers, could be a good reference for plotting dynamics model function.
-- policy_'s contain implementations of different state of the art model free algorithms in coordination with rlkit (), but there is a strong chance with branch from this.
+- policy_'s contain implementations of different state of the art model free algorithms in coordination with rlkit (https://github.com/vitchyr/rlkit), but there is a strong chance with branch from this.
 
 Requirements:
 -------------
