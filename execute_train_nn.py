@@ -1,14 +1,17 @@
 # Our infrastucture files
-from utils_data import * 
+# from utils_data import * 
+# from utils_nn import *
+from utils.utils_data import *
+from utils.utils_sim import *
+from utils.utils_nn import *
 
 # data packages
 import pickle
 
 # neural nets
-from model_general_nn import GeneralNN, predict_nn
-from model_split_nn import SplitModel
-from _activation_swish import Swish
-from model_ensemble_nn import EnsembleNN
+from model_general_nn import GeneralNN
+# from model_split_nn import SplitModel
+# from model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
@@ -87,7 +90,7 @@ load_params ={
 
 # For generating flight time plot vs rollouts
 # flight_time_plot("_summaries/trainedpoints/")
-trained_points_plot("_summaries/trainedpoints/")
+trained_points_plot("_results/_summaries/trainedpoints/")
 quit()
 # trained_points_plot("_summaries/trainedpoints/")
 

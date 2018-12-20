@@ -2,15 +2,15 @@
 from utils_data import *
 from utils_sim import *
 from pid import *
+from utils_nn import *
 
 # data packages
 import pickle
 import random
 
 # neural nets
-from model_general_nn import GeneralNN, predict_nn
+from model_general_nn import GeneralNN
 from model_split_nn import SplitModel
-from _activation_swish import Swish
 from model_ensemble_nn import EnsembleNN
 
 # Torch Packages

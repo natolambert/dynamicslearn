@@ -3,12 +3,13 @@ __version__ = '1.0'
 
 # Our infrastucture files
 from utils_data import *
+from utils_nn import *
 
 # data packages
 import pickle
 
 # neural nets
-from model_general_nn import GeneralNN, predict_nn, predict_nn_v2
+from model_general_nn import GeneralNN
 from model_split_nn import SplitModel
 
 # Torch Packages

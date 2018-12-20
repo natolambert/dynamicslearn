@@ -1,5 +1,5 @@
 # Import project files
-import utils_data
+# from utils import *
 
 # Import External Packages
 import numpy as np
@@ -21,7 +21,11 @@ from _activation_swish import Swish
 from model_split_nn import SplitModel
 # from model_split_nn_v2 import SplitModel2
 import matplotlib.pyplot as plt
-from _lossfnc_pnngaussian import PNNLoss_Gaussian
+
+# neural nets
+from model_split_nn import SplitModel
+# from _activation_swish import Swish
+# from utils_nn import *
 
 
 
@@ -337,43 +341,3 @@ class GeneralNN(nn.Module):
         torch.save(self, filepath)                  # full model state
         # For load, use torch.load()
 
-def predict_nn(model, x, u, indexlist):
-    '''
-    special, generalized predict function for the general nn class in construction.
-    x, u are vectors of current state and input to get next state or change in state
-    indexlist is is an ordered index list for which state variable the indices of the input to the NN correspond to. Assumes states come before any u
-    '''
-
-    # Makes prediction for either prediction mode. Handles the need to only pass certain states
-    prediction = np.copy(x)
-    pred = model.predict(x,u)
-    for i, idx in enumerate(indexlist):
-        #print('x_nn = ', x[idx], 'predicted', pred)
-        prediction[idx] = x[idx] + pred[i]
-
-    return prediction
-
-def predict_nn_v2(model, x, u, targetlist = []):
-    '''
-    special, generalized predict function for the general nn class in construction.
-    x, u are vectors of current state and input to get next state or change in state
-    Training list tells whether or not each input is a raw state or a change in state
-    '''
-    # important this list is in order
-    if targetlist == []:
-        _, _, targetlist = model.get_training_lists()
-
-    # generate labels as to whether or not it true state or delta
-    # true = delta
-    lab = [t[:2] == 'd_' for t in targetlist]
-
-    # Makes prediction for either prediction mode. Handles the need to only pass certain states
-    prediction = np.zeros(9)
-    pred = model.predict(x,u)
-    for i, l in enumerate(lab):
-        if l:
-            prediction[i] = x[i] + pred[i]
-        else:
-            prediction[i] = pred[i]
-
-    return prediction

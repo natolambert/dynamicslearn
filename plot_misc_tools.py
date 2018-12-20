@@ -6,7 +6,8 @@ __version__ = '1.0'
 
 import pickle
 from utils_data import *
-from model_general_nn import GeneralNN, predict_nn
+from utils_nn import *
+from model_general_nn import GeneralNN
 import torch
 from torch.nn import MSELoss
 import time

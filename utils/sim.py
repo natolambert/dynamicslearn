@@ -1,5 +1,4 @@
 # Our infrastucture files
-from utils_data import *
 
 # data packages
 import pickle

@@ -1,11 +1,12 @@
 # Our infrastucture files
 from utils_data import *
+from utils_nn import *
 
 # data packages
 import pickle
 
 # neural nets
-from model_general_nn import GeneralNN, predict_nn
+from model_general_nn import GeneralNN
 from model_split_nn import SplitModel
 from _activation_swish import Swish
 
