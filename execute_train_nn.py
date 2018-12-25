@@ -1,9 +1,9 @@
 # Our infrastucture files
 # from utils_data import * 
 # from utils_nn import *
-from utils.utils_data import *
-from utils.utils_sim import *
-from utils.utils_nn import *
+from utils.data import *
+from utils.sim import *
+from utils.nn import *
 
 # data packages
 import pickle
@@ -90,20 +90,34 @@ load_params ={
 
 # For generating flight time plot vs rollouts
 # flight_time_plot("_summaries/trainedpoints/")
-trained_points_plot("_results/_summaries/trainedpoints/")
-quit()
+# trained_points_plot("_results/_summaries/trainedpoints/")
+# quit()
 # trained_points_plot("_summaries/trainedpoints/")
 
-dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
-    "_newquad1/publ_data/c50_samp300_roll1/",
-    "_newquad1/publ_data/c50_samp300_roll2/",
-    "_newquad1/publ_data/c50_samp300_roll3/",
-    "_newquad1/publ_data/c50_samp300_roll4/"]
-dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
-    "_newquad1/publ_data/c25_samp300_roll1/",
-    "_newquad1/publ_data/c25_samp300_roll2/",
-    "_newquad1/publ_data/c25_samp300_roll3/",
-    "_newquad1/publ_data/c25_samp300_roll4/"]
+dir_list = ["_newquad1/publ2/c50_rand/",
+            "_newquad1/publ2/c50_roll01/",
+            "_newquad1/publ2/c50_roll02/",
+            "_newquad1/publ2/c50_roll03/",
+            "_newquad1/publ2/c50_roll04/",
+            "_newquad1/publ2/c50_roll05/",
+            "_newquad1/publ2/c50_roll06/",
+            "_newquad1/publ2/c50_roll07/",
+            "_newquad1/publ2/c50_roll08/",
+            "_newquad1/publ2/c50_roll09/",
+            "_newquad1/publ2/c50_roll10/",
+            "_newquad1/publ2/c50_roll11/",
+            "_newquad1/publ2/c50_roll12/"]
+
+# dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+#     "_newquad1/publ_data/c50_samp300_roll1/",
+#     "_newquad1/publ_data/c50_samp300_roll2/",
+#     "_newquad1/publ_data/c50_samp300_roll3/",
+#     "_newquad1/publ_data/c50_samp300_roll4/"]
+# dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
+#     "_newquad1/publ_data/c25_samp300_roll1/",
+#     "_newquad1/publ_data/c25_samp300_roll2/",
+#     "_newquad1/publ_data/c25_samp300_roll3/",
+#     "_newquad1/publ_data/c25_samp300_roll4/"]
 # dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
 # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp250_roll1/","_newquad1/fixed_samp/c100_samp250_roll2/"]#,"_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 # for dir in dir_list:
@@ -121,6 +135,8 @@ df = load_dirs(dir_list, load_params)
  'm2_pwm_0' 'm3_pwm_0' 'm4_pwm_0' 'm1_pwm_1' 'm2_pwm_1' 'm3_pwm_1'
  'm4_pwm_1' 'm1_pwm_2' 'm2_pwm_2' 'm3_pwm_2' 'm4_pwm_2' 'vbat']
 '''
+explore_pwm_equil(df)
+quit()
 
 data_params = {
     # Note the order of these matters. that is the order your array will be in

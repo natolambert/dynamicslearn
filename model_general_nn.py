@@ -1,5 +1,7 @@
 # Import project files
 # from utils import *
+from utils.data import *
+from utils.nn import *
 
 # Import External Packages
 import numpy as np
@@ -229,7 +231,7 @@ class GeneralNN(nn.Module):
         if(optim=="Adam"):
             optimizer = torch.optim.Adam(super(GeneralNN, self).parameters(), lr=lr)
         elif(optim=="SGD"):
-            optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr, gradoff=gradoff)
+            optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
         else:
             raise ValueError(optim + " is not a valid optimizer type")
 

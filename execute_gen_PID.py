@@ -1,8 +1,8 @@
 # Our infrastucture files
-from utils_data import *
-from utils_sim import *
+from utils.data import *
+from utils.sim import *
+from utils.nn import *
 from pid import *
-from utils_nn import *
 
 # data packages
 import pickle
@@ -100,12 +100,12 @@ def main():
     # some reasonable seeds:
     # 150hz: 3400, 485, 3850
     # 50Hz  models`
-    model_single_50_nobat = '_models/temp/2018-11-09--10-52-58.0_50hz_nobat_.pth'
-    model_single_50 = '_models/temp/2018-11-09--10-55-12.9_50hz_withbat_stack3_.pth'
+    # model_single_50_nobat = '_models/temp/2018-11-09--10-52-58.0_50hz_nobat_.pth'
+    # model_single_50 = '_models/temp/2018-11-09--10-55-12.9_50hz_withbat_stack3_.pth'
 
-    # 100Hz models`
-    model_single = '_models/temp/2018-11-09--10-48-05.2_100hz_bat_trimmed_.pth'
-    model_single_nobat = '_models/temp/2018-11-09--10-46-56.7_100hz_bat_trimmed_.pth'
+    # # 100Hz models`
+    # model_single = '_models/temp/2018-11-09--10-48-05.2_100hz_bat_trimmed_.pth'
+    # model_single_nobat = '_models/temp/2018-11-09--10-46-56.7_100hz_bat_trimmed_.pth'
 
     # intitial trained
     model_50_truestate = '_models/temp/2018-11-20--12-32-18.5_c50_true_stack3_.pth'
@@ -117,7 +117,7 @@ def main():
     #25hz true state
     model_25 = '_models/temp/2018-11-20--12-55-45.6_c25_true_stack3_.pth'
 
-    nn = torch.load(model_single_50)
+    nn = torch.load(model_50_truestate2)
     nn.eval()
 
    
@@ -155,10 +155,10 @@ def main():
 
     dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
 
-    # dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
-    #     "_newquad1/publ_data/c50_samp300_roll1/",
-    #     "_newquad1/publ_data/c50_samp300_roll2/",
-    dir_list = ["_newquad1/publ_data/c50_samp300_roll3/",
+    dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+        "_newquad1/publ_data/c50_samp300_roll1/",
+        "_newquad1/publ_data/c50_samp300_roll2/",
+        "_newquad1/publ_data/c50_samp300_roll3/",
         "_newquad1/publ_data/c50_samp300_roll4/"]
     # dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
     #     "_newquad1/publ_data/c25_samp300_roll1/",
@@ -168,6 +168,8 @@ def main():
 
 # other_dirs = ["150Hz/sep13_150_2/","/150Hzsep14_150_2/","150Hz/sep14_150_3/"]
     df = load_dirs(dir_list, load_params)
+
+    
 
     # for i in range(1):
     #     df_traj, idx = get_rand_traj(df)
