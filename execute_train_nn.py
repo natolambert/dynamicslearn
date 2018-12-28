@@ -94,19 +94,19 @@ load_params ={
 # quit()
 # trained_points_plot("_summaries/trainedpoints/")
 
-dir_list = ["_newquad1/publ2/c50_rand/",
-            "_newquad1/publ2/c50_roll01/",
-            "_newquad1/publ2/c50_roll02/",
-            "_newquad1/publ2/c50_roll03/",
-            "_newquad1/publ2/c50_roll04/",
-            "_newquad1/publ2/c50_roll05/",
-            "_newquad1/publ2/c50_roll06/",
-            "_newquad1/publ2/c50_roll07/",
-            "_newquad1/publ2/c50_roll08/",
-            "_newquad1/publ2/c50_roll09/",
-            "_newquad1/publ2/c50_roll10/",
-            "_newquad1/publ2/c50_roll11/",
-            "_newquad1/publ2/c50_roll12/"]
+dir_list = ["_newquad1/publ2/c50_rand/"]#,
+            # "_newquad1/publ2/c50_roll01/",
+            # "_newquad1/publ2/c50_roll02/",
+            # "_newquad1/publ2/c50_roll03/",
+            # "_newquad1/publ2/c50_roll04/",
+            # "_newquad1/publ2/c50_roll05/",
+            # "_newquad1/publ2/c50_roll06/",
+            # "_newquad1/publ2/c50_roll07/",
+            # "_newquad1/publ2/c50_roll08/",
+            # "_newquad1/publ2/c50_roll09/",
+            # "_newquad1/publ2/c50_roll10/",
+            # "_newquad1/publ2/c50_roll11/",
+            # "_newquad1/publ2/c50_roll12/"]
 
 # dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
 #     "_newquad1/publ_data/c50_samp300_roll1/",
@@ -135,8 +135,8 @@ df = load_dirs(dir_list, load_params)
  'm2_pwm_0' 'm3_pwm_0' 'm4_pwm_0' 'm1_pwm_1' 'm2_pwm_1' 'm3_pwm_1'
  'm4_pwm_1' 'm1_pwm_2' 'm2_pwm_2' 'm3_pwm_2' 'm4_pwm_2' 'vbat']
 '''
-explore_pwm_equil(df)
-quit()
+# explore_pwm_equil(df)
+# quit()
 
 data_params = {
     # Note the order of these matters. that is the order your array will be in

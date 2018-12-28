@@ -3,6 +3,7 @@
 
 # data packages
 import pickle
+import numpy as np
 
 # neural nets
 from model_general_nn import GeneralNN
