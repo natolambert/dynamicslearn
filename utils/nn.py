@@ -16,8 +16,6 @@ class Swish(nn.Module):
     omega = (1 + Bx.exp()) ** (-1)
     return x.mul(omega)
 
-# Implementation of the loss function from the following paper: https://arxiv.org/abs/1805.12114
-# -*- coding: utf-8 -*-
 
 
 class PNNLoss_Gaussian(torch.nn.Module):

@@ -2,6 +2,7 @@
 from utils.data import *
 from utils.sim import *
 from utils.nn import *
+from utils.plot import *
 from pid import *
 
 # data packages
@@ -117,7 +118,7 @@ def main():
     #25hz true state
     model_25 = '_models/temp/2018-11-20--12-55-45.6_c25_true_stack3_.pth'
 
-    nn = torch.load(model_50_truestate2)
+    nn = torch.load('_models/temp/2018-12-30--10-02-51.1_true_plot_50_stack3_.pth')
     nn.eval()
 
    
@@ -170,7 +171,6 @@ def main():
     df = load_dirs(dir_list, load_params)
 
     
-
     # for i in range(1):
     #     df_traj, idx = get_rand_traj(df)
     #
@@ -222,8 +222,8 @@ def main():
         X, U, dX = df_to_training(df_traj, data_params)
 
         # plot_traj_model(df_traj, nn)
-        plot_battery_thrust(df_traj, nn)
-        # waterfall_plot(nn, df_traj, PWMequil, 5000, 50, 20, plt_idx=[])
+        # plot_battery_thrust(df_traj, nn)
+        plot_waterfall(nn, df_traj, PWMequil, 5000, 50, 20, plt_idx=[])
         # print("Trajectory idx is: ", idx)
         # x0 = X[0,:]
         # action = U[point:point+T+1,:]

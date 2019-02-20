@@ -53,6 +53,8 @@ class GeneralNN(nn.Module):
         self.d = nn_params['dropout']
         self.split_flag = nn_params['split_flag']
 
+        self.E = 0      # clarify that these models are not ensembles
+
         # Can store with a helper function for when re-loading and figuring out what was trained on
         self.state_list = []
         self.input_list = []
@@ -281,8 +283,8 @@ class GeneralNN(nn.Module):
                         n_out = int(self.n_out/2)
                     else:
                         n_out = self.n_out
-                    noise_in = torch.tensor(np.random.normal(0,.01,(input.size())), dtype=torch.float)
-                    noise_targ = torch.tensor(np.random.normal(0,.01,(target.size())),dtype=torch.float)
+                    noise_in = torch.Tensor(np.random.normal(0,.01,(input.size())), dtype=torch.float)
+                    noise_targ = torch.Tensor(np.random.normal(0,.01,(target.size())),dtype=torch.float)
                     input.add_(noise_in)
                     target.add_(noise_targ)
 
@@ -294,7 +296,7 @@ class GeneralNN(nn.Module):
                     loss = loss_fn(output, target)
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
-                lambda_logvar = torch.tensor(.01)
+                lambda_logvar = torch.Tensor(.01)
                 if self.prob:
                     loss += torch.mul(lambda_logvar, torch.sum(self.max_logvar)) - torch.mul(lambda_logvar, torch.sum(self.min_logvar))
 

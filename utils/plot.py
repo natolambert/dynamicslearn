@@ -8,6 +8,7 @@ import pandas as pd
 import os
 
 from utils.sim import *
+from utils.data import *
 
 # Included functions with descriptions:
 # plot_flight_time: Plots flight time vs rollout
@@ -53,7 +54,9 @@ def plot_flight_time(csv_dir):
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=4.5)
 
+
     with sns.axes_style("whitegrid"):
+        plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["axes.edgecolor"] = "0.15"
         plt.rcParams["axes.linewidth"] = 1.5
         plt.subplots_adjust(wspace=.15, left=.07, right=1-.07)  # , hspace=.15)
@@ -117,6 +120,7 @@ def plot_flight_time(csv_dir):
         x = np.arange(0, len(labels))
         ax1.plot(x, means/1000, label=label, color=c,
                  marker=markers[i], markersize='19')
+        ax1.set_xlim([0,len(labels)-1])
 
         ax1.axhline(np.max(means)/1000, linestyle='--',
                     label=str("Max" + dir), alpha=1, color=c)
@@ -125,8 +129,8 @@ def plot_flight_time(csv_dir):
         ax1.set_xlabel("Rollout (10 Flights Per)")
 
         ax1.grid(b=True, which='major', color='k',
-                 linestyle='-', linewidth=1, alpha=.5)
-        # ax.grid(b=True, which='minor', color='r', linestyle='--')
+                 linestyle='-', linewidth=0, alpha=.5)
+        ax1.grid(b=True, which='minor', color='r', linestyle='--', linewidth=0)
         # ax1.set_title("Flight Time vs Rollout")
 
         ax1.set_ylim([0, 2.500])
@@ -913,18 +917,22 @@ def plot_waterfall(model, df, equil, var, N, T, plt_idx = []):
 
     # *******************************************************************************************
     # PLOTTING
-    font = {'size': 23}
+        # New plot
+    font = {'size': 23, 'family': 'serif', 'serif': ['Times']}
 
     matplotlib.rc('font', **font)
-    matplotlib.rc('lines', linewidth=2.5)
+    matplotlib.rc('lines', linewidth=4.5)
 
-    # plt.tight_layout()
+    plt.tight_layout()
+
+    # plot for test train compare
 
     with sns.axes_style("whitegrid"):
-            plt.rcParams["axes.edgecolor"] = "0.15"
-            plt.rcParams["axes.linewidth"] = 1.5
-            plt.subplots_adjust(wspace=.15, left=.1, right=1-.07)  # , hspace=.15)
-            ax1 = plt.subplot(111)
+        plt.rcParams["font.family"] = "Times New Roman"
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
+        plt.subplots_adjust(wspace=.15, left=.1, right=1-.07)  # , hspace=.15)
+        ax1 = plt.subplot(111)
 
     N = np.shape(predictions)[0]
     my_dpi = 96
@@ -957,9 +965,10 @@ def plot_waterfall(model, df, equil, var, N, T, plt_idx = []):
     
 
     ax1.grid(b=True, which='major', color='k',
-             linestyle='-', linewidth=1.2, alpha=.75)
+             linestyle='-', linewidth=0, alpha=.75)
     ax1.grid(b=True, which='minor', color='b',
-             linestyle='--', linewidth=.9, alpha=.5)
+             linestyle='--', linewidth=0, alpha=.5)
+    ax1.set_xlim([0,20])
 
     plt.show()
 
@@ -1257,7 +1266,13 @@ def plot_test_train(model, dataset):
     model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
     model_mse_ens = '_models/temp/2018-12-14--10-52-40.4_plot_mse_ensemble_stack3_.pth'
     '''
+    model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
+
     predictions_pll_ens = gather_predictions(model_pll_ens_10, dataset)
+
+    X = dataset[0]
+    U = dataset[1]
+    dX = dataset[2]
 
     dim = 4
     # Gather test train splitted data
@@ -1271,7 +1286,7 @@ def plot_test_train(model, dataset):
     gt_sort_test, pred_sort_pll_test = zip(*data_test)
 
     # New plot
-    font = {'size': 22}
+    font = {'size': 22, 'family': 'serif', 'serif': ['Times']}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=4.5)
@@ -1281,6 +1296,7 @@ def plot_test_train(model, dataset):
     # plot for test train compare
 
     with sns.axes_style("whitegrid"):
+        plt.rcParams["font.family"] = "Times New Roman"
         fig = plt.figure()
         plt.rcParams["axes.edgecolor"] = "0.15"
         plt.rcParams["axes.linewidth"] = 1.5
@@ -1288,32 +1304,48 @@ def plot_test_train(model, dataset):
         ax2 = plt.subplot(212)
         plt.subplots_adjust(left=.1, right=1-.07, hspace=.28)
 
-    for ax in [ax1, ax2]:
-        if ax == ax1:
-            loc = matplotlib.ticker.MultipleLocator(base=int(lx/10))
-        else:
-            loc = matplotlib.ticker.MultipleLocator(
-                base=int((np.shape(dX)[0]-lx)/10))
-        ax.xaxis.set_major_locator(loc)
-
-        ax.grid(b=True, which='major', color='k',
-                linestyle='-', linewidth=1.2, alpha=.75)
-        ax.grid(b=True, which='minor', color='b',
-                linestyle='--', linewidth=.9, alpha=.5)
-        ax.set_ylim([-6.0, 6.0])
-
-    fig.text(.02, .7, 'One Step Prediction, Pitch (deg)', rotation=90)
-    fig.text(.42, .04, 'Sorted Datapoints')
-
-    ax1.plot(gt_sort_train, label='Ground Truth', color='k', linewidth=1.8)
-    ax1.plot(pred_sort_pll_train, '-', label='Bayesian Model Training Data Prediction',
+    gt_train = np.linspace(0, 1, len(gt_sort_train))
+    ax1.plot(gt_train,gt_sort_train, label='Ground Truth', color='k', linewidth=3.8)
+    ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
              markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
     ax1.set_title("Training Data Predictions")
+    ax1.legend()
 
-    ax2.plot(gt_sort_test, label='Ground Truth', color='k', linewidth=1.8)
-    ax2.plot(pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
+    gt_test = np.linspace(0, 1, len(gt_sort_test))
+    ax2.plot(gt_test, gt_sort_test, label='Ground Truth', color='k', linewidth=3.8)
+    ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
              markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
     ax2.set_title("Test Data Predictions")
+
+    fontProperties = {'family': 'Times New Roman'}
+
+    # a = plt.gca()
+    # print(a)
+    # a.set_xticklabels(a.get_xticks(), fontProperties)
+    # a.set_yticklabels(a.get_yticks(), fontProperties)
+
+    ax1.grid(b=True, which='major', color='k',
+             linestyle='-', linewidth=0, alpha=.75)
+    ax1.grid(b=True, which='minor', color='b',
+             linestyle='--', linewidth=0, alpha=.5)
+
+    ax2.grid(b=True, which='major', color='k',
+             linestyle='-', linewidth=0, alpha=.75)
+    ax2.grid(b=True, which='minor', color='b',
+             linestyle='--', linewidth=0, alpha=.5)
+
+    fig.text(.02, .7, 'One Step Prediction, Pitch (deg)',
+             rotation=90, family='Times New Roman')
+    fig.text(.404, .04, 'Sorted Datapoints, Normalized', family='Times New Roman')
+
+    for ax in [ax1, ax2]:
+        # if ax == ax1:
+        #     loc = matplotlib.ticker.MultipleLocator(base=int(lx/10))
+        # else:
+        #     loc = matplotlib.ticker.MultipleLocator(
+        #         base=int((np.shape(dX)[0]-lx)/10))
+        ax.set_ylim([-6.0, 6.0])
+        ax.set_xlim([0, 1])
 
     plt.show()
 
@@ -1332,6 +1364,7 @@ def plot_rollout_compare():
 
     fig = plt.figure()
     with sns.axes_style("whitegrid"):
+        plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["axes.edgecolor"] = "0.15"
         plt.rcParams["axes.linewidth"] = 1.5
         ax1 = plt.subplot(221)
@@ -1472,8 +1505,8 @@ def plot_rollout_compare():
             ax.set_ylabel("Pitch (Deg)")
 
         ax.grid(b=True, which='major', color='k',
-                linestyle='-', linewidth=1, alpha=.5)
-        # grid(b=True, which='minor', color='r', linestyle='--')
+                linestyle='-', linewidth=0.2, alpha=.5)
+        ax.grid(b=True, which='minor', color='r', linestyle='--', linewidth=0)
 
     plt.subplots_adjust(wspace=.15, left=.07, right=1-.07)  # , hspace=.15)
     ax1.set_title("Random Controller Flights")
@@ -1529,28 +1562,34 @@ def plot_flight_segment(fname, load_params):
     # file for arxiv draftt
     # fname = '_logged_data_autonomous/_newquad1/publ2/c50_roll06/flight_log-20181115-101931.csv'
 
-    font = {'size': 22}
 
+    X, U, dX, objv, Ts, time, terminal = trim_load_param(fname, load_params)
+
+
+    font = {'size': 22,'family': 'serif', 'serif': ['Times']}
+    
+    
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=5)
+    plt.tight_layout()
 
-    with sns.axes_style("whitegrid"):
-        plt.rcParams["axes.edgecolor"] = "0.15"
-        plt.rcParams["axes.linewidth"] = 1.5
-        fig = plt.figure()
-        ax1 = plt.subplot(211)
-        ax2 = plt.subplot(212)
-
-    # plt.tight_layout()
-
-    # for video figure
-    # my_dpi = 200
-    # fig = plt.figure(figsize=(3.5*1920/my_dpi, 2*560/my_dpi), dpi=my_dpi)
     # with sns.axes_style("whitegrid"):
+    #     plt.rcParams["font.family"] = "Times New Roman"
     #     plt.rcParams["axes.edgecolor"] = "0.15"
     #     plt.rcParams["axes.linewidth"] = 1.5
-    #     ax2 = plt.subplot(111)
-        # ax2 = plt.subplot(212)
+    #     fig = plt.figure()
+    #     ax1 = plt.subplot(211)
+    #     ax2 = plt.subplot(212)
+
+
+    # for video figure
+    my_dpi = 200
+    fig = plt.figure(figsize=(3.5*1920/my_dpi, 2*560/my_dpi), dpi=my_dpi)
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["font.family"] = "Times New Roman"
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
+        ax2 = plt.subplot(111)
 
     print(np.max(time))
 
@@ -1559,49 +1598,58 @@ def plot_flight_segment(fname, load_params):
     # ax1.set_title('Example Flight Performance')
     # plt.title('Autonomous Flight Data')
 
+    # SHORTER
     shorter = int(n/5)
     # ax1.plot(scaled_time, U[:,0], label= 'm1', alpha =.8)
     # ax1.plot(scaled_time, U[:,1], label= 'm2', alpha =.8)
     # ax1.plot(scaled_time, U[:,2], label= 'm3', alpha =.8)
     # ax1.plot(scaled_time, U[:,3], label= 'm4', alpha =.8)
 
-    ax1.plot(scaled_time[:shorter], U[:shorter, 0], label='m1',
-             alpha=.8, markevery=20, marker='.', markersize='20')
-    ax1.plot(scaled_time[:shorter], U[:shorter, 1], label='m2',
-             alpha=.8, markevery=20, marker='*', markersize='20')
-    ax1.plot(scaled_time[:shorter], U[:shorter, 2], label='m3',
-             alpha=.8, markevery=20,  marker='^', markersize='20')
-    ax1.plot(scaled_time[:shorter], U[:shorter, 3], label='m4',
-             alpha=.8, markevery=20, marker='1', markersize='20')
-    ax1.set_ylim([20000, 57000])
+    # SHORT
+    # ax1.plot(scaled_time[:shorter], U[:shorter, 0], label='m1',
+    #          alpha=.8, markevery=20, marker='.', markersize='20')
+    # ax1.plot(scaled_time[:shorter], U[:shorter, 1], label='m2',
+    #          alpha=.8, markevery=20, marker='*', markersize='20')
+    # ax1.plot(scaled_time[:shorter], U[:shorter, 2], label='m3',
+    #          alpha=.8, markevery=20,  marker='^', markersize='20')
+    # ax1.plot(scaled_time[:shorter], U[:shorter, 3], label='m4',
+    #          alpha=.8, markevery=20, marker='1', markersize='20')
+    # ax1.set_ylim([20000, 57000])
 
-    ax1.set_ylabel('Motor Power (PWM)')
+    # ax1.set_ylabel('Motor Power (PWM)')
 
     ax2.set_ylim([-30, 30])
     ax2.set_ylim([-25, 25])
     ax2.set_ylabel('Euler Angles (Deg)')
-    # ax2.set_xlabel('Time (s)')
-    fig.text(.44, .00, 'Time (s)')
+    ax2.set_xlabel('Time (s)')
+    # fig.text(.44, .03, 'Time (s)', family="Times New Roman")
 
-    # ax2.plot(scaled_time, X[:, 3], label='Pitch', marker='.', markevery = 25, markersize='20')
-    # ax2.plot(scaled_time, X[:, 4], label='Roll',
-    #          marker='^', markevery= 25,  markersize='20')
+    # LONG
+    ax2.plot(scaled_time, X[:, 3], label='Pitch', marker='.', markevery = 25, markersize='20')
+    ax2.plot(scaled_time, X[:, 4], label='Roll',
+             marker='^', markevery= 25,  markersize='20')
 
-    ax2.plot(scaled_time[:shorter], X[:shorter, 3],
-             label='Pitch', markevery=20, marker='.', markersize='20')
-    ax2.plot(scaled_time[:shorter], X[:shorter, 4],
-             label='Roll', markevery=20,  marker='^', markersize='20')
-    # ax2.plot(scaled_time, X[:,5]-X[0,5])
-    # ax4.plot(scaled_time, X[:,5],color='y')
-    # ax4.set_ylabel('Angular Accel (deg/s^2)')
-    # ax4.set_ylim([-400,400])
+    # SHORT
+    # ax2.plot(scaled_time[:shorter], X[:shorter, 3],
+    #          label='Pitch', markevery=20, marker='.', markersize='20')
+    # ax2.plot(scaled_time[:shorter], X[:shorter, 4],
+    #          label='Roll', markevery=20,  marker='^', markersize='20')
+    # YAWwWww ax2.plot(scaled_time, X[:,5]-X[0,5])
 
-    leg1 = ax1.legend(ncol=4, loc=0)
+
+    # leg1 = ax1.legend(ncol=4, loc=0)
     leg2 = ax2.legend(loc=8, ncol=2, frameon=True)  # , 'Yaw'])
 
     ax2.grid(b=True, which='major', color='k',
-             linestyle='-', linewidth=1, alpha=.5)
+             linestyle='-', linewidth=0, alpha=.5)
 
+    # ax1.grid(b=True, which='major', color='k',
+    #          linestyle='-', linewidth=0, alpha=.5)
+
+    # ax1.set_xlim([0, 1])
+    # ax2.set_xlim([0, 1])
+
+    ax2.set_xlim([-0.4,6])
     # for line in leg1.get_lines():
     #     line.set_linewidth(2.5)
 
@@ -1614,6 +1662,6 @@ def plot_flight_segment(fname, load_params):
 
     # plt.subplots_adjust(wspace=.15, left=.07, right=1-.07)  # , hspace=.15)
 
-    # plt.savefig('_results/poster', edgecolor='black', dpi=my_dpi, transparent=False)
+    plt.savefig('_results/poster', edgecolor='black', dpi=my_dpi, transparent=False)
 
     plt.show()

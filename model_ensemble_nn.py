@@ -41,13 +41,6 @@ class EnsembleNN(nn.Module):
     '''
     This file is in the works for an object to easily create an ensemble model. These
       models will be used heavily for offline bootstrapping of policies and controllers.
-
-      Some features that should be implemented:
-      - Easily predict the output of the network with forward()
-      - change whether or not the models are trained on separate datasets sampled with
-        replacement or relying on SGD / random initializations to get different networks
-        (Do I have to check random seeds for this?)
-
     '''
     def __init__(self, nn_params, E=10, forward_mode = ''):
         super(EnsembleNN, self).__init__()

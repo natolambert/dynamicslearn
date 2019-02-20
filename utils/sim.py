@@ -1,6 +1,7 @@
 # Our infrastucture files
 from utils.data import *
 from utils.nn import *
+from torch.utils.data import Dataset, DataLoader
 
 # data packages
 import pickle
@@ -76,14 +77,15 @@ def explore_pwm_equil(df):
     print("Std Dev:", np.std(df_actions.values, axis=0))
     print('----')
 
-def generate_mpc_imitate(dataset, model, data_params, nn_params, train_params):
+def generate_mpc_imitate(dataset, data_params, nn_params, train_params):
     """
     Will be used for imitative control of the model predictive controller. 
     Could try adding noise to the sampled acitons...
     """
 
-    class ImitativePolicy(nn.module):
+    class ImitativePolicy(nn.Module):
         def __init__(self, nn_params):
+            super(ImitativePolicy, self).__init__()
 
             # Store the parameters:
             self.hidden_w = nn_params['hid_width']
@@ -97,11 +99,11 @@ def generate_mpc_imitate(dataset, model, data_params, nn_params, train_params):
 
             self.loss_fnc = nn.MSELoss()
 
-            super(ImitativePolicy, self).__init__()
+            # super(ImitativePolicy, self).__init__()
 
             # Takes objects from the training parameters
             layers = []
-            layers.append(nn.Linear(self.n_in, self.hidden_w)
+            layers.append(nn.Linear(self.n_in_input, self.hidden_w)
                           )       # input layer
             layers.append(self.activation)
             layers.append(nn.Dropout(p=self.d))
@@ -196,10 +198,10 @@ def generate_mpc_imitate(dataset, model, data_params, nn_params, train_params):
             # Papers seem to say ADAM works better
             if(optim == "Adam"):
                 optimizer = torch.optim.Adam(
-                    super(GeneralNN, self).parameters(), lr=lr)
+                    super(ImitativePolicy, self).parameters(), lr=lr)
             elif(optim == "SGD"):
                 optimizer = torch.optim.SGD(
-                    super(GeneralNN, self).parameters(), lr=lr)
+                    super(ImitativePolicy, self).parameters(), lr=lr)
             else:
                 raise ValueError(optim + " is not a valid optimizer type")
 
@@ -295,7 +297,7 @@ def generate_mpc_imitate(dataset, model, data_params, nn_params, train_params):
 
                 #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
                 #          "test_error={:.9f}".format(test_error))
-                # if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
+                if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
                 # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
                 error_train.append(avg_loss.data[0].numpy())
                 errors.append(test_error.data[0].numpy())
@@ -307,12 +309,13 @@ def generate_mpc_imitate(dataset, model, data_params, nn_params, train_params):
     policy = ImitativePolicy(nn_params)
 
     # train policy
-    X, U, _ = df_to_training(df, data_params)
+    # X, U, _ = df_to_training(df, data_params)
+    X = dataset[0]
+    U = dataset[1]
     acctest, acctrain = policy.train_cust((X, U), train_params)
 
     # return policy!
     return policy
-
 
 def pred_traj(x0, action, model, T):
     # get dims
@@ -390,7 +393,6 @@ def pred_traj(x0, action, model, T):
 
     return x_stored
 
-
 def gather_predictions(model_dir, dataset, delta=True):
     """
     Takes in a dataset and returns a matrix of predictions for plotting.
@@ -425,7 +427,7 @@ def gather_predictions(model_dir, dataset, delta=True):
         predictions_1 = np.append(predictions_1, pred.reshape(1, -1),  axis=0)
 
     return predictions_1
-    
+
 class CrazyFlie():
     def __init__(self, dt, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         _state_dict = {
@@ -586,3 +588,20 @@ class CrazyFlie():
         # makes states less than 1e-12 = 0
         x1[x1 < 1e-12] = 0
         return x1+x_noise_vec
+
+def explore_policy(dataset, policy):
+    '''
+    Function to take a trained control policy and export a analysis 
+      of what the policy will do on the trained dataset
+    '''
+    print("TEST")
+    """ 
+    Some ideas
+    - can we plot distribution of actions taken.
+    - How do you test train / validate this etc
+    
+    Some thoughts from email:
+    - perturb states slightly and check how much policies change
+    - somehow plot action choices over the logged state space data and see if distributions have different variance etc
+    - With the action space being 4 dimensional, maybe we can reduce it to something like “Thrust, roll power, and pitch power” which we could visualize in 3d
+    """

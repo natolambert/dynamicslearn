@@ -99,6 +99,7 @@ class QLearner():
 		and we keep the vbat constant. This function initializes an action_dict that maps
 		an index (from 0 to 80) to its corresponding permutation in the real action space.
 		"""
+		
 		motor_discretized = [[30000, 35000, 40000], [30000, 35000, 40000], [30000, 35000, 40000], [30000, 35000, 40000]]
 		action_dict = dict()
 		for ac, action in enumerate(list(itertools.product(*motor_discretized))):

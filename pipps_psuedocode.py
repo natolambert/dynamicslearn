@@ -1,8 +1,9 @@
 import numpy as np
 from model_general_nn import GeneralNN
 import torch.nn as nn
+import torch
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-
+import random
 # For training policies following the Probablistic Inference for PArticle-Based Policy Search Guidelines
 # http://proceedings.mlr.press/v80/parmas18a.html
 
@@ -41,7 +42,7 @@ class prob_dynam_model(GeneralNN):
 
 class PIPPS_policy(nn.Module):
 
-    def __init__(self, nn_params, policy_update_params):
+    def __init__(self, nn_params, policy_update_params, dynam_model):
         # Takes in the same parameters dict as the dynamics model for my convenience
         super(PIPPS_policy, self).__init__()
         
@@ -56,8 +57,7 @@ class PIPPS_policy(nn.Module):
 
         # create object nicely
         layers = []
-        layers.append(nn.Linear(self.n_in, self.hidden_w)
-                      )       # input layer
+        layers.append(nn.Linear(self.n_in, self.hidden_w))       # input layer
         layers.append(self.activation)
         layers.append(nn.Dropout(p=self.d))
         for d in range(self.depth):
@@ -75,9 +75,12 @@ class PIPPS_policy(nn.Module):
         self.scalarX = StandardScaler()
         self.scalarU = MinMaxScaler(feature_range=(-1, 1))
 
+        self.dynam_model = dynam_model
+
         # sets policy parameters
         self.N = policy_update_params['N']
         self.T = policy_update_params['T']
+        self.P = 10
         self.lr = policy_update_params['learning_rates']
         
     
@@ -95,6 +98,7 @@ class PIPPS_policy(nn.Module):
         """
 
         x = self.features(x)
+        return x
 
     def predict(self, X, U):
         """
@@ -124,33 +128,132 @@ class PIPPS_policy(nn.Module):
         U = U.ravel()
         return np.array(U)
 
-    def policy_step(self):
-        def gen_policy_rollout(x0, self):
-            # initialize statespace array in pytorch tensor -> need that good good gradient!
-            raise NotImplementedError("Need to implement the rollouts with tensors, or maybe not for gradients")
+    def policy_step(self, x0):
 
-        raise NotImplementedError("Core method not implemented yet")
+        def gen_policy_rollout(x0, dynam_model):
+            """
+            Does the majority of the work in Pytorch for generating the policy gradient for PIPPS
+             - input: a current state and a dynam_model to generate data and gradients with
+             - output: 
+                - a list of states evolution over time for each particle
+                - a list of probabilities conditioned on the policy at each time for each particle
+                - a list of costs over time for each particle
+                - a list of baselines for each particle (ideal is unbiased leave one out estimator)
+            """
+            # initialize statespace array in pytorch tensor -> need that good good gradient!
+            # raise NotImplementedError("Need to implement the rollouts with tensors, or maybe not for gradients")
+
+            # for sampling the state progression
+            norm_dist = torch.distributions.Normal(0,1)
+
+            # for storing the costs and gradients 
+            # for all of these values, think a row as an updating time series for each particle
+            costs = torch.zeros((self.P, self.T))
+            baselines = torch.zeros((self.P, self.T))
+            probabilities = torch.zeros((self.P, self.T))
+
+            # iterate through each particle for the states and probabilites for gradient
+            for p in self.P:
+
+                # Choose the dynamics model from the ensemble 
+                num_ens = dynam_model.E
+                if self.E == 0: model = dynam_model
+                else:
+                    model_idx = random.randint(0,num_ens)
+                    model = dynam_model.networks[model_idx]
+
+                state = torch.Tensor(x0)
+                for t in range(self.T):
+                    # generate action from the policy
+                    action = self.forward(state)
+                    # TODO: to properly backprop through the policy, cannot overwite state, we need to store state in a big array
+
+                    # forward pass current state to generate distribution values from dynamics model
+                    means, var = model.distribution(state, action)
+
+                    # sample the next state from the means and variances of the state transition probabilities
+                    vals = var*norm_dist.sample((1,self.n_in)) + means
+                    
+                    # batch mode prob calc
+                    probs = -.5*(vals - means)/var
+
+                    # for s in range(self.n_in):
+                    #     # sample predicted new state for each element
+                    #     val = var[s]*np.random.normal()+means[0]    # sample from the scaled gaussian with y = sigma*x + mu
+
+                    #     # calculate probability of this state for each sub state
+                    #     p = -.5*(val-means[0])/var[0]
+                    states = torch.cat((states, state),0)
+                    probabilities = torch.cat((probabilities, p),0)
+
+                    # reduce the probabilities vector to get a single probability of the state transition 
+                    prob = torch.prob(probabilities, axis =0)
+
+                    state = torch.Tensor(vals)
+
+
+                # calculates costs
+                # idea ~ alculate the cost of each each element and then do an cumulative sum for the costs
+                # use torch.cumsum
+                for t in range(self.T):
+                    c_row = self.cost_fnc(states[t,:])
+
+            # calculates baselines as the leave one out mean for each particle at each time
+            
+            # freezes gradients on costs and baselines
+            # these two lines of code actually do nothing, but are for clarification 
+            costs.requires_grad_(requires_grad=False)
+            baselines.requires_grad_(requires_grad=False)
+            # . detach() is another way to ensure this
+            # costs.detach()
+            # baselines.detach()
+            
+            return states, probabilities, costs, baselines
+
+        optimizer = torch.optim.Adam(super(PIPPS_policy, self).parameters(), lr=self.lr)
+
+        # raise NotImplementedError("Core method not implemented yet")
+        optimizer.zero_grad()
         # simulate trajectories through the dynamics model with the policy
 
         # generate the probability of states given action, with the gradients connected to the NN object
 
         # Set up the weighted mean computation
+        states, probabilities, costs, baselines = gen_policy_rollout(x0, self.dynam_model)
 
         # turn off the gradients on the mean cost and the baseline
 
         # Calculate the gradient (the expectation in the paper)
+        # the values are of the form (#P, T), so we first recude across dim 1 to get (#P,1) and then the mean to get the value
+        loss = torch.mean(torch.sum((probabilities*(costs-baselines)), dim=1), dim=0)
 
         # call gradient.step based on a policy update parameter
+        loss.backwards()
+        optimizer.step()
 
         # log prob term psuedo
         # -0.5 * \sum_{state dimensions}((particle - mu(x, policy(x, theta)) / sigma(x, policy(x, theta))) ^ 2
 
+        
 
+        '''
+        To sum all elements of a tensor:
+
+        torch.sum(outputs)  # gives back a scalar
+        To sum over all rows(i.e. for each column):
+
+        torch.sum(outputs, dim=0)  # size = [1, ncol]
+        To sum over all columns(i.e. for each row):
+
+        torch.sum(outputs, dim=1)  # size = [nrow, 1]
+        '''
     
-    def set_baseline_function(baseline, baseline_explanation = ''):
+    def set_baseline_function(self, baseline, baseline_explanation = ''):
         self.baseline_fnc = baseline
         self.baseline = 0
 
-    def set_cost_function(cost, cost_explanation = ''):
+    def set_cost_function(self, cost, cost_explanation = ''):
         self.cost_fnc = cost
+
+
 
