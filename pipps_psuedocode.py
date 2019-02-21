@@ -81,7 +81,7 @@ class PIPPS_policy(nn.Module):
         self.N = policy_update_params['N']
         self.T = policy_update_params['T']
         self.P = 10
-        self.lr = policy_update_params['learning_rates']
+        self.lr = policy_update_params['learning_rate']
         
     
     def init_weights_orth(self):
@@ -128,9 +128,7 @@ class PIPPS_policy(nn.Module):
         U = U.ravel()
         return np.array(U)
 
-    def policy_step(self, x0):
-
-        def gen_policy_rollout(x0, dynam_model):
+    def gen_policy_rollout(self, x0, dynam_model):
             """
             Does the majority of the work in Pytorch for generating the policy gradient for PIPPS
              - input: a current state and a dynam_model to generate data and gradients with
@@ -144,36 +142,52 @@ class PIPPS_policy(nn.Module):
             # raise NotImplementedError("Need to implement the rollouts with tensors, or maybe not for gradients")
 
             # for sampling the state progression
-            norm_dist = torch.distributions.Normal(0,1)
+            norm_dist = torch.distributions.Normal(0, 1)
 
-            # for storing the costs and gradients 
+            # for storing the costs and gradients
+            costs = torch.Tensor()
+            baselines = torch.Tensor()
+            probabilities = torch.Tensor()
+            states = torch.Tensor()
+            ''' 
             # for all of these values, think a row as an updating time series for each particle
             costs = torch.zeros((self.P, self.T))
             baselines = torch.zeros((self.P, self.T))
             probabilities = torch.zeros((self.P, self.T))
 
+            # This is what we would do for the states, but it's more efficient to concatenate them
+            states = torch.Tensor((self.P,self.T, self.n_in))
+            '''
+
             # iterate through each particle for the states and probabilites for gradient
-            for p in self.P:
+            for p in range(self.P):
 
-                # Choose the dynamics model from the ensemble 
+                # Choose the dynamics model from the ensemble
                 num_ens = dynam_model.E
-                if self.E == 0: model = dynam_model
+                if self.E == 0:
+                    model = dynam_model
                 else:
-                    model_idx = random.randint(0,num_ens)
+                    model_idx = random.randint(0, num_ens)
                     model = dynam_model.networks[model_idx]
+                
+                state_mat = x0.view((1, 1, -1))
+                # state_mat = x0.unsqueeze(0).unsqueeze(0)    # takes a (n_in) vector to a (1,1,n_in) Tensor
+                # torch.cat((), axis = 1) to cat the times
+                # torch.cat((), axis = 0) to cat the particle
+                # is there a way to do this without unsqueeze? Seems like the most efficient way
+                prob_vect = torch.Tensor()
 
-                state = torch.Tensor(x0)
                 for t in range(self.T):
                     # generate action from the policy
-                    action = self.forward(state)
+                    action = self.forward(state_mat[0,t,:])
                     # TODO: to properly backprop through the policy, cannot overwite state, we need to store state in a big array
 
                     # forward pass current state to generate distribution values from dynamics model
                     means, var = model.distribution(state, action)
 
                     # sample the next state from the means and variances of the state transition probabilities
-                    vals = var*norm_dist.sample((1,self.n_in)) + means
-                    
+                    vals = var*norm_dist.sample((1, self.n_in)) + means
+
                     # batch mode prob calc
                     probs = -.5*(vals - means)/var
 
@@ -183,32 +197,49 @@ class PIPPS_policy(nn.Module):
 
                     #     # calculate probability of this state for each sub state
                     #     p = -.5*(val-means[0])/var[0]
-                    states = torch.cat((states, state),0)
-                    probabilities = torch.cat((probabilities, p),0)
+                    states = torch.cat((states, state), 0)
+                    probabilities = torch.cat((probabilities, p), 0)
 
-                    # reduce the probabilities vector to get a single probability of the state transition 
-                    prob = torch.prob(probabilities, axis =0)
+                    # reduce the probabilities vector to get a single probability of the state transition
+                    prob = torch.prob(probabilities, axis=0)
+                    prob_vec = torch.cat((prob_vec), prob)
 
-                    state = torch.Tensor(vals)
+                    state = torch.Tensor(vals).view((1, 1, -1))
 
+                    state_mat = torch.cat((state_mat, state), 1) # appends the currnt state to the current particle, without overwriting the otherone
 
                 # calculates costs
                 # idea ~ alculate the cost of each each element and then do an cumulative sum for the costs
                 # use torch.cumsum
                 for t in range(self.T):
-                    c_row = self.cost_fnc(states[t,:])
+                    c_row = self.cost_fnc(states[t, :])
+
+                # Assembles the arrays for the current particle
+                
+                # costs were given above
+                costs = torch.cat((costs, c_row), 0)
+
+                # update the states array for each particle
+                states = torch.cat((states, state_mat), 0) 
+
+                # concatenates the vector of prob at each time to the 2d array
+                probabilities = torch.cat((probabilities, prob_vec.view((1,-1))), 0)
+
+
 
             # calculates baselines as the leave one out mean for each particle at each time
-            
+
             # freezes gradients on costs and baselines
-            # these two lines of code actually do nothing, but are for clarification 
+            # these two lines of code actually do nothing, but are for clarification
             costs.requires_grad_(requires_grad=False)
             baselines.requires_grad_(requires_grad=False)
             # . detach() is another way to ensure this
             # costs.detach()
             # baselines.detach()
-            
+
             return states, probabilities, costs, baselines
+
+    def policy_step(self, x0):
 
         optimizer = torch.optim.Adam(super(PIPPS_policy, self).parameters(), lr=self.lr)
 
@@ -219,16 +250,17 @@ class PIPPS_policy(nn.Module):
         # generate the probability of states given action, with the gradients connected to the NN object
 
         # Set up the weighted mean computation
-        states, probabilities, costs, baselines = gen_policy_rollout(x0, self.dynam_model)
+        states, probabilities, costs, baselines = self.gen_policy_rollout(x0, self.dynam_model)
 
         # turn off the gradients on the mean cost and the baseline
 
         # Calculate the gradient (the expectation in the paper)
         # the values are of the form (#P, T), so we first recude across dim 1 to get (#P,1) and then the mean to get the value
-        loss = torch.mean(torch.sum((probabilities*(costs-baselines)), dim=1), dim=0)
+        # take the mean over each particle for the sum of the trajectories
+        weighted_costs = torch.mean(torch.sum((probabilities*(costs-baselines)), dim=1), dim=0)
 
         # call gradient.step based on a policy update parameter
-        loss.backwards()
+        weighted_costs.backwards()
         optimizer.step()
 
         # log prob term psuedo

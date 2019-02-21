@@ -296,9 +296,12 @@ class GeneralNN(nn.Module):
                     loss = loss_fn(output, target)
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
-                lambda_logvar = torch.Tensor(.01)
+                # lambda_logvar = torch.FloatTensor([.01])
+                lambda_logvar = .01
                 if self.prob:
-                    loss += torch.mul(lambda_logvar, torch.sum(self.max_logvar)) - torch.mul(lambda_logvar, torch.sum(self.min_logvar))
+                    # print(loss)
+                    # print(lambda_logvar * torch.sum((self.max_logvar)))
+                    loss += lambda_logvar * torch.sum((self.max_logvar)) - lambda_logvar * torch.sum((self.min_logvar))
 
                 if loss.data.numpy() == loss.data.numpy():
                     # print(self.max_logvar, self.min_logvar)
@@ -334,7 +337,7 @@ class GeneralNN(nn.Module):
 
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
-            # if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
+            if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
             # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
             error_train.append(avg_loss.data[0].numpy())
             errors.append(test_error.data[0].numpy())
