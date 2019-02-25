@@ -43,8 +43,8 @@ class GeneralNN(nn.Module):
         self.hidden_w = nn_params['hid_width']
         self.depth = nn_params['hid_depth']
 
-        self.n_in_input = nn_params['dx']
-        self.n_in_state = nn_params['du']
+        self.n_in_input = nn_params['du']
+        self.n_in_state = nn_params['dx']
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['dt']
 
@@ -136,7 +136,76 @@ class GeneralNN(nn.Module):
         x = self.features(x)
         return x #x.view(x.size(0), -1)
 
+    def distribution(self, state, action):
+        """
+        Takes in a state, action pair and returns a probability distribution for each state composed of mean and variances for each state:
+        - Needs to normalize the state and the action
+        - Needs to scale the state and action distrubtions on the back end to match up.
+        - Should be a combo of forward and pre/post processing
+        """
 
+        # print("2.")
+
+    
+        # NORMALIZE ======================================================
+        # normalize states because the action gradients affect future states
+        # normX = self.scalarX.transform(state.reshape(1, -1))    # okay to remove states from the gradient path
+        # normX_T = torch.Tensor(normX)
+        normX_T = (state - self.scalarX_tensors_mean)/torch.sqrt(self.scalarX_tensors_var)
+        # need to normalize the action with tensors to keep the gradient path
+        U_std = (action - self.scalarU_tensors_d_min) / \
+            (self.scalarU_tensors_d_max - self.scalarU_tensors_d_min)
+        normU_T = U_std * \
+            (self.scalarU_tensors_f_range[0]-self.scalarU_tensors_f_range[-1]) + \
+                 self.scalarU_tensors_f_range[-1]
+        # normU = self.scalarU.transform(action.reshape(1, -1))
+
+        # FORWARD ======================================================
+        # print( torch.cat((normX_T, normU_T), 1).view(-1) )
+        out = self.forward(
+            torch.cat((normX_T, normU_T), 0)).view(-1)
+
+        # print(out)
+        l = int(len(out)/2)
+        means = out[:l]
+        logvar = out[l:]
+        
+        # DE-NORMALIZE ======================================================
+        # means = (means-self.scalardX_tensors_f_range[0])/(
+        #     self.scalardX_tensors_f_range[-1]-self.scalardX_tensors_f_range[0])
+        # print(self.scalardX_tensors_d_max - self.scalardX_tensors_d_min)
+        # to denormalize, add 1 so 0 to 2, divide by the scale, add the min
+        means = ((means+1.)/self.scalardX_tensors_scale)+self.scalardX_tensors_d_min
+        # means = means*self.scalarX_tensors_var[:l]+self.scalarX_tensors_mean[:l]
+        var = torch.exp(logvar) # because of how the loss function is created
+
+        
+        # raise NotImplementedError("Need to finish per state adjustments")
+        """
+        Snippet from old predict function. Need to match this in autodiff software
+        # important this list is in order
+        if targetlist == []:
+            _, _, targetlist = model.get_training_lists()
+
+        # generate labels as to whether or not it true state or delta
+        # true = delta
+        lab = [t[:2] == 'd_' for t in targetlist]
+
+        # Makes prediction for either prediction mode. Handles the need to only pass certain states
+        prediction = np.zeros(9)
+        pred = model.predict(x, u)
+        for i, l in enumerate(lab):
+            if l:
+                prediction[i] = x[i] + pred[i]
+            else:
+                prediction[i] = pred[i]
+
+        return prediction
+        """
+
+        return means, var
+
+        
     def preprocess(self, dataset):# X, U):
         """
         Preprocess X and U for passing into the neural network. For simplicity, takes in X and U as they are output from generate data, but only passed the dimensions we want to prepare for real testing. This removes a lot of potential questions that were bugging me in the general implementation. Will do the cosine and sin conversions externally.
@@ -156,6 +225,33 @@ class GeneralNN(nn.Module):
         self.scalarU.fit(U)
         self.scalardX.fit(dX)
 
+        # Stores the fit as tensors for PIPPS policy propogation through network
+        if True:
+            # U is a minmax scalar from -1 to 1
+            # X is a standard scalar, mean 0, sigma 1
+            self.scalarU_tensors_d_min = torch.FloatTensor(self.scalarU.data_max_)
+            self.scalarU_tensors_d_max = torch.FloatTensor(self.scalarU.data_min_)
+            self.scalarU_tensors_d_range = torch.FloatTensor(self.scalarU.data_range_)
+            self.scalarU_tensors_f_range = torch.FloatTensor([-1,1])
+
+            self.scalarX_tensors_mean = torch.FloatTensor(self.scalarX.mean_)
+            self.scalarX_tensors_var = torch.FloatTensor(self.scalarX.var_)
+
+            self.scalardX_tensors_d_min = torch.FloatTensor(
+                self.scalardX.data_min_)
+            self.scalardX_tensors_scale = torch.FloatTensor(
+                self.scalardX.scale_)
+            # self.scalardX_tensors_d_min = torch.FloatTensor(
+            #     self.scalardX.data_min_)
+            # self.scalardX_tensors_d_max = torch.FloatTensor(
+            #     self.scalardX.data_max_)
+            # self.scalardX_tensors_d_range = torch.FloatTensor(
+            #     self.scalardX.data_range_)
+            # self.scalardX_tensors_f_range = torch.FloatTensor([-1, 1])
+
+
+
+            
         #Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(X)
         normU = self.scalarU.transform(U)
@@ -247,15 +343,17 @@ class GeneralNN(nn.Module):
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
         dx = len(X)
+        # print("1.")
 
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
         normU = self.scalarU.transform(U.reshape(1, -1))
 
+
         input = torch.Tensor(np.concatenate((normX, normU), axis=1))
 
         NNout = self.forward(input).data[0]
-
+        # print(NNout)
         # If probablistic only takes the first half of the outputs for predictions
         if self.prob:
             NNout = self.postprocess(NNout[:int(self.n_out/2)]).ravel()

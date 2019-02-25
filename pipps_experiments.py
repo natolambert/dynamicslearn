@@ -100,4 +100,12 @@ policy_update_params = {
     'T': 15,
     'learning_rate': 1e-4,
 }
+
+# init PIPPS policy
 PIPPSy = PIPPS_policy(pipps_nn_params, policy_update_params, newNN)
+
+# set cost function
+
+# set baseline function
+
+PIPPSy.policy_step(o)

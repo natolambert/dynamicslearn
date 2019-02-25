@@ -108,11 +108,25 @@ load_params ={
 #             "_newquad1/publ2/c50_roll11/",
 #             "_newquad1/publ2/c50_roll12/"]
 
-dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
-    "_newquad1/publ_data/c50_samp300_roll1/",
-    "_newquad1/publ_data/c50_samp300_roll2/",
-    "_newquad1/publ_data/c50_samp300_roll3/",
-    "_newquad1/publ_data/c50_samp300_roll4/"]
+dir_list = ["_newquad1/publ2/c25_rand/",
+            "_newquad1/publ2/c25_roll01/",
+            "_newquad1/publ2/c25_roll02/",
+            "_newquad1/publ2/c25_roll03/",
+            "_newquad1/publ2/c25_roll04/",
+            "_newquad1/publ2/c25_roll05/",
+            "_newquad1/publ2/c25_roll06/",
+            "_newquad1/publ2/c25_roll07/",
+            "_newquad1/publ2/c25_roll08/",
+            "_newquad1/publ2/c25_roll09/",
+            "_newquad1/publ2/c25_roll10/",
+            "_newquad1/publ2/c25_roll11/",
+            "_newquad1/publ2/c25_roll12/"]
+
+# dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
+#     "_newquad1/publ_data/c50_samp300_roll1/",
+#     "_newquad1/publ_data/c50_samp300_roll2/",
+#     "_newquad1/publ_data/c50_samp300_roll3/",
+#     "_newquad1/publ_data/c50_samp300_roll4/"]
 # dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
 #     "_newquad1/publ_data/c25_samp300_roll1/",
 #     "_newquad1/publ_data/c25_samp300_roll2/",

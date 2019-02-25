@@ -127,6 +127,9 @@ def predict_nn_v2(model, x, u, targetlist=[]):
     # Makes prediction for either prediction mode. Handles the need to only pass certain states
     prediction = np.zeros(9)
     pred = model.predict(x, u)
+    # print("Pred in standard way")
+    # print(pred)
+    # print("~~~")
     for i, l in enumerate(lab):
         if l:
             prediction[i] = x[i] + pred[i]

@@ -393,7 +393,7 @@ def pred_traj(x0, action, model, T):
 
     return x_stored
 
-def gather_predictions(model_dir, dataset, delta=True):
+def gather_predictions(model_dir, dataset, delta=True, variances=False):
     """
     Takes in a dataset and returns a matrix of predictions for plotting.
     - model_dir of the form '_models/temp/... .pth'
@@ -403,7 +403,7 @@ def gather_predictions(model_dir, dataset, delta=True):
     """
 
     nn = torch.load(model_dir)
-    nn.training = False
+    # nn.training = False
     nn.eval()
     with open(model_dir[:-4]+'--normparams.pkl', 'rb') as pickle_file:
         normX1, normU1, normdX1 = pickle.load(pickle_file)
@@ -412,21 +412,54 @@ def gather_predictions(model_dir, dataset, delta=True):
     U = dataset[1]
     dX = dataset[2]
 
-    predictions_1 = np.empty((0, 9))  # np.shape(X)[1]))
-    for (dx, x, u) in zip(dX, X, U):
+    # note which states are raw vs full change in state
+    pred_key = nn.change_state_list
+    pred_key_bool = [p[:2] == 'd_' for p in pred_key]
 
-        # grab prediction value
-        pred = predict_nn_v2(nn, x, u)
 
-        #print('prediction: ', pred, ' x: ', x)
-        # print(x.shape)
-        # print(pred.shape)
-        if delta:
-            pred = pred - x[:9]
-        # print(pred)
-        predictions_1 = np.append(predictions_1, pred.reshape(1, -1),  axis=0)
+    # Original gather predictions
+    if not variances:
+        predictions_1 = np.empty((0, 9))  # np.shape(X)[1]))
+        for (dx, x, u) in zip(dX, X, U):
 
-    return predictions_1
+            # grab prediction value
+            pred = predict_nn_v2(nn, x, u)
+
+            #print('prediction: ', pred, ' x: ', x)
+            # print(x.shape)
+            # print(pred.shape)
+            if delta:
+                pred = pred - x[:9]
+            # print(pred)
+            predictions_1 = np.append(predictions_1, pred.reshape(1, -1),  axis=0)
+
+        return predictions_1
+
+    # new gather predictions. Else we return variance predictions too
+    else:
+        predictions_1 = np.empty((0, 9))  # np.shape(X)[1]))
+        predictions_1_var = np.empty((0, 9))  # np.shape(X)[1]))
+        for (dx, x, u) in zip(dX, X, U):
+            # pred = predict_nn_v2(nn, x, u)
+
+            
+            x = torch.Tensor(x)
+            u = torch.Tensor(u)
+            # grab prediction value
+            mean, var = nn.distribution(x, u)
+
+            # for i, b in enumerate(pred_key_bool):
+            #     if b:
+            #         mean[i] = x[i] + mean[i]
+                # else:
+                #     mean[i] = mean[i]
+
+            predictions_1 = np.append(
+                predictions_1, mean.reshape(1, -1).detach().numpy(),  axis=0)
+            predictions_1_var = np.append(
+                predictions_1_var, var.reshape(1, -1).detach().numpy(),  axis=0)
+
+        return predictions_1, predictions_1_var
 
 class CrazyFlie():
     def __init__(self, dt, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):

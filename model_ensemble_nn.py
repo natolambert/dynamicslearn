@@ -120,6 +120,23 @@ class EnsembleNN(nn.Module):
 
         return prediction
 
+    def distribution(self, state, action):
+        """
+        Takes in a state, action pair and returns a probability distribution for each state composed of mean and variances for each state:
+        - Needs to normalize the state and the action
+        - Needs to scale the state and action distrubtions on the back end to match up.
+        - Should be a combo of forward and pre/post processing
+        """
+        dx = self.networks[0].n_in_state
+        means = torch.zeros((dx, 1))
+        var = torch.zeros((dx, 1))
+        for net in self.networks:
+            means_e, var_e = net.distribution(state,action)
+            means = means + means_e/self.E
+            var = var + var_e/self.E
+            
+        return means, var
+
     def getNormScalers(self):
         # all the data passed in is the same, so the scalers are identical
         return self.networks[0].getNormScalers()

@@ -54,6 +54,7 @@ def plot_flight_time(csv_dir):
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=3)
+    matplotlib.rc('text', usetex=True)
 
     fig = plt.figure()
     with sns.axes_style("whitegrid"):
@@ -929,6 +930,7 @@ def plot_waterfall(model, df, equil, var, N, T, plt_idx = []):
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
+    matplotlib.rc('text', usetex=True)
 
     # plt.tight_layout()
 
@@ -1269,9 +1271,10 @@ def plot_euler_preds(model, dataset):
     plt.show()
 
 
-def plot_test_train(model, dataset):
+def plot_test_train(model, dataset, variances = True):
     """
     Takes a dynamics model and plots test vs train predictions on a dataset of the form (X,U,dX)
+    - variances adds a highlight showing the variance of one step prediction estimates
     """
     '''
     Some Models:
@@ -1280,30 +1283,31 @@ def plot_test_train(model, dataset):
     model_pll_ens = '_models/temp/2018-12-14--10-53-42.9_plot_pll_ensemble_stack3_.pth'
     model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
     model_mse_ens = '_models/temp/2018-12-14--10-52-40.4_plot_mse_ensemble_stack3_.pth'
+
+    25Hz models for with variance
+    new ensemble: '_models/temp/2019-02-23--16-10-00.4_plot_temp__stack3_'
+    new single: '_models/temp/2019-02-23--17-03-22.0_plot_temp_single_stack3_'
     '''
     model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
+    model_testing = '_models/temp/2019-02-25--09-51-49.1_temp_single_debug_stack3_.pth'
 
-    predictions_pll_ens = gather_predictions(model_pll_ens_10, dataset)
+    if variances:
+        predictions_means, predictions_vars = gather_predictions(
+            model_testing, dataset, variances=variances)
+    else: 
+        predictions_means = gather_predictions(
+        model_testing, dataset, variances=variances)
 
     X = dataset[0]
     U = dataset[1]
     dX = dataset[2]
 
     dim = 4
-    # Gather test train splitted data
-    lx = int(np.shape(dX)[0]*.8)
-    data_train = zip(dX[:lx, dim], predictions_pll_ens[:lx, dim])
-    data_train = sorted(data_train, key=lambda tup: tup[0])
-    gt_sort_train, pred_sort_pll_train = zip(*data_train)
-
-    data_test = zip(dX[lx:, dim], predictions_pll_ens[lx:, dim])
-    data_test = sorted(data_test, key=lambda tup: tup[0])
-    gt_sort_test, pred_sort_pll_test = zip(*data_test)
-
     # New plot
     font = {'size': 11}
 
     matplotlib.rc('font', **font)
+    matplotlib.rc('text', usetex=True)
     matplotlib.rc('lines', linewidth=1.5)
 
     plt.tight_layout()
@@ -1317,23 +1321,74 @@ def plot_test_train(model, dataset):
         ax1 = plt.subplot(211)
         ax2 = plt.subplot(212)
         plt.subplots_adjust(bottom=.13, top=.93, left=.1, right=1-.03, hspace=.28)
+        
+    # sort and plot data
+    if not variances:
+        # Gather test train splitted data
+        lx = int(np.shape(dX)[0]*.8)
+        data_train = zip(dX[:lx, dim], predictions_means[:lx, dim])
+        data_train = sorted(data_train, key=lambda tup: tup[0])
+        gt_sort_train, pred_sort_pll_train = zip(*data_train)
 
-    # plt.tick_params(axis='both', which='major', labelsize=10)
-    plt.tick_params(axis='both', which='minor', labelsize=7)
+        data_test = zip(dX[lx:, dim], predictions_means[lx:, dim])
+        data_test = sorted(data_test, key=lambda tup: tup[0])
+        gt_sort_test, pred_sort_pll_test = zip(*data_test)
+
+    
+        # plt.tick_params(axis='both', which='major', labelsize=10)
+        plt.tick_params(axis='both', which='minor', labelsize=7)
 
 
-    gt_train = np.linspace(0, 1, len(gt_sort_train))
-    ax1.plot(gt_train,gt_sort_train, label='Ground Truth', color='k', linewidth=1.8)
-    ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
-             markersize=.9, linewidth=.7, alpha=.8)  # , linestyle=':')
-    ax1.set_title("Training Data Predictions")
-    ax1.legend(prop={'size': 7})
+        gt_train = np.linspace(0, 1, len(gt_sort_train))
+        ax1.plot(gt_train,gt_sort_train, label='Ground Truth', color='k', linewidth=1.8)
+        ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
+                markersize=.9, linewidth=.7, alpha=.8)  # , linestyle=':')
+        ax1.set_title("Training Data Predictions")
+        ax1.legend(prop={'size': 7})
 
-    gt_test = np.linspace(0, 1, len(gt_sort_test))
-    ax2.plot(gt_test, gt_sort_test, label='Ground Truth', color='k', linewidth=1.8)
-    ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
-             markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
-    ax2.set_title("Test Data Predictions")
+        gt_test = np.linspace(0, 1, len(gt_sort_test))
+        ax2.plot(gt_test, gt_sort_test, label='Ground Truth', color='k', linewidth=1.8)
+        ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
+                markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
+        ax2.set_title("Test Data Predictions")
+
+    else:
+        # Gather test train splitted data
+        lx = int(np.shape(dX)[0]*.8)
+        data_train = zip(dX[:lx, dim], predictions_means[:lx, dim], predictions_vars[:lx, dim])
+        data_train = sorted(data_train, key=lambda tup: tup[0])
+        gt_sort_train, pred_sort_pll_train, pred_vars_train = zip(*data_train)
+
+        data_test = zip(dX[lx:, dim], predictions_means[lx:,
+                                                        dim], predictions_vars[lx:, dim])
+        data_test = sorted(data_test, key=lambda tup: tup[0])
+        gt_sort_test, pred_sort_pll_test, pred_vars_test = zip(*data_test)
+
+        print(np.shape(pred_sort_pll_train))
+        print(np.shape(pred_vars_train))
+        # plt.tick_params(axis='both', which='major', labelsize=10)
+        plt.tick_params(axis='both', which='minor', labelsize=7)
+
+        gt_train = np.linspace(0, 1, len(gt_sort_train))
+        ax1.plot(gt_train, gt_sort_train, label='Ground Truth',
+                 color='k', linewidth=1.8)
+        ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
+                 markersize=.9, linewidth=.7, alpha=.8)  # , linestyle=':')
+        ax1.plot(gt_train, np.array(pred_sort_pll_train)+np.array(pred_vars_train),
+                 '-', color = 'r', label='Variance of Predictions', linewidth=.4, alpha=.4)
+        ax1.plot(gt_train,np.array(pred_sort_pll_train)-np.array(pred_vars_train), '-', color='r', linewidth=.4, alpha=.4)
+        ax1.set_title("Training Data Predictions")
+        ax1.legend(prop={'size': 7})
+
+        gt_test = np.linspace(0, 1, len(gt_sort_test))
+        ax2.plot(gt_test, gt_sort_test, label='Ground Truth',
+                 color='k', linewidth=1.8)
+        ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
+                 markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
+        ax2.plot(gt_test, np.array(pred_sort_pll_test)+np.array(pred_vars_test),
+                  '-', color = 'r', label='Variance of Predictions', linewidth=.4, alpha=.4)
+        ax2.plot(gt_test,np.array(pred_sort_pll_test)-np.array(pred_vars_test), '-', color='r', linewidth=.4, alpha=.4)
+        ax2.set_title("Test Data Predictions")
 
     fontProperties = {'family': 'Times New Roman'}
 
@@ -1366,13 +1421,13 @@ def plot_test_train(model, dataset):
         ax.set_ylim([-6.0, 6.0])
         ax.set_xlim([0, 1])
 
-    fig.set_size_inches(5, 3.5)
+    # fig.set_size_inches(5, 3.5)
 
     # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
-    plt.savefig('testrain.pdf', format='pdf', dpi=300)
+    # plt.savefig('testrain.pdf', format='pdf', dpi=300)
 
-    # plt.show()
+    plt.show()
 
 
 def plot_rollout_compare():
@@ -1386,6 +1441,7 @@ def plot_rollout_compare():
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=3)
+    matplotlib.rc('text', usetex=True)
 
     fig = plt.figure()
     with sns.axes_style("whitegrid"):
@@ -1544,7 +1600,7 @@ def plot_rollout_compare():
 
     # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
-    plt.savefig('destination_path2.eps', format='eps', dpi=300)
+    plt.savefig('destination_path2.pdf', format='pdf', dpi=300)
 
 
     # plt.show()
@@ -1600,6 +1656,8 @@ def plot_flight_segment(fname, load_params):
     
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=2.5)
+    matplotlib.rc('text', usetex=True)
+
     # plt.tight_layout()
     
     fig = plt.figure()
@@ -1607,7 +1665,7 @@ def plot_flight_segment(fname, load_params):
         plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["axes.edgecolor"] = "0.15"
         plt.rcParams["axes.linewidth"] = 1.5
-        plt.subplots_adjust(top=.96, bottom=0.13, left=.13, right=1-.03, hspace=.25)
+        plt.subplots_adjust(top=.96, bottom=0.16, left=.13, right=1-.03, hspace=.25)
         ax1 = plt.subplot(211)
         ax2 = plt.subplot(212)
 
