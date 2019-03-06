@@ -5,33 +5,57 @@ import torch.nn as nn
 import torch
 import numpy as np
 from utils.nn import *
+from utils.data import *
 
-env = gym.make('CartPole-v0')
+load_params = {
+    'delta_state': True,                # normally leave as True, prediction mode
+    # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
+    'include_tplus1': True,
+    # trims high vbat because these points the quad is not moving
+    'takeoff_points': 180,
+    # if all the euler angles (floats) don't change, it is not realistic data
+    'trim_0_dX': False,
+    'find_move': True,
+    # if the states change by a large amount, not realistic
+    'trime_large_dX': True,
+    # IMPORTANT ONE: stacks the past states and inputs to pass into network
+    'stack_states': 3,
+    # adds a column to the dataframe tracking end of trajectories
+    'terminals': True
+}
+
+# load_iono_txt('data_wiggle.txt', load_params)
+# quit()
+
+############ SETUP EXPERIMENT ENV ########################
+# env = gym.make('CartPole-v1')
+env = gym.make('MountainCarContinuous-v0')
 # double bounds
-env.unwrapped.theta_threshold_radians = 2*env.unwrapped.theta_threshold_radians
-env.unwrapped.x_threshold = 2*env.unwrapped.x_threshold
+# env.unwrapped.theta_threshold_radians = 2*env.unwrapped.theta_threshold_radians
+# env.unwrapped.x_threshold = 2*env.unwrapped.x_threshold
 
 observations = []
 actions = [] 
 rewards = []
-for i_episode in range(20):
+for i_episode in range(50):
     observation = env.reset()
     for t in range(100):
         # env.render()
 
         action = env.action_space.sample()
         observation, reward, done, info = env.step(action)
-        
+        # print(action)
         observations.append(observation)
         actions.append([action])
         rewards.append(reward)
 
         if done:
-            print("Episode finished after {} timesteps".format(t+1))
+            # print("Episode finished after {} timesteps".format(t+1))
             break
-        
+
+############ PROCESS DATA ########################
 o = np.array(observations)
-actions = np.array(actions)
+actions = np.array(actions).reshape(-1,1)
 
 # shape into trainable set
 d_o = o[1:,:]-o[:-1,:]
@@ -44,6 +68,7 @@ print("U has shape: ", np.shape(actions))
 print("dX has shape: ", np.shape(d_o))
 print('---')
 
+############ TRAIN MODEL ########################
 ensemble = False
 
 nn_params = {                           # all should be pretty self-explanatory
@@ -86,7 +111,7 @@ else:
 pipps_nn_params = {                           # all should be pretty self-explanatory
     'dx': np.shape(o)[1],
     'du': np.shape(actions)[1],
-    'hid_width': 32,
+    'hid_width': 50,
     'hid_depth': 2,
     'bayesian_flag': True,
     'activation': Swish(),
@@ -96,16 +121,80 @@ pipps_nn_params = {                           # all should be pretty self-explan
 
 # for the pipps policy update step
 policy_update_params = {
-    'N': 10,
+    'P': 100,
     'T': 15,
-    'learning_rate': 1e-4,
+    'learning_rate': 3e-2,
 }
 
+############ INITAL PIPPS POLICY ########################
 # init PIPPS policy
 PIPPSy = PIPPS_policy(pipps_nn_params, policy_update_params, newNN)
-
+PIPPSy.init_weights_orth()  # to see if this helps initial rollouts
 # set cost function
+"""
+Observation:
+        Type: Box(4)
+        Num	Observation             Min             Max
+        0	Cart Position           - 4.8            4.8
+        1	Cart Velocity           - Inf            Inf
+        2	Pole Angle              - 24 deg        24 deg
+        3	Pole Velocity At Tip    - Inf            Inf
+"""
+def simple_cost_cartpole(vect):
+    l_pos = 1
+    l_vel = 5
+    l_theta = 2
+    l_theta_dot = 1
+    return l_pos*vect[0]**2 + l_vel*vect[1]**2 \
+        + l_theta*vect[2]**2 + l_theta_dot*vect[3]**2 
+
+def simple_cost_car(vect):
+    l_pos = 10
+    l_vel = 2.5
+    return l_pos*vect[0]**2 + l_vel*vect[1]**2 
+        
+PIPPSy.set_cost_function(simple_cost_car)
 
 # set baseline function
+PIPPSy.set_baseline_function(np.mean)
 
 PIPPSy.policy_step(o)
+# PIPPSy.viz_comp_graph()
+# quit()
+############ PIPPS ITERATIONS ########################
+P_rollouts = 20
+for p in range(P_rollouts):
+    print("------ PIPPS Training Rollout", p, " ------")
+    observations_new = []
+    actions = []
+    rewards = []
+    for i_episode in range(10):
+        observation = env.reset()
+        for t in range(100):
+            # env.render()
+            # print(observation)
+            # action = PIPPSy.predict(observation)  # env.action_space.sample()
+            action = PIPPSy.forward(torch.Tensor([observation]))  # env.action_space.sample()
+            # PIPPSy.viz_comp_graph(action.requires_grad_(True))
+            # print(action)
+            # action = action.int().data.numpy()[0]
+            action = action.data.numpy()
+            # print(action)
+
+            observation, reward, done, info = env.step(action[0])
+
+            observations_new.append(observation)
+            actions.append([action])
+            rewards.append(reward)
+
+            if done:
+                # print("Episode finished after {} timesteps".format(t+1))
+                break
+
+    # o = np.concatenate((o,observations_new),0)
+    print("New Dataset has shape: ", np.shape(o))
+    print("Reward at this iteration: ", np.mean(rewards))
+    print('---')
+    PIPPSy.policy_step(np.array(o))
+    # print('---')
+

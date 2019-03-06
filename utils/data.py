@@ -245,10 +245,15 @@ def trim_load_param(fname, load_params):
     fastLog = load_params['fastLog']
     contFreq = load_params['contFreq']
     bat_trim = load_params['trim_high_vbat']
+    zero_yaw = load_params['zero_yaw']
 
     with open(fname, "rb") as csvfile:
         # laod data
         new_data = np.loadtxt(csvfile, delimiter=",")
+
+        # zero yaw to starting condition
+        if zero_yaw:
+            raise NotImplementedError("Need to implement Yaw zeroing with wrap around of angles")
 
         ########### THESE BARS SEPARATE TRIMMING ACTIONS #########################
         # For now, remove the last 4 columns becausee they're PWMS
@@ -626,6 +631,178 @@ def load_dirs(dir_list, load_params):
     print('Processed data of shape: ', df.shape)
     return df
 
+def stack_dir_pd_iono(dir, load_params):
+    '''
+    Takes in a directory and returns a dataframe for the data, specifically for ionocraft data
+    '''
+    print('Loading dir: ', dir)
+    files = os.listdir("_logged_data_autonomous/iono/"+dir)
+    print('...number of flights: ', len(files))
+
+    # init arrays
+    X = []
+    U = []
+    dX = []
+
+
+    terminals = []
+
+    # init if needed. This will play with terminals a little bit
+    if load_params['include_tplus1']:
+        tplus1 = []
+
+    for i,f in enumerate(files):
+        
+        if f[:3] != 'DS_':
+            # print(f)
+            X_t, U_t, dX_t = load_iono_txt(dir+f, load_params)
+  
+            # shortens length by one point
+            if load_params['include_tplus1']:
+                if X == []:
+                    tplus1 = X_t[1:, :]
+                else:
+                    tplus1 = np.append(tplus1, X_t[1:, :], axis=0)
+
+                X_t = X_t[:-1, :]
+                U_t = U_t[:-1, :]
+                dX_t = dX_t[:-1, :]
+
+
+
+        
+            # State data
+            if X == []:
+                X = X_t
+            else:
+                X = np.append(X, X_t, axis=0)
+
+            # inputs
+            if U == []:
+                U = U_t
+            else:
+                U = np.append(U, U_t, axis=0)
+
+            # change in state
+            if dX == []:
+                dX = dX_t
+            else:
+                dX = np.append(dX, dX_t, axis=0)
+
+
+            # # end of trajectory marker
+            # if terminals == []:
+            #     terminals = terminal
+            # else:
+            #     terminals = np.append(terminals, terminal, axis=0)
+
+    print('...has additional trimmed datapoints: ', np.shape(X)[0])
+
+    ######################################################################
+
+    if False:
+        font = {'size': 18}
+
+        matplotlib.rc('font', **font)
+        matplotlib.rc('lines', linewidth=2.5)
+
+        # plt.tight_layout()
+
+        with sns.axes_style("darkgrid"):
+            ax1 = plt.subplot(111)
+
+        ax1.hist(Ts, bins=250)
+        ax1.set_title("Hist of time between log packets")
+        ax1.set_xlabel("Time Difference Between Packets (ms)")
+        ax1.set_ylabel("Occurence")
+        plt.show()
+
+    # Start dataframe
+
+    stack_states = load_params['stack_states']
+    if stack_states > 0:
+        state_idxs = np.arange(0, 9*stack_states, 9)
+        input_idxs = np.arange(0, 4*stack_states, 4)
+
+        d = {'d_omega_x': dX[:, 3],
+             'd_omega_y': dX[:, 4],
+             'd_omega_z': dX[:, 5],
+             'd_pitch': dX[:, 6],
+             'd_roll': dX[:, 7],
+             'd_yaw': dX[:, 8],
+             'd_lina_x': dX[:, 1],
+             'd_lina_y': dX[:, 2],
+             'd_liny_z': dX[:, 3]
+             }
+
+        k = 0
+        for i in state_idxs:
+            st = str(k)
+            k += 1
+            d['omega_x'+st] = X[:, 3+i]
+            d['omega_y'+st] = X[:, 4+i]
+            d['omega_z'+st] = X[:, 5+i]
+            d['pitch'+st] = X[:, 6+i]
+            d['roll'+st] = X[:, 7+i]
+            d['yaw'+st] = X[:, 8+i]
+            d['lina_x'+st] = X[:, 0+i]
+            d['lina_y'+st] = X[:, 1+i]
+            d['lina_z'+st] = X[:, 2+i]
+
+        k = 0
+        for j in input_idxs:
+            st = str(k)
+            k += 1
+            d['m1_pwm_'+st] = U[:, 0+j]
+            d['m2_pwm_'+st] = U[:, 1+j]
+            d['m3_pwm_'+st] = U[:, 2+j]
+            d['m4_pwm_'+st] = U[:, 3+j]
+
+    else:  # standard
+        d = {'omega_x': X[:, 3],
+             'omega_y': X[:, 4],
+             'omega_z': X[:, 5],
+             'pitch': X[:, 6],
+             'roll': X[:, 7],
+             'yaw': X[:, 8],
+             'lina_x': X[:, 0],
+             'lina_y': X[:, 1],
+             'liny_z': X[:, 2],
+
+             'm1_pwm': U[:, 0],
+             'm2_pwm': U[:, 1],
+             'm3_pwm': U[:, 2],
+             'm4_pwm': U[:, 3],
+
+             'd_omega_x': dX[:, 3],
+             'd_omega_y': dX[:, 4],
+             'd_omega_z': dX[:, 5],
+             'd_pitch': dX[:, 6],
+             'd_roll': dX[:, 7],
+             'd_yaw': dX[:, 8],
+             'd_lina_x': dX[:, 0],
+             'd_lina_y': dX[:, 1],
+             'd_lina_z': dX[:, 2]
+             }
+
+    # if including tplus 1 (for predicting some raw next states rather than change)
+    if load_params['include_tplus1']:
+        d['t1_omega_x'] = tplus1[:, 3]
+        d['t1_omega_y'] = tplus1[:, 4]
+        d['t1_omega_z'] = tplus1[:, 5]
+        d['t1_pitch'] = tplus1[:, 6]
+        d['t1_roll'] = tplus1[:, 7]
+        d['t1_yaw'] = tplus1[:, 8]
+        d['t1_lina_x'] = tplus1[:, 0]
+        d['t1_lina_y'] = tplus1[:, 1]
+        d['t1_lina_z'] = tplus1[:, 2]
+
+    df = pd.DataFrame(data=d)
+    # print(df)
+    print('\n')
+    return df
+
+
 def dir_summary_csv(dir, load_params):
     # takes in a directory with loading parameters and saves a csv summarizing each flight
     print('-------------------')
@@ -734,3 +911,156 @@ def get_traj(df,idx):
     df_sub = df[start+1:end+1]
 
     return df_sub
+
+def load_iono_txt(fname, load_params):
+    """
+    This fnc will read and parse the data from an ionocraft flight towards the same format of (X,U, dX).
+    - Will return a df here
+    - Will add plotting functionality
+
+    The raw file has lines from Arduino serial print of the form:
+    pwm1, pwm2, pwm3, pwm4, ax, ay, az, wx, wy, wz, pitch, roll, yaw
+    """
+
+    # Grab params
+    delta_state = load_params['delta_state']
+    include_tplus1 = load_params['include_tplus1']
+    takeoff_points = load_params['takeoff_points']
+    trim_0_dX = load_params['trim_0_dX']
+    trime_large_dX = load_params['trime_large_dX']
+    find_move = load_params['find_move']
+    input_stack = load_params['stack_states']
+    shuffle_here = False #load_params['shuffle_here']
+    battery = False
+    zero_yaw = load_params['zero_yaw']
+
+    # files = os.listdir("_logged_data_autonomous/"+dir)
+    file = "_logged_data_autonomous/iono/" + fname
+    # print(file)
+    with open(file, "rb") as csvfile:
+        # laod data
+        # cols_use = np.linspace(0,13,14)
+        cols_use = (0,1,2,3,4,5,6,7,8,9,10,11,12)
+        new_data = np.genfromtxt(csvfile, delimiter=",", usecols=cols_use, autostrip=True)
+        # print(new_data)
+        # print(new_data.shape)
+
+        if zero_yaw:
+            new_data[:, 6] = new_data[0, 6]
+
+        serial_error_flag = (
+            ((new_data[:, -1] > -360) & (new_data[:, -1] < 360)) &  # yaw
+            ((new_data[:, -2] > -360) & (new_data[:, -2] < 360)) &  # roll
+            ((new_data[:, -3] > -360) & (new_data[:, -3] < 360)) &  # pitch
+            ((new_data[:, 4] > -500) & (new_data[:, 4] < 500)) &
+            ((new_data[:, 5] > -500) & (new_data[:, 5] < 500)) &
+            ((new_data[:, 6] > -500) & (new_data[:, 6] < 500))
+        )
+
+        new_data = new_data[serial_error_flag,:]
+        
+        # Check the range for each val
+        if False:
+            for c in cols_use:
+                print("State col: ", c)
+                print("Max val: ", np.max(new_data[:,c]))
+                print("Min val: ", np.min(new_data[:, c]))
+                print("Mean val: ", np.mean(new_data[:, c]))
+                print('------')
+
+    
+        # TODO: Modify this code so it matches what we have here rather than the CF stuff
+        ########### THESE BARS SEPARATE TRIMMING ACTIONS #########################
+        # For now, remove the last 4 columns becausee they're PWMS
+
+        # add pwm latency calculations
+        pwm_rec = new_data[:, 0:4]
+
+        ###########################################################################
+        # adding to make the input horizontally stacked set of inputs, rather than only the last input because of spinup time
+        if input_stack > 1:
+            n, du = np.shape(new_data[:, 0:4])
+            _, dx = np.shape(new_data[:, 4:])
+
+            U = np.zeros((n-input_stack+1, du*input_stack))
+            X = np.zeros((n-input_stack+1, dx*input_stack))
+            for i in range(input_stack, n+1, 1):
+                U[i-input_stack,
+                    :] = np.flip(new_data[i-input_stack:i, 0:4], axis=0).reshape(1, -1)
+                X[i-input_stack,
+                    :] = np.flip(new_data[i-input_stack:i, 4:], axis=0).reshape(1, -1)
+
+            if delta_state:
+                # Starts after the data that has requesit U values
+                dX = X[1:, :dx]-X[:-1, :dx]
+                X = X[:-1, :]
+                U = U[:-1, :]
+
+            else:   # next state predictions
+                dX = X[1:, :dx]  # -X[:-1,:]
+                X = X[:-1, :]
+                U = U[:-1, :]
+
+        # print("State data shape, ", X.shape)
+        # print("Input data shape, ", U.shape)
+        # print("Change state data shape, ", dX.shape)
+        
+
+        # trims large change is state as we think they are non-physical and a
+        #   result of the sensor fusion. Note, this could make prediction less stable
+        if trime_large_dX and delta_state:
+            glag = (
+                ((dX[:, 3] > -7.5) & (dX[:, 3] < 7.5)) &
+                ((dX[:, 4] > -7.5) & (dX[:, 4] < 7.5)) &
+                ((dX[:, 5] > -7.5) & (dX[:, 5] < 7.5)) &
+                ((dX[:, 6] > -8) & (dX[:, 6] < 8)) &
+                ((dX[:, 7] > -8) & (dX[:, 7] < 8)) &
+                ((dX[:, 8] > -8) & (dX[:, 8] < 8))
+            )
+            #
+            X = X[glag, :]
+            dX = dX[glag, :]
+            U = U[glag, :]
+
+        if trim_0_dX and delta_state:
+            X = X[np.all(dX[:, 6:] != 0, axis=1)]
+            U = U[np.all(dX[:, 6:] != 0, axis=1)]
+            dX = dX[np.all(dX[:, 6:] != 0, axis=1)]
+    
+        # font = {'size': 22,'family': 'serif', 'serif': ['Times']}
+        font = {'size': 12}
+
+        matplotlib.rc('font', **font)
+        matplotlib.rc('lines', linewidth=1.25)
+        matplotlib.rc('text', usetex=True)
+
+        # plt.tight_layout()
+
+        fig = plt.figure()
+        with sns.axes_style("whitegrid"):
+            plt.rcParams["font.family"] = "Times New Roman"
+            plt.rcParams["axes.edgecolor"] = "0.15"
+            plt.rcParams["axes.linewidth"] = 1.5
+            plt.subplots_adjust(top=.93, bottom=0.13, left=.13,
+                                right=1-.03, hspace=.25)
+            ax1 = plt.subplot(111)
+
+        # ax1.set_title("Logged Iono Data")
+        # ax1.set_xlabel("Datapoint (No Timestamp)")
+        # ax1.set_ylabel("Angle (Degrees)")
+        # ax1.plot(X[:, 6], label='pitch')
+        # ax1.plot(X[:, 7], label='roll')
+        # ax1.plot(X[:, 8], label='yaw')
+        # ax1.legend()
+        
+        # fig.set_size_inches(8, 4.5)
+
+        # # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
+
+        # plt.savefig('iono_flight.pdf', format='pdf', dpi=300)
+
+        # print("State data shape, ", X.shape)
+        # print("Input data shape, ", U.shape)
+        # print("Change state data shape, ", dX.shape)
+
+        return X, U, dX

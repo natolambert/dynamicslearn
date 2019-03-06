@@ -73,7 +73,9 @@ load_params ={
     'battery' : True,                   # if battery voltage is in the state data
     'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
     'fastLog' : True,                   # if using the software with the new fast log
-    'contFreq' : 1                      # Number of times the control freq you will be using is faster than that at data logging
+    'contFreq' : 1,                      # Number of times the control freq you will be using is faster than that at data logging
+    'iono_data': True,
+    'zero_yaw': True
 }
 
 # for generating summaries
@@ -137,7 +139,10 @@ dir_list = ["_newquad1/publ2/c25_rand/",
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-df = load_dirs(dir_list, load_params)
+df = stack_dir_pd_iono('broken/', load_params)
+# print(df.columns)
+# quit()
+# df = load_dirs(dir_list, load_params)
 
 '''
 ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
@@ -176,7 +181,7 @@ data_params = {
                         'd_pitch', 'd_roll', 'd_yaw',
                         't1_lina_x', 't1_lina_y', 't1_lina_z'],
 
-    'battery' : True                    # Need to include battery here too
+    'battery' : False                    # Need to include battery here too
 }
 
 # the true state target values

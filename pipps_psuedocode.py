@@ -4,11 +4,14 @@ import torch.nn as nn
 import torch
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import random
+from collections import OrderedDict
 # For training policies following the Probablistic Inference for PArticle-Based Policy Search Guidelines
 # http://proceedings.mlr.press/v80/parmas18a.html
 
 # Need to load: a dynamics model, a policy to be updated on 
 
+# For visualizing the computation graph
+from torchviz import make_dot
 
 '''
  Some variable names and intuition:
@@ -53,23 +56,26 @@ class PIPPS_policy(nn.Module):
         self.n_in = nn_params['dx']
         self.n_out = nn_params['du']
         self.activation = nn_params['activation']
+        self.activation = nn.ReLU()
         self.d = nn_params['dropout']
 
         # create object nicely
         layers = []
-        layers.append(nn.Linear(self.n_in, self.hidden_w))       # input layer
-        layers.append(self.activation)
-        layers.append(nn.Dropout(p=self.d))
+        layers.append(('pipps_input_lin', nn.Linear(self.n_in, self.hidden_w)))       # input layer
+        layers.append(('pipps_input_act', self.activation))
+        # layers.append(nn.Dropout(p=self.d))
         for d in range(self.depth):
             # add modules
             # input layer
-            layers.append(nn.Linear(self.hidden_w, self.hidden_w))
-            layers.append(self.activation)
-            layers.append(nn.Dropout(p=self.d))
+            layers.append(
+                ('pipps_lin_'+str(d), nn.Linear(self.hidden_w, self.hidden_w)))
+            layers.append(('pipps_act_'+str(d), self.activation))
+            # layers.append(nn.Dropout(p=self.d))
 
         # output layer
-        layers.append(nn.Linear(self.hidden_w, self.n_out))
-        self.features = nn.Sequential(*layers)
+        layers.append(('pipps_out_lin', nn.Linear(self.hidden_w, self.n_out)))
+        # print(*layers)
+        self.features = nn.Sequential(OrderedDict([*layers]))
 
         # create scalars, these may help with probability predictions
         self.scalarX = StandardScaler()
@@ -78,9 +84,8 @@ class PIPPS_policy(nn.Module):
         self.dynam_model = dynam_model
 
         # sets policy parameters
-        self.N = policy_update_params['N']
         self.T = policy_update_params['T']
-        self.P = 10
+        self.P = policy_update_params['P']
         self.lr = policy_update_params['learning_rate']
         
     
@@ -100,7 +105,7 @@ class PIPPS_policy(nn.Module):
         x = self.features(x)
         return x
 
-    def predict(self, X, U):
+    def predict(self, X):
         """
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
@@ -108,9 +113,10 @@ class PIPPS_policy(nn.Module):
 
         #normalizing and converting to single sample
         normX = self.scalarX.transform(X.reshape(1, -1))
-        normU = self.scalarU.transform(U.reshape(1, -1))
+        # normU = self.scalarU.transform(U.reshape(1, -1))
 
-        input = torch.Tensor(np.concatenate((normX, normU), axis=1))
+        # input = torch.Tensor(np.concatenate((normX, normU), axis=1))
+        input = torch.Tensor(normX)
 
         NNout = self.forward(input).data[0]
 
@@ -161,7 +167,10 @@ class PIPPS_policy(nn.Module):
             
             # Change in state vs raw state key
             pred_key = dynam_model.change_state_list
-            print(pred_key)
+            # print(pred_key)
+
+            # TODO: Generate initial states for each particle based on the distribution of data it was trained on
+            
             
             # iterate through each particle for the states and probabilites for gradient
             for p in range(self.P):
@@ -178,6 +187,7 @@ class PIPPS_policy(nn.Module):
                 x0 = torch.Tensor(observations[random.randint(0,num_obs),:])
 
                 state_mat = x0.view((1, 1, -1))
+                # print(state_mat)
                 # state_mat = x0.unsqueeze(0).unsqueeze(0)    # takes a (n_in) vector to a (1,1,n_in) Tensor
                 # torch.cat((), axis = 1) to cat the times
                 # torch.cat((), axis = 0) to cat the particle
@@ -187,7 +197,8 @@ class PIPPS_policy(nn.Module):
                 for t in range(self.T):
                     # generate action from the policy
                     action = self.forward(state_mat[0,t,:])
-                    # TODO: to properly backprop through the policy, cannot overwite state, we need to store state in a big array
+                    # print(action)
+                    # quit()
 
                     # forward pass current state to generate distribution values from dynamics model
                     means, var = model.distribution(state_mat[0, t, :], action)
@@ -216,37 +227,58 @@ class PIPPS_policy(nn.Module):
                     state = torch.Tensor(vals).view((1, 1, -1))
 
                     state_mat = torch.cat((state_mat, state), 1) # appends the currnt state to the current particle, without overwriting the otherone
-
+                
+                # print(state_mat)
                 # calculates costs
-                # idea ~ alculate the cost of each each element and then do an cumulative sum for the costs
+                # idea ~ calculate the cost of each each element and then do an cumulative sum for the costs
                 # use torch.cumsum
-                for t in range(self.T):
-                    c_row = self.cost_fnc(states[t, :])
-
+                c_list = []
+                for state in state_mat.squeeze():
+                    c_row = self.cost_fnc(state)
+                    c_list.append(c_row)
+                c_list = torch.stack(c_list)
+                
+                # note we calc the cum sum on the flipped tensor, then flip costs back
+                cost_cum = torch.cumsum(torch.flip(c_list,[0]),0)
                 # Assembles the arrays for the current particle
                 
+                
                 # costs were given above
-                costs = torch.cat((costs, c_row), 0)
+                costs = torch.cat((costs, torch.flip(cost_cum, [0]).view(1,-1)), 0)
 
                 # update the states array for each particle
                 states = torch.cat((states, state_mat), 0) 
 
                 # concatenates the vector of prob at each time to the 2d array
-                probabilities = torch.cat((probabilities, prob_vec.view((1,-1))), 0)
+                probabilities = torch.cat((probabilities, prob_vect.view((1,-1))), 0)
 
 
 
             # calculates baselines as the leave one out mean for each particle at each time
+            costs_summed = torch.sum(costs,0)
+            costs_summed_exp = costs_summed.expand_as(costs)
+            costs_leave_one_out = costs_summed_exp-costs
+            baselines = costs_leave_one_out/(self.P-1)
+            
 
             # freezes gradients on costs and baselines
             # these two lines of code actually do nothing, but are for clarification
-            costs.requires_grad_(requires_grad=False)
-            baselines.requires_grad_(requires_grad=False)
+            # costs.requires_grad_(requires_grad=False)
+            # baselines.requires_grad_(requires_grad=False)
             # . detach() is another way to ensure this
-            # costs.detach()
-            # baselines.detach()
+            """
+            RuntimeError: you can only change requires_grad flags of leaf variables. If you want to use a 
+               computed variable in a subgraph that doesn't require differentiation use var_no_grad = var.detach().
+            """
+            costs_d = costs.detach()
+            baselines_d = baselines.detach()
+            # costs_d = costs.requires_grad_(False)
+            # baselines_d = baselines.requires_grad_(False)
+            # print(baselines)
+            # print(probabilities)
+            # print(costs)
 
-            return states, probabilities, costs, baselines
+            return states, probabilities, costs_d, baselines_d
 
     def policy_step(self, observations):
 
@@ -267,9 +299,17 @@ class PIPPS_policy(nn.Module):
         # the values are of the form (#P, T), so we first recude across dim 1 to get (#P,1) and then the mean to get the value
         # take the mean over each particle for the sum of the trajectories
         weighted_costs = torch.mean(torch.sum((probabilities*(costs-baselines)), dim=1), dim=0)
+        print(weighted_costs)
+        # print(self.features[0].weight)
+        
+        # dot = make_dot(weighted_costs) #, params=dict(self.features.named_parameters()))
+        # # dot = make_dot(weighted_costs, params=dict(
+        #     # self.features.named_parameters()))
 
+        # dot.view()
         # call gradient.step based on a policy update parameter
-        weighted_costs.backwards()
+        weighted_costs.backward()
+        # print(self.features[4].weight.grad)
         optimizer.step()
 
         # log prob term psuedo
@@ -295,6 +335,14 @@ class PIPPS_policy(nn.Module):
 
     def set_cost_function(self, cost, cost_explanation = ''):
         self.cost_fnc = cost
+
+    def viz_comp_graph(self, var):
+        # inputs = torch.randn(self.n_in)
+        # y = f(Variable(inputs), self.features)
+        # make_dot(y, self.features)
+        dot = make_dot(var, params=dict(self.features.named_parameters()))
+        dot.view()
+        quit()
 
 
 

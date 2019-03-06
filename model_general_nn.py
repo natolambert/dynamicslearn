@@ -23,6 +23,7 @@ from _activation_swish import Swish
 from model_split_nn import SplitModel
 # from model_split_nn_v2 import SplitModel2
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 # neural nets
 from model_split_nn import SplitModel
@@ -85,18 +86,22 @@ class GeneralNN(nn.Module):
         else:
             # create object nicely
             layers = []
-            layers.append(nn.Linear(self.n_in, self.hidden_w))       # input layer
-            layers.append(self.activation)
-            layers.append(nn.Dropout(p=self.d))
+            layers.append(('dynm_input_lin', nn.Linear(
+                self.n_in, self.hidden_w)))       # input layer
+            layers.append(('dynm_input_act', self.activation))
+            # layers.append(nn.Dropout(p=self.d))
             for d in range(self.depth):
                 # add modules
-                layers.append(nn.Linear(self.hidden_w, self.hidden_w))       # input layer
-                layers.append(self.activation)
-                layers.append(nn.Dropout(p=self.d))
+                # input layer
+                layers.append(
+                    ('dynm_lin_'+str(d), nn.Linear(self.hidden_w, self.hidden_w)))
+                layers.append(('dynm_act_'+str(d), self.activation))
+                # layers.append(nn.Dropout(p=self.d))
 
             # output layer
-            layers.append(nn.Linear(self.hidden_w, self.n_out))
-            self.features = nn.Sequential(*layers)
+            layers.append(('dynm_out_lin', nn.Linear(self.hidden_w, self.n_out)))
+            # print(*layers)
+            self.features = nn.Sequential(OrderedDict([*layers]))
 
     def init_weights_orth(self):
         # inits the NN with orthogonal weights
