@@ -6,6 +6,8 @@ import torch
 import numpy as np
 from utils.nn import *
 from utils.data import *
+# from utils.rl import *
+import utils.rl
 
 load_params = {
     'delta_state': True,                # normally leave as True, prediction mode
@@ -29,7 +31,8 @@ load_params = {
 
 ############ SETUP EXPERIMENT ENV ########################
 # env = gym.make('CartPole-v1')
-env = gym.make('MountainCarContinuous-v0')
+# env = gym.make('MountainCarContinuous-v0')
+env = gym.make("CartPoleContEnv-v0")
 # double bounds
 # env.unwrapped.theta_threshold_radians = 2*env.unwrapped.theta_threshold_radians
 # env.unwrapped.x_threshold = 2*env.unwrapped.x_threshold
@@ -39,24 +42,31 @@ actions = []
 rewards = []
 for i_episode in range(50):
     observation = env.reset()
+    rewards = []
     for t in range(100):
         # env.render()
 
         action = env.action_space.sample()
         observation, reward, done, info = env.step(action)
+        
+        #reshape obersvation
+        observation = observation.reshape(-1,1)
         # print(action)
         observations.append(observation)
         actions.append([action])
         rewards.append(reward)
 
         if done:
-            # print("Episode finished after {} timesteps".format(t+1))
+            print("Episode finished after {} timesteps".format(t+1))
+            print("Ep reward: ", np.sum(rewards))
             break
+    
 
 ############ PROCESS DATA ########################
-o = np.array(observations)
-actions = np.array(actions).reshape(-1,1)
+# o = np.array(observations)    # mountain car
+o = np.array(observations).squeeze()      # cartpole
 
+actions = np.array(actions).reshape(-1,1)
 # shape into trainable set
 d_o = o[1:,:]-o[:-1,:]
 actions = actions[:-1,:]
@@ -123,7 +133,7 @@ pipps_nn_params = {                           # all should be pretty self-explan
 policy_update_params = {
     'P': 100,
     'T': 15,
-    'learning_rate': 3e-2,
+    'learning_rate': 3e-3,
 }
 
 ############ INITAL PIPPS POLICY ########################
@@ -151,9 +161,10 @@ def simple_cost_cartpole(vect):
 def simple_cost_car(vect):
     l_pos = 10
     l_vel = 2.5
-    return l_pos*vect[0]**2 + l_vel*vect[1]**2 
+    return -l_pos*vect[0] #+ l_vel*vect[1]**2 
         
-PIPPSy.set_cost_function(simple_cost_car)
+
+PIPPSy.set_cost_function(simple_cost_cartpole)
 
 # set baseline function
 PIPPSy.set_baseline_function(np.mean)
@@ -167,11 +178,13 @@ for p in range(P_rollouts):
     print("------ PIPPS Training Rollout", p, " ------")
     observations_new = []
     actions = []
-    rewards = []
+    rewards_fin = []
     for i_episode in range(10):
         observation = env.reset()
+        rewards = []
         for t in range(100):
-            # env.render()
+            if p > 10: env.render()
+            observation = observation.reshape(-1)
             # print(observation)
             # action = PIPPSy.predict(observation)  # env.action_space.sample()
             action = PIPPSy.forward(torch.Tensor([observation]))  # env.action_space.sample()
@@ -180,20 +193,24 @@ for p in range(P_rollouts):
             # action = action.int().data.numpy()[0]
             action = action.data.numpy()
             # print(action)
-
+            
             observation, reward, done, info = env.step(action[0])
 
+            observation = observation.reshape(-1, 1)
             observations_new.append(observation)
             actions.append([action])
             rewards.append(reward)
+            
 
             if done:
                 # print("Episode finished after {} timesteps".format(t+1))
+                # print(np.sum(rewards))
+                rewards_fin.append(np.sum(rewards))
                 break
-
-    # o = np.concatenate((o,observations_new),0)
+    observations_new = np.array(observations_new).squeeze()
+    o = np.concatenate((o,observations_new),0)
     print("New Dataset has shape: ", np.shape(o))
-    print("Reward at this iteration: ", np.mean(rewards))
+    print("Reward at this iteration: ", np.mean(rewards_fin))
     print('---')
     PIPPSy.policy_step(np.array(o))
     # print('---')

@@ -6,13 +6,13 @@ import numpy as np
 
 from gymenv_quad import QuadEnv
 
-import rlkit.torch.pytorch_util as ptu
-from rlkit.envs.wrappers import NormalizedBoxEnv
-from rlkit.launchers.launcher_util import setup_logger
-from rlkit.torch.sac.policies import TanhGaussianPolicy
-from rlkit.torch.sac.sac import SoftActorCritic
-from rlkit.torch.networks import FlattenMlp
-from rlkit.torch.sac.twin_sac import TwinSAC
+import rlkit.rlkit.torch.pytorch_util as ptu
+from rlkit.rlkit.envs.wrappers import NormalizedBoxEnv
+from rlkit.rlkit.launchers.launcher_util import setup_logger
+from rlkit.rlkit.torch.sac.policies import TanhGaussianPolicy
+from rlkit.rlkit.torch.sac.sac import SoftActorCritic
+from rlkit.rlkit.torch.networks import FlattenMlp
+from rlkit.rlkit.torch.sac.twin_sac import TwinSAC
 
 
 def experiment(variant):

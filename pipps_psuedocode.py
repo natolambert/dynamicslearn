@@ -153,7 +153,7 @@ class PIPPS_policy(nn.Module):
             # for storing the costs and gradients
             costs = torch.Tensor()
             baselines = torch.Tensor()
-            probabilities = torch.Tensor()
+            log_probabilities = torch.Tensor()
             states = torch.Tensor()
             ''' 
             # for all of these values, think a row as an updating time series for each particle
@@ -192,7 +192,7 @@ class PIPPS_policy(nn.Module):
                 # torch.cat((), axis = 1) to cat the times
                 # torch.cat((), axis = 0) to cat the particle
                 # is there a way to do this without unsqueeze? Seems like the most efficient way
-                prob_vect = torch.Tensor([1])   #states the column with 1 for concat'ing
+                log_prob_vect = torch.Tensor([1])   #states the column with 1 for concat'ing
     
                 for t in range(self.T):
                     # generate action from the policy
@@ -209,7 +209,7 @@ class PIPPS_policy(nn.Module):
 
 
                     # batch mode prob calc
-                    probs = -.5*torch.abs(vals - means)/var
+                    log_probs = -.5*torch.abs(vals - means)/var
 
                     # for s in range(self.n_in):
                     #     # sample predicted new state for each element
@@ -221,8 +221,8 @@ class PIPPS_policy(nn.Module):
                     # probabilities = torch.cat((probabilities, p), 0)
 
                     # reduce the probabilities vector to get a single probability of the state transition
-                    prob = torch.prod((probs), 1)
-                    prob_vect = torch.cat((prob_vect, prob))
+                    log_prob = torch.sum((log_probs), 1)
+                    log_prob_vect = torch.cat((log_prob_vect, log_prob))
 
                     state = torch.Tensor(vals).view((1, 1, -1))
 
@@ -250,7 +250,8 @@ class PIPPS_policy(nn.Module):
                 states = torch.cat((states, state_mat), 0) 
 
                 # concatenates the vector of prob at each time to the 2d array
-                probabilities = torch.cat((probabilities, prob_vect.view((1,-1))), 0)
+                log_probabilities = torch.cat(
+                    (log_probabilities, log_prob_vect.view((1, -1))), 0)
 
 
 
@@ -278,7 +279,7 @@ class PIPPS_policy(nn.Module):
             # print(probabilities)
             # print(costs)
 
-            return states, probabilities, costs_d, baselines_d
+            return states, log_probabilities, costs_d, baselines_d
 
     def policy_step(self, observations):
 
