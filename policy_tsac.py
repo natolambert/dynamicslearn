@@ -4,7 +4,7 @@ from TD3: https://arxiv.org/pdf/1802.09477.pdf
 """
 import numpy as np
 
-from quad_env import QuadEnv
+from gymenv_quad import QuadEnv
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.wrappers import NormalizedBoxEnv

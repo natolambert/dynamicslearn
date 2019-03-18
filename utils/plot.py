@@ -1756,3 +1756,17 @@ def plot_flight_segment(fname, load_params):
     # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
     plt.savefig('segment.pdf', format='pdf', dpi=300)
+
+def plot_prediction_histograms(dataset, model1, model2, model3=[]):
+    """
+    Takes in a dataset and three models trained on said datashet. Returns a plot that is showing the 
+        predicted states given all state action pairs, across all dimensions. What I hope to show is that 
+        the model prediction changes so some reasonable change in prediction. If not, wee look at trajectories
+    """
+
+def plot_prediction_histograms_traj(dataset, model1, model2, model3=[]):
+    """
+    This builds on plot_predictions_histograms and plots the predictions verses ground truth over all simualted
+        trajectories. The trajectoriees are of leength of the flight rollout, so some will get quite long.
+
+    """

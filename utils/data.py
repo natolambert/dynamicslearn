@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib
 import seaborn as sns
 import csv
+from scipy.signal import butter, lfilter, freqz
 
 
 def stack_dir_pd(dir, load_params):
@@ -933,6 +934,7 @@ def load_iono_txt(fname, load_params):
     shuffle_here = False #load_params['shuffle_here']
     battery = False
     zero_yaw = load_params['zero_yaw']
+    m_avg = int(load_params['moving_avg'])
 
     # files = os.listdir("_logged_data_autonomous/"+dir)
     file = "_logged_data_autonomous/iono/" + fname
@@ -945,8 +947,7 @@ def load_iono_txt(fname, load_params):
         # print(new_data)
         # print(new_data.shape)
 
-        if zero_yaw:
-            new_data[:, 6] = new_data[0, 6]
+        
 
         serial_error_flag = (
             ((new_data[:, -1] > -360) & (new_data[:, -1] < 360)) &  # yaw
@@ -956,8 +957,26 @@ def load_iono_txt(fname, load_params):
             ((new_data[:, 5] > -500) & (new_data[:, 5] < 500)) &
             ((new_data[:, 6] > -500) & (new_data[:, 6] < 500))
         )
-
+        
+    
         new_data = new_data[serial_error_flag,:]
+
+        if True and m_avg > 1:
+            # fitlers the euler angles by targeted value
+            new_data[:, -1] = np.convolve(
+                new_data[:, -1], np.ones((m_avg,))/m_avg, mode='same')
+            new_data[:, -2] = np.convolve(
+                new_data[:, -2], np.ones((m_avg,))/m_avg, mode='same')
+            new_data[:, -3] = np.convolve(
+                new_data[:, -3], np.ones((m_avg,))/m_avg, mode='same')
+
+            # filters accelerations by 2
+            new_data[:, 4] = np.convolve(
+                new_data[:, 4], np.ones((2,))/2, mode='same')
+            new_data[:, 5] = np.convolve(
+                new_data[:, 5], np.ones((2,))/2, mode='same')
+            new_data[:, 6] = np.convolve(
+                new_data[:, 6], np.ones((2,))/2, mode='same')
         
         # Check the range for each val
         if False:
@@ -989,7 +1008,7 @@ def load_iono_txt(fname, load_params):
                     :] = np.flip(new_data[i-input_stack:i, 0:4], axis=0).reshape(1, -1)
                 X[i-input_stack,
                     :] = np.flip(new_data[i-input_stack:i, 4:], axis=0).reshape(1, -1)
-
+            
             if delta_state:
                 # Starts after the data that has requesit U values
                 dX = X[1:, :dx]-X[:-1, :dx]
@@ -1000,12 +1019,20 @@ def load_iono_txt(fname, load_params):
                 dX = X[1:, :dx]  # -X[:-1,:]
                 X = X[:-1, :]
                 U = U[:-1, :]
+            
+            if zero_yaw:
+                # Need to change to correct dimension here
+                X[:, 8] = X[:, 8]-X[0, 8]
 
         # print("State data shape, ", X.shape)
         # print("Input data shape, ", U.shape)
         # print("Change state data shape, ", dX.shape)
         
-
+        if trim_0_dX and delta_state:
+            X = X[np.all(dX[:, 6:] != 0, axis=1)]
+            U = U[np.all(dX[:, 6:] != 0, axis=1)]
+            dX = dX[np.all(dX[:, 6:] != 0, axis=1)]
+        
         # trims large change is state as we think they are non-physical and a
         #   result of the sensor fusion. Note, this could make prediction less stable
         if trime_large_dX and delta_state:
@@ -1017,47 +1044,112 @@ def load_iono_txt(fname, load_params):
                 ((dX[:, 7] > -8) & (dX[:, 7] < 8)) &
                 ((dX[:, 8] > -8) & (dX[:, 8] < 8))
             )
+            
             #
             X = X[glag, :]
             dX = dX[glag, :]
             U = U[glag, :]
 
-        if trim_0_dX and delta_state:
-            X = X[np.all(dX[:, 6:] != 0, axis=1)]
-            U = U[np.all(dX[:, 6:] != 0, axis=1)]
-            dX = dX[np.all(dX[:, 6:] != 0, axis=1)]
-    
-        # font = {'size': 22,'family': 'serif', 'serif': ['Times']}
-        font = {'size': 12}
+            dX = X[1:, :dx]-X[:-1, :dx]
+            X = X[:-1, :]
+            U = U[:-1, :]
+            glag = (
+                ((dX[:, 3] > -7.5) & (dX[:, 3] < 7.5)) &
+                ((dX[:, 4] > -7.5) & (dX[:, 4] < 7.5)) &
+                ((dX[:, 5] > -7.5) & (dX[:, 5] < 7.5)) &
+                ((dX[:, 6] > -8) & (dX[:, 6] < 8)) &
+                ((dX[:, 7] > -8) & (dX[:, 7] < 8)) &
+                ((dX[:, 8] > -8) & (dX[:, 8] < 8))
+            )
 
-        matplotlib.rc('font', **font)
-        matplotlib.rc('lines', linewidth=1.25)
-        matplotlib.rc('text', usetex=True)
+            #
+            X = X[glag, :]
+            dX = dX[glag, :]
+            U = U[glag, :]
 
-        # plt.tight_layout()
+            dX = X[1:, :dx]-X[:-1, :dx]
+            X = X[:-1, :]
+            U = U[:-1, :]
+            glag = (
+                ((dX[:, 3] > -7.5) & (dX[:, 3] < 7.5)) &
+                ((dX[:, 4] > -7.5) & (dX[:, 4] < 7.5)) &
+                ((dX[:, 5] > -7.5) & (dX[:, 5] < 7.5)) &
+                ((dX[:, 6] > -8) & (dX[:, 6] < 8)) &
+                ((dX[:, 7] > -8) & (dX[:, 7] < 8)) &
+                ((dX[:, 8] > -8) & (dX[:, 8] < 8))
+            )
 
-        fig = plt.figure()
-        with sns.axes_style("whitegrid"):
-            plt.rcParams["font.family"] = "Times New Roman"
-            plt.rcParams["axes.edgecolor"] = "0.15"
-            plt.rcParams["axes.linewidth"] = 1.5
-            plt.subplots_adjust(top=.93, bottom=0.13, left=.13,
-                                right=1-.03, hspace=.25)
-            ax1 = plt.subplot(111)
+            #
+            X = X[glag, :]
+            dX = dX[glag, :]
+            U = U[glag, :]
+            
+            # this is repeated three times for some anomolous serial data
+       
 
-        # ax1.set_title("Logged Iono Data")
-        # ax1.set_xlabel("Datapoint (No Timestamp)")
-        # ax1.set_ylabel("Angle (Degrees)")
-        # ax1.plot(X[:, 6], label='pitch')
-        # ax1.plot(X[:, 7], label='roll')
-        # ax1.plot(X[:, 8], label='yaw')
-        # ax1.legend()
-        
-        # fig.set_size_inches(8, 4.5)
+        if False:
+            # font = {'size': 22,'family': 'serif', 'serif': ['Times']}
+            font = {'size': 12}
 
-        # # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
+            matplotlib.rc('font', **font)
+            matplotlib.rc('lines', linewidth=1.25)
+            matplotlib.rc('text', usetex=True)
 
-        # plt.savefig('iono_flight.pdf', format='pdf', dpi=300)
+            # plt.tight_layout()
+
+            fig = plt.figure()
+            with sns.axes_style("whitegrid"):
+                plt.rcParams["font.family"] = "Times New Roman"
+                plt.rcParams["axes.edgecolor"] = "0.15"
+                plt.rcParams["axes.linewidth"] = 1.5
+                plt.subplots_adjust(top=.93, bottom=0.13, left=.13,
+                                    right=1-.03, hspace=.25)
+                ax1 = plt.subplot(111)
+                
+
+            ax1.set_title("Logged Iono Data")
+            ax1.set_xlabel("Datapoint (No Timestamp)")
+            ax1.set_ylabel("Angle (Degrees)")
+
+            if False:
+                def butter_lowpass(cutoff, fs, order=5):
+                    nyq = 0.5 * fs
+                    normal_cutoff = cutoff / nyq
+                    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+                    return b, a
+
+
+                def butter_lowpass_filter(data, cutoff, fs, order=5):
+                    b, a = butter_lowpass(cutoff, fs, order=order)
+                    y = lfilter(b, a, data)
+                    return y
+                
+                # Filter requirements.
+                order = 6
+                fs = 100.0       # sample rate, Hz
+                cutoff = 1.667  # desired cutoff frequency of the filter, Hz
+                
+                # Get the filter coefficients so we can check its frequency response.
+                b, a = butter_lowpass(cutoff, fs, order)
+
+                ax1.plot(butter_lowpass_filter(
+                    X[:, 6], cutoff, fs, order), label='filtered pitch')
+                ax1.plot(butter_lowpass_filter(
+                    X[:, 7], cutoff, fs, order), label='filtered roll')
+                ax1.plot(butter_lowpass_filter(
+                    X[:, 8], cutoff, fs, order), label='filtered yaw')
+            else:   
+                ax1.plot(X[:, 6], label='pitch')
+                ax1.plot(X[:, 7], label='roll')
+                ax1.plot(X[:, 8], label='yaw')
+            ax1.legend()
+            # plt.show()
+            fig.set_size_inches(8, 4.5)
+
+            # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
+
+            plt.savefig('iono_flight.pdf', format='pdf', dpi=300)
+            # quit()
 
         # print("State data shape, ", X.shape)
         # print("Input data shape, ", U.shape)

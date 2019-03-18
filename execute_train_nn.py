@@ -75,7 +75,8 @@ load_params ={
     'fastLog' : True,                   # if using the software with the new fast log
     'contFreq' : 1,                      # Number of times the control freq you will be using is faster than that at data logging
     'iono_data': True,
-    'zero_yaw': True
+    'zero_yaw': True,
+    'moving_avg': 7
 }
 
 # for generating summaries
@@ -214,11 +215,11 @@ nn_params = {                           # all should be pretty self-explanatory
 }
 
 train_params = {
-    'epochs' : 28,
+    'epochs' : 40,
     'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .00175, # bayesian .00175, mse:  .0001
+    'lr': .00275, # bayesian .00175, mse:  .0001
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -230,6 +231,7 @@ train_params = {
 if log:
     with open('_training_logs/'+'logfile' + date_str + '.txt', 'w') as my_file:
         my_file.write("Logfile for training run: " + date_str +"\n")
+        my_file.write("Net Name: " + str(model_name) + "\n")
         my_file.write("============================================="+"\n")
         my_file.write("Data Load Params:"+"\n")
         for k, v in load_params.items():
@@ -248,8 +250,10 @@ if log:
 
 
 if ensemble:
-    newNN = EnsembleNN(nn_params,10)
+    newNN = EnsembleNN(nn_params,7)
     acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
+
+    print(acctest)
 
 else:
     newNN = GeneralNN(nn_params)
@@ -260,12 +264,18 @@ else:
 newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['targets'])
 
 # plot
-min_err = np.min(acctrain)
-min_err_test = np.min(acctest)
+if ensemble:
+    min_err = np.min(acctrain,0)
+    min_err_test = np.min(acctest,0)
+else:
+    min_err = np.min(acctrain)
+    min_err_test = np.min(acctest)
 
 if log:
     with open('_training_logs/'+'logfile' + date_str + '.txt', 'a') as my_file:
+        my_file.write("Prediction List" + str(data_params['targets'])+"\n")
         my_file.write("Min test error: " +str(min_err_test)+ "\n")
+        my_file.write("Mean Min test error: " + str(np.mean(min_err_test)) + "\n")
         my_file.write("Min train error: " +str(min_err)+ "\n")
 
 ax1 = plt.subplot(211)
