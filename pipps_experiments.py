@@ -1,6 +1,9 @@
 from pipps_psuedocode import PIPPS_policy
 import gym
 from model_general_nn import GeneralNN
+
+from model_ensemble_nn import EnsembleNN
+
 import torch.nn as nn
 import torch
 import numpy as np
@@ -8,6 +11,11 @@ from utils.nn import *
 from utils.data import *
 # from utils.rl import *
 import utils.rl
+
+# saving files
+import datetime
+import pickle
+import time
 
 load_params = {
     'delta_state': True,                # normally leave as True, prediction mode
@@ -26,6 +34,10 @@ load_params = {
     'terminals': True
 }
 
+# if not saving, loads an old model
+save = False
+
+
 # load_iono_txt('data_wiggle.txt', load_params)
 # quit()
 
@@ -39,8 +51,9 @@ env = gym.make("CartPoleContEnv-v0")
 
 observations = []
 actions = [] 
-rewards = []
-for i_episode in range(50):
+rewards_tot = []
+rand_ep = 100 if save else 0
+for i_episode in range(rand_ep):
     observation = env.reset()
     rewards = []
     for t in range(100):
@@ -57,83 +70,126 @@ for i_episode in range(50):
         rewards.append(reward)
 
         if done:
-            print("Episode finished after {} timesteps".format(t+1))
-            print("Ep reward: ", np.sum(rewards))
+            # print("Episode finished after {} timesteps".format(t+1))
+            # print("Ep reward: ", np.sum(rewards)) 
+            rewards_tot.append(np.sum(rewards))
             break
     
 
 ############ PROCESS DATA ########################
 # o = np.array(observations)    # mountain car
-o = np.array(observations).squeeze()      # cartpole
+if save:
+    o = np.array(observations).squeeze()      # cartpole
 
-actions = np.array(actions).reshape(-1,1)
-# shape into trainable set
-d_o = o[1:,:]-o[:-1,:]
-actions = actions[:-1,:]
-o = o[:-1,:]
+    actions = np.array(actions).reshape(-1,1)
+    # shape into trainable set
+    d_o = o[1:,:]-o[:-1,:]
+    actions = actions[:-1,:]
+    o = o[:-1,:]
 
-print('---')
-print("X has shape: ", np.shape(o))
-print("U has shape: ", np.shape(actions))
-print("dX has shape: ", np.shape(d_o))
-print('---')
+    print('---')
+    print("X has shape: ", np.shape(o))
+    print("U has shape: ", np.shape(actions))
+    print("dX has shape: ", np.shape(d_o))
+    print("Mean Random Reward: ", np.mean(rewards_tot))
+    print('---')
 
-############ TRAIN MODEL ########################
-ensemble = False
+    ############ TRAIN MODEL ########################
+    ensemble = False
 
-nn_params = {                           # all should be pretty self-explanatory
-    'dx': np.shape(o)[1],
-    'du': np.shape(actions)[1],
-    'dt': np.shape(d_o)[1],
-    'hid_width': 250,
-    'hid_depth': 2,
-    'bayesian_flag': True,
-    'activation': Swish(),
-    'dropout': 0.0,
-    'split_flag': False,
-    'pred_mode': 'Delta State',
-    'ensemble': ensemble
-}
+    nn_params = {                           # all should be pretty self-explanatory
+        'dx': np.shape(o)[1],
+        'du': np.shape(actions)[1],
+        'dt': np.shape(d_o)[1],
+        'hid_width': 250,
+        'hid_depth': 2,
+        'bayesian_flag': True,
+        'activation': Swish(),
+        'dropout': 0.0,
+        'split_flag': False,
+        'pred_mode': 'Delta State',
+        'ensemble': ensemble
+    }
 
-train_params = {
-    'epochs': 28,
-    'batch_size': 18,
-    'optim': 'Adam',
-    'split': 0.8,
-    'lr': .00175,  # bayesian .00175, mse:  .0001
-    'lr_schedule': [30, .6],
-    'test_loss_fnc': [],
-    'preprocess': True,
-    'noprint': True
-}
+    train_params = {
+        'epochs': 32,
+        'batch_size': 18,
+        'optim': 'Adam',
+        'split': 0.8,
+        'lr': .00375,  # bayesian .00175, mse:  .0001
+        'lr_schedule': [30, .6],
+        'test_loss_fnc': [],
+        'preprocess': True,
+        'noprint': True
+    }
 
-if ensemble:
-    newNN = EnsembleNN(nn_params, 10)
-    acctest, acctrain = newNN.train_cust((o, actions, d_o), train_params)
+    if ensemble:
+        newNN = EnsembleNN(nn_params, 10)
+        acctest, acctrain = newNN.train_cust((o, actions, d_o), train_params)
 
+    else:
+        newNN = GeneralNN(nn_params)
+        newNN.init_weights_orth()
+        if nn_params['bayesian_flag']:
+            newNN.init_loss_fnc(d_o, l_mean=1, l_cov=1)  # data for std,
+        acctest, acctrain = newNN.train_cust((o, actions, d_o), train_params)
+
+if save:
+    dir_str = str('_models/_cartpole/')
+    data_name = '_cont_100ep_'
+    model_name = 'cartpole_basic'
+    date_str = str(datetime.datetime.now())[:-5]
+    date_str = date_str.replace(' ', '--').replace(':', '-')    
+    # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+    # + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+    info_str = "_" + model_name + "_" #+ "stack" + \
+    model_name = dir_str + date_str + info_str
+    newNN.save_model(model_name + '.pth')
+    print('Saving model to', model_name)
+
+    normX, normU, normdX = newNN.getNormScalers()
+    with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
+        pickle.dump((normX, normU, normdX), pickle_file, protocol=2)
+    time.sleep(2)
+
+    # Saves data file
+    with open(model_name+"--data.pkl", 'wb') as pickle_file:
+      pickle.dump((d_o, actions, o), pickle_file, protocol=2)
+    time.sleep(2)
 else:
-    newNN = GeneralNN(nn_params)
-    newNN.init_weights_orth()
-    if nn_params['bayesian_flag']:
-        newNN.init_loss_fnc(d_o, l_mean=1, l_cov=1)  # data for std,
-    acctest, acctrain = newNN.train_cust((o, actions, d_o), train_params)
+    print("Loading previous model and data")
+    model = '_models/_cartpole/2019-03-19--12-32-21.6_cartpole_basic_.pth'
+    newNN = torch.load(model)
+    newNN.eval()
+
+    data_file = '_models/_cartpole/2019-03-19--12-32-21.6_cartpole_basic_--data.pkl'
+    with open(data_file, 'rb') as pickle_file:
+        (d_o, actions, o) = pickle.load(pickle_file)
+
+    print('---')
+    print("X has shape: ", np.shape(o))
+    print("U has shape: ", np.shape(actions))
+    print("dX has shape: ", np.shape(d_o))
+    print('---')
+
+######### PIPPS PART ###########
 
 pipps_nn_params = {                           # all should be pretty self-explanatory
     'dx': np.shape(o)[1],
     'du': np.shape(actions)[1],
-    'hid_width': 50,
+    'hid_width': 100,
     'hid_depth': 2,
     'bayesian_flag': True,
     'activation': Swish(),
-    'dropout': 0.0,
+    'dropout': 0.2,
     'bayesian_flag': False
 }
 
 # for the pipps policy update step
 policy_update_params = {
-    'P': 100,
-    'T': 15,
-    'learning_rate': 3e-3,
+    'P': 20,
+    'T': 10,
+    'learning_rate': 3e-4,
 }
 
 ############ INITAL PIPPS POLICY ########################
@@ -151,12 +207,12 @@ Observation:
         3	Pole Velocity At Tip    - Inf            Inf
 """
 def simple_cost_cartpole(vect):
-    l_pos = 1
-    l_vel = 5
-    l_theta = 2
-    l_theta_dot = 1
-    return l_pos*vect[0]**2 + l_vel*vect[1]**2 \
-        + l_theta*vect[2]**2 + l_theta_dot*vect[3]**2 
+    l_pos = 100
+    l_vel = 10
+    l_theta = 2000
+    l_theta_dot = 5
+    return 1*(l_pos*(vect[0]**2) + l_vel*vect[1]**2 \
+        + l_theta*(vect[2]**2) + l_theta_dot*vect[3]**2)
 
 def simple_cost_car(vect):
     l_pos = 10
@@ -179,7 +235,7 @@ for p in range(P_rollouts):
     observations_new = []
     actions = []
     rewards_fin = []
-    for i_episode in range(10):
+    for i_episode in range(15):
         observation = env.reset()
         rewards = []
         for t in range(100):
@@ -189,9 +245,9 @@ for p in range(P_rollouts):
             # action = PIPPSy.predict(observation)  # env.action_space.sample()
             action = PIPPSy.forward(torch.Tensor([observation]))  # env.action_space.sample()
             # PIPPSy.viz_comp_graph(action.requires_grad_(True))
-            # print(action)
+            print(action)
             # action = action.int().data.numpy()[0]
-            action = action.data.numpy()
+            action = torch.clamp(action, min = -1, max = 1).data.numpy()
             # print(action)
             
             observation, reward, done, info = env.step(action[0])
@@ -213,5 +269,6 @@ for p in range(P_rollouts):
     print("Reward at this iteration: ", np.mean(rewards_fin))
     print('---')
     PIPPSy.policy_step(np.array(o))
+    PIPPSy.T +=1 # longer horizon with more data
     # print('---')
 

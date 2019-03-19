@@ -440,7 +440,7 @@ class GeneralNN(nn.Module):
 
             #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
-            # if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
+            if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
             # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
             error_train.append(avg_loss.data[0].numpy())
             errors.append(test_error.data[0].numpy())

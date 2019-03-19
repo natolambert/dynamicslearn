@@ -73,7 +73,7 @@ class PIPPS_policy(nn.Module):
             # layers.append(nn.Dropout(p=self.d))
 
         # output layer
-        layers.append(('pipps_out_lin', nn.Linear(self.hidden_w, self.n_out)))
+        layers.append(('pipps_out_lin', nn.Linear(self.hidden_w, self.n_out,bias=True)))
         # print(*layers)
         self.features = nn.Sequential(OrderedDict([*layers]))
 
@@ -93,7 +93,9 @@ class PIPPS_policy(nn.Module):
         # inits the NN with orthogonal weights
         def init_weights(m):
             if type(m) == nn.Linear:
-                nn.init.orthogonal_(m.weight)
+                nn.init.orthogonal_(m.weight, gain =1)
+                # nn.init.uniform_(m.bias, -.5, 0)
+                # nn.init.normal_(m.weight, mean=0,std=.1)
 
         self.features.apply(init_weights)
 
@@ -105,9 +107,9 @@ class PIPPS_policy(nn.Module):
         x = self.features(x)
         return x
 
-    def predict(self, X):
+    def get_action(self, X):
         """
-        Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
+        Gets an action from the NN. Scaled based on the action distribution at previous update
         """
         dx = len(X)
 
@@ -124,6 +126,11 @@ class PIPPS_policy(nn.Module):
         NNout = self.postprocess(NNout).ravel()
 
         return NNout
+
+    def scale_actions(self, actions):
+        """
+        Scales outputs to be from action min to action max
+        """
 
     def postprocess(self, U):
         """
@@ -170,8 +177,11 @@ class PIPPS_policy(nn.Module):
             # print(pred_key)
 
             # TODO: Generate initial states for each particle based on the distribution of data it was trained on
-            
-            
+            bound_up = torch.Tensor(np.max(observations,0))
+            bound_low = torch.Tensor(np.min(observations, 0))
+
+            obs_dist = torch.distributions.uniform.Uniform(bound_low,bound_up)
+
             # iterate through each particle for the states and probabilites for gradient
             for p in range(self.P):
 
@@ -180,12 +190,12 @@ class PIPPS_policy(nn.Module):
                 if num_ens == 0:
                     model = dynam_model
                 else:
-                    model_idx = random.randint(0, num_ens)
+                    model_idx = random.randint(0, num_ens-1)
                     model = dynam_model.networks[model_idx]
                 
                 num_obs = np.shape(observations)[1]
-                x0 = torch.Tensor(observations[random.randint(0,num_obs),:])
-
+                # x0 = torch.Tensor(observations[random.randint(0,num_obs),:])
+                x0 = obs_dist.sample()
                 state_mat = x0.view((1, 1, -1))
                 # print(state_mat)
                 # state_mat = x0.unsqueeze(0).unsqueeze(0)    # takes a (n_in) vector to a (1,1,n_in) Tensor
@@ -209,7 +219,8 @@ class PIPPS_policy(nn.Module):
 
 
                     # batch mode prob calc
-                    log_probs = -.5*torch.abs(vals - means)/var
+                    # log_probs = -.5*torch.abs(vals - means)/var
+                    log_probs = -.5*torch.abs(vals - means)/(var**2)
 
                     # for s in range(self.n_in):
                     #     # sample predicted new state for each element
@@ -278,7 +289,7 @@ class PIPPS_policy(nn.Module):
             # print(baselines)
             # print(probabilities)
             # print(costs)
-
+            print(log_probabilities)
             return states, log_probabilities, costs_d, baselines_d
 
     def policy_step(self, observations):
@@ -300,7 +311,7 @@ class PIPPS_policy(nn.Module):
         # the values are of the form (#P, T), so we first recude across dim 1 to get (#P,1) and then the mean to get the value
         # take the mean over each particle for the sum of the trajectories
         weighted_costs = torch.mean(torch.sum((probabilities*(costs-baselines)), dim=1), dim=0)
-        print(weighted_costs)
+        print("weighted costs: ", weighted_costs)
         # print(self.features[0].weight)
         
         # dot = make_dot(weighted_costs) #, params=dict(self.features.named_parameters()))
