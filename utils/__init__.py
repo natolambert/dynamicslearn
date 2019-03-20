@@ -6,3 +6,8 @@ register(
     id='CartPoleContEnv-v0',
     entry_point='utils.rl:CartPoleContEnv',
 )
+
+register(
+    id='CrazyflieRigid-v0',
+    entry_point='utils.rl:CrazyflieRigidEnv',
+)

@@ -244,15 +244,15 @@ class PIPPS_policy(nn.Module):
 
                     # forward pass current state to generate distribution values from dynamics model
                     means, var = model.distribution(state_mat[0, t, :], action)
-
+                    # print(var)
                     # sample the next state from the means and variances of the state transition probabilities
                     vals = var*norm_dist.sample((1, self.n_in)) + means
                     # need to account for the fact that some states are change in and some are raw here
 
 
                     # batch mode prob calc
-                    # log_probs = -.5*torch.abs(vals - means)/var
-                    log_probs = -.5*torch.abs(vals - means)/(var**2)
+                    log_probs = -.5*torch.abs(vals - means)/var
+                    # log_probs = -.5*torch.abs(vals - means)/(var**2)
 
                     # for s in range(self.n_in):
                     #     # sample predicted new state for each element
@@ -321,7 +321,7 @@ class PIPPS_policy(nn.Module):
             # print(baselines)
             # print(probabilities)
             # print(costs)
-            print(log_probabilities)
+            # print(log_probabilities)
             return states, log_probabilities, costs_d, baselines_d
 
     def policy_step(self, observations):

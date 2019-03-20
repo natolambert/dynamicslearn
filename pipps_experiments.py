@@ -188,7 +188,7 @@ pipps_nn_params = {                           # all should be pretty self-explan
 # for the pipps policy update step
 policy_update_params = {
     'P': 20,
-    'T': 10,
+    'T': 25,
     'learning_rate': 3e-4,
 }
 
@@ -209,7 +209,7 @@ Observation:
 def simple_cost_cartpole(vect):
     l_pos = 100
     l_vel = 10
-    l_theta = 2000
+    l_theta = 200
     l_theta_dot = 5
     return 1*(l_pos*(vect[0]**2) + l_vel*vect[1]**2 \
         + l_theta*(vect[2]**2) + l_theta_dot*vect[3]**2)
@@ -248,7 +248,7 @@ for p in range(P_rollouts):
             action = PIPPSy.forward(torch.Tensor(
                 [observation]), normalize=False)
             # PIPPSy.viz_comp_graph(action.requires_grad_(True))
-            print(action)
+            # print(action)
             # action = action.int().data.numpy()[0]
             action = torch.clamp(action, min = -1, max = 1).data.numpy()
             # print(action)
