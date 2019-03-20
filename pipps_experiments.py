@@ -9,8 +9,8 @@ import torch
 import numpy as np
 from utils.nn import *
 from utils.data import *
-# from utils.rl import *
-import utils.rl
+from utils.rl import *
+# import utils.rl
 
 # saving files
 import datetime
@@ -224,6 +224,7 @@ PIPPSy.set_cost_function(simple_cost_cartpole)
 
 # set baseline function
 PIPPSy.set_baseline_function(np.mean)
+PIPPSy.set_statespace_normal([],[])
 
 PIPPSy.policy_step(o)
 # PIPPSy.viz_comp_graph()
@@ -243,7 +244,9 @@ for p in range(P_rollouts):
             observation = observation.reshape(-1)
             # print(observation)
             # action = PIPPSy.predict(observation)  # env.action_space.sample()
-            action = PIPPSy.forward(torch.Tensor([observation]))  # env.action_space.sample()
+            # env.action_space.sample()
+            action = PIPPSy.forward(torch.Tensor(
+                [observation]), normalize=False)
             # PIPPSy.viz_comp_graph(action.requires_grad_(True))
             print(action)
             # action = action.int().data.numpy()[0]

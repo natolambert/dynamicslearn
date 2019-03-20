@@ -78,8 +78,12 @@ class PIPPS_policy(nn.Module):
         self.features = nn.Sequential(OrderedDict([*layers]))
 
         # create scalars, these may help with probability predictions
+        # note these are not tensors, so lead to difficulty in propogating gradients
         self.scalarX = StandardScaler()
         self.scalarU = MinMaxScaler(feature_range=(-1, 1))
+        # store the information manually, init empty
+        self.state_means = []
+        self.state_vars = []
 
         self.dynam_model = dynam_model
 
@@ -99,10 +103,12 @@ class PIPPS_policy(nn.Module):
 
         self.features.apply(init_weights)
 
-    def forward(self, x):
+    def forward(self, x, normalize = False):
         """
         Standard forward function necessary if extending nn.Module.
         """
+        if normalize:
+            x = (x - self.state_means) / torch.sqrt(self.state_vars)
 
         x = self.features(x)
         return x
@@ -140,6 +146,29 @@ class PIPPS_policy(nn.Module):
         U = self.scalarU.inverse_transform(U.reshape(1, -1))
         U = U.ravel()
         return np.array(U)
+
+
+    def set_statespace_normal(self, means, variances):
+        """
+        Takes in a series of means and variances for the logged data of the state space
+        - Need this so the different states can be normalized to unit normal before passing into net
+        """
+        if means == [] and variances == []:
+            print("loading data distribution from the dynamics model")
+            self.state_means = self.dynam_model.scalarX_tensors_mean
+            self.state_vars = self.dynam_model.scalarX_tensors_var
+        else:
+            self.state_means = torch.Tensor(means)
+            self.state_vars = torch.Tensor(variances)
+
+
+    def normalize_state(self,x):
+        """
+        NOTE: The dynamics model handles this
+        takes in a a state x and normalizes to unit normal to pass into neural net
+        - This needs to be used for the forward call
+        """
+        raise NotImplementedError("This is done in model_general_nn")
 
     def gen_policy_rollout(self, observations, dynam_model):
             """
@@ -196,6 +225,9 @@ class PIPPS_policy(nn.Module):
                 num_obs = np.shape(observations)[1]
                 # x0 = torch.Tensor(observations[random.randint(0,num_obs),:])
                 x0 = obs_dist.sample()
+
+                # TODO: Normalize the states before passing into the NN
+
                 state_mat = x0.view((1, 1, -1))
                 # print(state_mat)
                 # state_mat = x0.unsqueeze(0).unsqueeze(0)    # takes a (n_in) vector to a (1,1,n_in) Tensor

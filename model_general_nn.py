@@ -31,7 +31,6 @@ from model_split_nn import SplitModel
 # from utils_nn import *
 
 
-
 class GeneralNN(nn.Module):
     def __init__(self, nn_params):
 
