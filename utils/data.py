@@ -254,7 +254,8 @@ def trim_load_param(fname, load_params):
 
         # zero yaw to starting condition
         if zero_yaw:
-            raise NotImplementedError("Need to implement Yaw zeroing with wrap around of angles")
+            new_data[:,5] = new_data[:,5] - new_data[0,5]
+            # raise NotImplementedError("Need to implement Yaw zeroing with wrap around of angles")
 
         ########### THESE BARS SEPARATE TRIMMING ACTIONS #########################
         # For now, remove the last 4 columns becausee they're PWMS
@@ -1020,6 +1021,28 @@ def load_iono_txt(fname, load_params):
                 X = X[:-1, :]
                 U = U[:-1, :]
             
+            if zero_yaw:
+                # Need to change to correct dimension here
+                X[:, 8] = X[:, 8]-X[0, 8]
+       
+        else:
+            n, du = np.shape(new_data[:, 0:4])
+            _, dx = np.shape(new_data[:, 4:])
+
+            U = np.zeros((n-input_stack+1, du*input_stack))
+            X = np.zeros((n-input_stack+1, dx*input_stack))
+
+            if delta_state:
+                # Starts after the data that has requesit U values
+                dX = X[1:, :dx]-X[:-1, :dx]
+                X = X[:-1, :]
+                U = U[:-1, :]
+
+            else:   # next state predictions
+                dX = X[1:, :dx]  # -X[:-1,:]
+                X = X[:-1, :]
+                U = U[:-1, :]
+
             if zero_yaw:
                 # Need to change to correct dimension here
                 X[:, 8] = X[:, 8]-X[0, 8]

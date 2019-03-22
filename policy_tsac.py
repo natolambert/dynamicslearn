@@ -75,5 +75,5 @@ if __name__ == "__main__":
         net_size=300,
     )
 
-    setup_logger('tsac-cheetah', variant=variant)
+    setup_logger('tsac-cf', variant=variant)
     experiment(variant)

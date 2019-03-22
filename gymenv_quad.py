@@ -3,7 +3,9 @@ import gym
 from gym.spaces import Box
 import pickle
 import numpy as np
-
+import random
+from utils.sim import explore_pwm_equil
+from utls.nn import predict_nn_v2
 
 class QuadEnv(gym.Env):
 	"""
@@ -12,76 +14,57 @@ class QuadEnv(gym.Env):
 	"""
 	def __init__(self):
 		gym.Env.__init__(self)
-		# self.dyn_nn = torch.load("_models/temp/2018-11-18--22-38-43.9_no_battery_dynamics_stack3_.pth")
-		self.dyn_nn = torch.load("_models/temp/2018-12-04--21-17-34.2_quad2_stack3_.pth")
 
+		# load dynamics model
+		# self.dyn_nn = torch.load("_models/temp/2018-11-18--22-38-43.9_no_battery_dynamics_stack3_.pth")
+		self.dyn_nn = torch.load(
+			"_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_.pth")
 		self.dyn_nn.eval()
 
+		# load trained data for bounds on evironment
 		# data_file = open("_models/temp/2018-11-18--22-38-43.9_no_battery_dynamics_stack3_--data.pkl",'rb')
-		data_file = open("_models/temp/2018-12-04--21-17-34.2_quad2_stack3_--data.pkl",'rb')
+		data_file = open(
+			"_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_--data.pkl", 'rb')
 
-		self.n = 3
+		self.num_stack = 3
 		self.state = None
 
 		df = pickle.load(data_file)
-		# print("\n===UNSTACKED===")
-		# s = df.iloc[2, 12:21].values
-		# a = df.iloc[2, 21:26].values
-		# print("\n Prediction")
-		# print(self.dyn_nn.predict(s, a))
-
-		print(df.columns.values)
-
-		r = 500
-		print("State Before")
-		print(df.iloc[r, 12:12+9].values)
-		print("State Change")
-		print(df.iloc[r, :9].values)
-		print("State After")
-		print(df.iloc[r+1, 12:12+9].values)
-		print("Is this the same")
-		print(df.iloc[r, :9].values + df.iloc[r, 12:12+9].values)
-		print("Compare to State Before")
-		print(df.iloc[r+1, 12+9:12+9+9].values)
-
-		s_stacked = df.iloc[2, 12:12+9*self.n].values
-		v_bat = df.iloc[2,-1]
-		# full_state = np.append(s_stacked, v_bat)
-		# print(full_state)
-
-		# print("\n V_BAT")
-		# print(full_state.shape)
-		a_stacked = df.iloc[2, 12+9*self.n:12+9*self.n+4*self.n].values
-		print(a_stacked)
-		print("\n Prediction")
-		print(self.dyn_nn.predict(s_stacked, a_stacked))
-
-
-		# assert(False)
-
-		v_bats = df.iloc[:, -1]
-		print(min(v_bats), max(v_bats))
-
 		self.dyn_data = df
 
-		all_states = df.iloc[:, 12:12+9].values
-		all_actions = df.iloc[:, 12+9*self.n:12+9*self.n + 4].values
+		# generate equilibrium data
+		self.equil_act = explore_pwm_equil(df)
+		self.init_act = np.tile(self.equil_act,self.num_stack)
 
+		# set action bounds
+		self.act_low = np.min(
+			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values)
+		self.act_high = np.max(
+			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values)
+		print("Actions are PWMS between:")
+		print(self.act_low)
+		print(self.act_high)
 
-		min_state_bounds = [min(all_states[:, i]) for i in range(len(all_states[0,:]))]
-		max_state_bounds = [max(all_states[:, i]) for i in range(len(all_states[0,:]))]
-		min_action_bounds = [min(all_actions[:, i]) for i in range(len(all_actions[0,:]))]
-		max_action_bounds = [max(all_actions[:, i]) for i in range(len(all_actions[0,:]))]
+		# fit distributions to state data for initialization purposes / state space
+		state_data = df[['omega_x0', 'omega_y0', 'omega_z0', 'pitch0', 'roll0',
+                   'yaw0', 'lina_x0', 'lina_y0', 'lina_z0']]
+		self.state_means = np.mean(state_data,axis=0).values
+		self.state_vars = np.var(state_data, axis=0).values
+		self.state_mins = np.min(state_data).values
+		self.state_maxs = np.max(state_data).values
 
-		low_state_s = np.tile(min_state_bounds, self.n)
-		low_state_a = np.tile(min_action_bounds,self.n - 1)
-		high_state_s = np.tile(max_state_bounds, self.n)
-		high_state_a = np.tile(max_action_bounds,self.n - 1)
+		print("Running on State Data Distribution ======")
+		print("Means: ")
+		print(np.mean(state_data, axis=0))
+		print("Variances: ")
+		print(np.var(state_data, axis=0))
 
-
-		self.action_space = Box(low=np.array(min_action_bounds), high=np.array(max_action_bounds))
-		self.observation_space = Box(low=np.append(low_state_s, low_state_a), \
-		 	high=np.append(high_state_s, high_state_a))
+		self.action_space = Box(
+			low=np.tile(self.act_low,self.num_stack), 
+			high=np.tile(self.act_high, self.num_stack))
+		self.observation_space = Box(
+			low=np.tile(self.state_mins, self.num_stack),
+			high=np.tile(self.state_maxs, self.num_stack))
 
 	def state_failed(self, s):
 		"""
@@ -119,9 +102,9 @@ class QuadEnv(gym.Env):
 			# random_state = self.observation_space.sample()
 
 			row_idx = np.random.randint(self.dyn_data.shape[0])
-			random_state = self.dyn_data.iloc[row_idx, 12:12 + 9*self.n].values
-			random_state_s = self.dyn_data.iloc[row_idx, 12:12 + 9*self.n].values
-			random_state_a = self.dyn_data.iloc[row_idx, 12 + 9*self.n + 4 :12 + 9*self.n + 4 + 4*(self.n -1)].values
+			random_state = self.dyn_data.iloc[row_idx, 12:12 + 9*self.num_stack].values
+			random_state_s = self.dyn_data.iloc[row_idx, 12:12 + 9*self.num_stack].values
+			random_state_a = self.dyn_data.iloc[row_idx, 12 + 9*self.num_stack + 4 :12 + 9*self.num_stack + 4 + 4*(self.num_stack -1)].values
 			random_state = np.append(random_state_s, random_state_a)
 
 			# if abs(random_state[3]) < 5 and abs(random_state[4]) < 5:
@@ -132,8 +115,32 @@ class QuadEnv(gym.Env):
 				acceptable = True
 		return random_state
 
+	def set_init_state(self):
+		"""
+		Returns a reasonable initial conditions:
+		- low euler angles
+		- sample accelerations from distribution (likely to get normal value)
+		"""
+
+		# sample proportional to data distribution
+		samples = np.random.rand(9)
+		generated_state = self.state_means+samples*np.sqrt(self.state_vars)
+
+		# clamp to low Euler angles
+		generated_state[3:6] = np.clip(generated_state[3:6],min=-5,max=5)
+
+		# tile array, init state repeats x3
+		init_state = np.tile(generated_state,self.num_stack)
+		self.state = init_state
+		return init_state
+
+		
+
 	def next_state(self, state, action):
 		# Note that the states defined in env are different
+
+		# predict_nn_v2
+
 		state_dynamics = state[:9*self.n]
 		action_dynamics = np.append(action, state[9*self.n : 9*self.n + 4 * (self.n - 1)])
 		state_change = self.dyn_nn.predict(state_dynamics, action_dynamics)
@@ -157,7 +164,8 @@ class QuadEnv(gym.Env):
 		return self.state, reward, done, {}
 
 	def reset(self):
-		self.state = self.sample_random_state()
+		# self.state = self.sample_random_state()
+		self.state = self.set_init_state()
 		return self.state
 
 

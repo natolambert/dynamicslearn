@@ -75,7 +75,21 @@ def explore_pwm_equil(df):
     print("Number of points in this estimate: ", len(df_actions))
     print("Equil actions: ",np.mean(df_actions.values, axis=0))
     print("Std Dev:", np.std(df_actions.values, axis=0))
+    
+
+    def find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return array[idx]
+
+    rounded_act = np.zeros((4))
+    for i in range(4):
+        rounded_act[i] = find_nearest(
+            df_actions.iloc[i], np.mean(df_actions.values, axis=0)[i])
+
+    print("Most Common Action in data: ", rounded_act)
     print('----')
+    return rounded_act
 
 def generate_mpc_imitate(dataset, data_params, nn_params, train_params):
     """
