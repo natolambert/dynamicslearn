@@ -42,7 +42,7 @@ class EnsembleNN(nn.Module):
     This file is in the works for an object to easily create an ensemble model. These
       models will be used heavily for offline bootstrapping of policies and controllers.
     '''
-    def __init__(self, nn_params, E=5, forward_mode = ''):
+    def __init__(self, nn_params, E=8, forward_mode = ''):
         super(EnsembleNN, self).__init__()
         self.E = E              # number of networks to use in each ensemble
         self.forward_mode = ''  # TODO: implement a weighted set of predictions based on confidence

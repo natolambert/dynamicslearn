@@ -134,7 +134,7 @@ def generate_mpc_imitate(dataset, data_params, nn_params, train_params):
 
             # Need to scale the state variables again etc
             # inputs state, output an action (PWMs)
-            self.scalarX = MinMaxScaler(feature_range=(-1, 1))
+            self.scalarX = StandardScaler()  # MinMaxScaler(feature_range=(-1, 1))
             self.scalarU = MinMaxScaler(feature_range=(-1, 1))
 
         def forward(self, x):
@@ -327,6 +327,18 @@ def generate_mpc_imitate(dataset, data_params, nn_params, train_params):
     X = dataset[0]
     U = dataset[1]
     acctest, acctrain = policy.train_cust((X, U), train_params)
+    
+    if True:
+        ax1 = plt.subplot(211)
+        # ax1.set_yscale('log')
+        ax1.plot(acctest, label='Test Loss')
+        plt.title('Test Loss')
+        ax2 = plt.subplot(212)
+        # ax2.set_yscale('log')
+        ax2.plot(acctrain, label='Train Loss')
+        plt.title('Training Loss')
+        ax1.legend()
+        plt.show()
 
     # return policy!
     return policy

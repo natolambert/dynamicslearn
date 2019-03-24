@@ -140,10 +140,14 @@ dir_list = ["_newquad1/publ2/c25_rand/",
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-df = stack_dir_pd_iono('broken/', load_params)
+# df = stack_dir_pd_iono('broken/', load_params)
 # print(df.columns)
+
+
 # quit()
-# df = load_dirs(dir_list, load_params)
+df = load_dirs(dir_list, load_params)
+# print(np.min(df[['m1_pwm_0','m2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']]))
+# quit()
 
 '''
 ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
@@ -215,11 +219,11 @@ nn_params = {                           # all should be pretty self-explanatory
 }
 
 train_params = {
-    'epochs' : 40,
+    'epochs' : 20,
     'batch_size' : 18,
     'optim' : 'Adam',
     'split' : 0.8,
-    'lr': .00275, # bayesian .00175, mse:  .0001
+    'lr': .00155, # bayesian .00175, mse:  .0001
     'lr_schedule' : [30,.6],
     'test_loss_fnc' : [],
     'preprocess' : True,
@@ -304,7 +308,7 @@ if args.nosave:
       pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
     time.sleep(2)
 
-    # # Saves data file
-    # with open(model_name+"--data.pkl", 'wb') as pickle_file:
-    #   pickle.dump(df, pickle_file, protocol=2)
-    # time.sleep(2)
+    # Saves data file
+    with open(model_name+"--data.pkl", 'wb') as pickle_file:
+      pickle.dump(df, pickle_file, protocol=2)
+    time.sleep(2)

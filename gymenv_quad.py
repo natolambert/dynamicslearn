@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import random
 from utils.sim import explore_pwm_equil
-from utls.nn import predict_nn_v2
+from utils.nn import predict_nn_v2
 
 class QuadEnv(gym.Env):
 	"""
@@ -38,9 +38,9 @@ class QuadEnv(gym.Env):
 
 		# set action bounds
 		self.act_low = np.min(
-			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values)
+			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values,axis=0)
 		self.act_high = np.max(
-			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values)
+			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values, axis=0)
 		print("Actions are PWMS between:")
 		print(self.act_low)
 		print(self.act_high)
@@ -58,6 +58,7 @@ class QuadEnv(gym.Env):
 		print(np.mean(state_data, axis=0))
 		print("Variances: ")
 		print(np.var(state_data, axis=0))
+
 
 		self.action_space = Box(
 			low=np.tile(self.act_low,self.num_stack), 
@@ -79,17 +80,36 @@ class QuadEnv(gym.Env):
 	def get_reward_state(self, s_next):
 		"""
 		Returns reward of being in a certain state.
+		Our loss function is a "inverted Huber loss".
+		- Huber loss is linear outside of a quadratic inner region
+		- ours is quadratic outside of a linear region in pitch and roll
+		cost = -(c*p^2)  if p < a, for pitch and roll
+
+		TODO: We will have to add loss when the mean PWM is below a certain value
 		"""
 		pitch = s_next[3]
 		roll = s_next[4]
 		if self.state_failed(s_next):
 			# return -1 * 1000
-			return 0
-		loss = pitch**2 + roll**2
+			return -1000
 
-		reward = 1800 - loss # This should be positive. TODO: Double check
-		# reward = 1
-		return reward		
+		a1 = 1
+		a2 = 1
+		lin_pitch = 5
+		lin_roll = 5
+		if pitch > lin_pitch:
+			loss_pitch = a1*pitch**2
+		else:
+			loss_pitch = a1*abs(pitch)
+
+		if roll > lin_roll:
+			loss_roll = a2*roll**2
+		else:
+			loss_roll = a2*abs(roll)
+
+		loss = loss_pitch+loss_roll
+
+		return -loss		
 
 	def sample_random_state(self):
 		"""
@@ -127,7 +147,7 @@ class QuadEnv(gym.Env):
 		generated_state = self.state_means+samples*np.sqrt(self.state_vars)
 
 		# clamp to low Euler angles
-		generated_state[3:6] = np.clip(generated_state[3:6],min=-5,max=5)
+		generated_state[3:6] = np.clip(generated_state[3:6],-5,5)
 
 		# tile array, init state repeats x3
 		init_state = np.tile(generated_state,self.num_stack)
@@ -155,8 +175,9 @@ class QuadEnv(gym.Env):
 
 
 	def step(self, action):
-		new_state = self.next_state(self.state, action)
-		self.state = new_state
+		new_state = predict_nn_v2(self.dyn_nn, self.state, action)
+		# new_state = self.next_state(self.state, action)
+		self.state = np.concatenate((new_state, self.state[9:]),axis=0)
 		reward = self.get_reward_state(new_state)
 		done = False
 		if self.state_failed(new_state):
