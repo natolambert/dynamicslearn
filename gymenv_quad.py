@@ -34,16 +34,20 @@ class QuadEnv(gym.Env):
 
 		# generate equilibrium data
 		self.equil_act = explore_pwm_equil(df)
-		self.init_act = np.tile(self.equil_act,self.num_stack)
+		# self.init_act = np.tile(self.equil_act,self.num_stack)
+		self.init_act = self.equil_act
 
 		# set action bounds
-		self.act_low = np.min(
-			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values,axis=0)
-		self.act_high = np.max(
-			df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values, axis=0)
-		print("Actions are PWMS between:")
-		print(self.act_low)
-		print(self.act_high)
+		act_data = df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']]
+		self.act_low = np.min(act_data.values, axis=0)
+		self.act_high = np.max(act_data.values, axis=0)
+		self.act_means = np.mean(act_data, axis=0).values
+		self.act_vars = np.var(act_data, axis=0).values
+		# print("Actions are PWMS between:")
+		# print(self.act_low)
+		# print(self.act_high)
+		# print(self.act_means)
+		# print(self.act_vars)
 
 		# fit distributions to state data for initialization purposes / state space
 		state_data = df[['omega_x0', 'omega_y0', 'omega_z0', 'pitch0', 'roll0',
@@ -53,19 +57,41 @@ class QuadEnv(gym.Env):
 		self.state_mins = np.min(state_data).values
 		self.state_maxs = np.max(state_data).values
 
+		# generate valeus form normalization in states during training
+		# uses NormalizedBoxEnv
+		self.act_means = np.tile(self.act_means, self.num_stack-1)
+		self.act_std = np.tile(np.sqrt(self.act_vars), self.num_stack-1)
+
+		self.norm_means = np.concatenate((np.tile(self.state_means,self.num_stack), self.act_means))
+		self.norm_stds = np.concatenate(
+			(np.tile(np.sqrt(self.state_vars), self.num_stack), self.act_std))
+
 		print("Running on State Data Distribution ======")
 		print("Means: ")
 		print(np.mean(state_data, axis=0))
 		print("Variances: ")
 		print(np.var(state_data, axis=0))
 
+		# define action as 4*num_stack and state as 12*num_stack
+		# self.action_space = Box(
+		# 	low=np.tile(self.act_low,self.num_stack), 
+		# 	high=np.tile(self.act_high, self.num_stack))
+		# self.observation_space = Box(
+		# 	low=np.tile(self.state_mins, self.num_stack),
+		# 	high=np.tile(self.state_maxs, self.num_stack))
 
+		# define action as 4 and state as 4*(num_stack-1)+12*num_stack
 		self.action_space = Box(
-			low=np.tile(self.act_low,self.num_stack), 
-			high=np.tile(self.act_high, self.num_stack))
+			low=self.act_low,
+			high=self.act_high)
+
+		state_low = np.concatenate((np.tile(self.state_mins, self.num_stack), 
+						np.tile(self.act_low, self.num_stack-1)))
+		state_high = np.concatenate((np.tile(self.state_mins, self.num_stack),  
+						np.tile(self.act_high, self.num_stack-1)))
 		self.observation_space = Box(
-			low=np.tile(self.state_mins, self.num_stack),
-			high=np.tile(self.state_maxs, self.num_stack))
+			low=state_low,
+			high=state_high)
 
 	def state_failed(self, s):
 		"""
@@ -87,6 +113,7 @@ class QuadEnv(gym.Env):
 
 		TODO: We will have to add loss when the mean PWM is below a certain value
 		"""
+
 		pitch = s_next[3]
 		roll = s_next[4]
 		if self.state_failed(s_next):
@@ -107,7 +134,22 @@ class QuadEnv(gym.Env):
 		else:
 			loss_roll = a2*abs(roll)
 
-		loss = loss_pitch+loss_roll
+		loss_angles = loss_pitch+loss_roll
+
+		# add a loss term for if the past actions were too low
+		if True:
+			lambda_act = .01
+			# loss act should be a scaled difference between the mean of the
+			# 	past actions and the mean of the equilibrium actions
+			past_act_mean = np.mean(self.state[9*self.num_stack:])
+			eq_mean = np.mean(self.equil_act)
+			diff = eq_mean-past_act_mean
+			loss_act = lambda_act*max(0, diff)
+
+			loss = loss_angles+loss_act
+			
+		else:
+			loss = loss_angles
 
 		return -loss		
 
@@ -151,6 +193,11 @@ class QuadEnv(gym.Env):
 
 		# tile array, init state repeats x3
 		init_state = np.tile(generated_state,self.num_stack)
+
+		# add actions if num_stack >1
+		if self.num_stack >1:
+			init_state = np.concatenate(
+				(init_state, np.tile(self.equil_act, self.num_stack-1)))
 		self.state = init_state
 		return init_state
 
@@ -159,23 +206,24 @@ class QuadEnv(gym.Env):
 	def next_state(self, state, action):
 		# Note that the states defined in env are different
 
-		# predict_nn_v2
-
-		state_dynamics = state[:9*self.n]
-		action_dynamics = np.append(action, state[9*self.n : 9*self.n + 4 * (self.n - 1)])
+		state_dynamics = state[:9*self.num_stack]
+		action_dynamics = np.append(action, state[9*self.num_stack : 9*self.num_stack + 4 * (self.num_stack - 1)])
 		state_change = self.dyn_nn.predict(state_dynamics, action_dynamics)
 
 		next_state = state[:9] + state_change
-		past_state = state[:9*(self.n - 1)]
+		past_state = state[:9*(self.num_stack - 1)]
 
-		new_state = np.concatenate((next_state, state[:9*(self.n - 1)]))
-		new_action = np.concatenate((action, state[9*self.n: 9*self.n + 4*(self.n - 2)])) #
+		new_state = np.concatenate((next_state, state[:9*(self.num_stack - 1)]))
+		new_action = np.concatenate((action, state[9*self.num_stack: 9*self.num_stack + 4*(self.num_stack - 2)])) #
 
 		return np.concatenate((new_state, new_action))
 
 
 	def step(self, action):
-		new_state = predict_nn_v2(self.dyn_nn, self.state, action)
+		# print(action)
+		s = self.state[:9*self.num_stack]
+		a = np.concatenate((action, self.state[9*self.num_stack:]))
+		new_state = predict_nn_v2(self.dyn_nn, s, a)
 		# new_state = self.next_state(self.state, action)
 		self.state = np.concatenate((new_state, self.state[9:]),axis=0)
 		reward = self.get_reward_state(new_state)

@@ -17,6 +17,12 @@ import glob
 import pandas
 import os
 
+"""
+Run this file with installed repo https://github.com/natolambert/opto
+Minor changes to run with experimental ionocraft, rather than simulated flights
+Author: Nathan Lambert
+"""
+
 ################################################################################
 # A couple files for loading and storing parameters with objective values
 def save_params(iteration, params, objectives = [], date=[]):
@@ -153,22 +159,32 @@ def InvHuber(x):
     loss_pitch_total = 0
     loss_roll_total = 0
 
-    for p,r in zip(pitch,roll):
-        if p > lin_pitch:
-            loss_pitch = a1*p**2
-        else:
-            loss_pitch = a1*abs(p)
-        
-        if r > lin_roll:
-            loss_roll = a2*r**2
-        else:
-            loss_roll = a2*abs(r)
+    fail_flag = 0
 
-        loss_pitch_total += loss_pitch
-        loss_roll_total += loss_roll
+    for p,r in zip(pitch,roll):
+        if (p > 35) or (r > 35):
+            fail_flag = 1
+        
+        # adds a high loss if the Iono triggered the kill switch
+        if fail_flag:
+            loss_pitch_total += 5000
+            loss_roll_total += 5000
+        else:
+            if p > lin_pitch:
+                loss_pitch = a1*p**2
+            else:
+                loss_pitch = a1*abs(p)
+            
+            if r > lin_roll:
+                loss_roll = a2*r**2
+            else:
+                loss_roll = a2*abs(r)
+
+            loss_pitch_total += loss_pitch
+            loss_roll_total += loss_roll
 
     loss = loss_pitch_total+loss_roll_total
-    return .001*loss
+    return loss
 
 def Time(x):
     """
@@ -235,12 +251,12 @@ if __name__ == "__main__":
     # check if this iteration has already been run (to prevent overwriting files)
     p_str = date+'-iter'+'{:02d}'.format(iteration)+'-params.json'
     exists = os.path.isfile('data/ionoBO/'+p_str)
-    if exists:
-        raise ValueError("Preventing File Overwrite, quitting.")
-        quit()
+    # if exists:
+    #     raise ValueError("Preventing File Overwrite, quitting.")
+    #     quit()
 
     param_labels = ['KP_pitch','KP_roll', 'KD_pitch', 'KD_roll']
-    param_values = [10, 10, .1, .1]
+    param_values = [21, 21, 11, 11]
     param_dict = dict(zip(param_labels,param_values))
 
     # objectives of last run
@@ -304,20 +320,22 @@ if __name__ == "__main__":
     opt._set_dataset(dataset)
 
     # directly generate next parameter set
-    next_params = opt._select_parameters()
-    print(next_params)
-    quit()
-    print("~~~Below is the next set of PID parameter~~~")
-    print("  KP_pitch: ", next_params[0])
-    print("  KP_roll: ",  next_params[1])
-    print("  KD_pitch: ", next_params[2])
-    print("  KD_roll: ",  next_params[3])
-    print(" Other BO Information...")
+    next_params, pred_val = opt._select_parameters()
 
+    print("~~~Below is the next set of PID parameter~~~")
+    print("  KP_pitch: ", next_params[0, 0])
+    print("  KP_roll: ",  next_params[0, 1])
+    print("  KD_pitch: ", next_params[0, 2])
+    print("  KD_roll: ",  next_params[0, 3])
+    print("  Pred Objv: ", pred_val[1][0,0])
+    print(" Other BO Information...")
+    # quit()
     # Save the next parameters for reference
-    param_labels = ['KP_pitch','KP_roll', 'KD_pitch', 'KD_roll']
-    param_values = next_params
-    param_dict = dict(zip(param_labels, param_values))
+    param_labels = ['KP_pitch','KP_roll', 'KD_pitch', 'KD_roll', 'pred_obj']
+    param_values = np.concatenate((np.asarray(next_params), np.asarray(pred_val[1])),1)
+
+    param_dict = dict(zip(param_labels, np.squeeze(param_values)))
+
 
     # save these parameters to a json for the iteration
     save_params(iteration+1, param_dict, date = date)

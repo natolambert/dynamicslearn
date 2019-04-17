@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.optim as optim
+import joblib
 
 import rlkit.rlkit.torch.pytorch_util as ptu
 from rlkit.rlkit.core.eval_util import create_stats_ordered_dict
@@ -24,6 +25,9 @@ import math
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
+
+# for importing the model
+from rlkit.rlkit.torch.networks import Mlp
 
 class CartPoleContEnv(gym.Env):
     """
@@ -369,19 +373,29 @@ class CrazyflieRigidEnv(gym.Env):
 
     def reset(self):
         # self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        self.state =
+        self.state = 0
         self.steps_beyond_done = None
         return np.array(self.state)
 
 
+def save_rlkit_policy(log_dir):
+    """
+    Takes in a directory that will be in data/ and saves a raw nn object into _policies/
+    - may need to use deepcopy of a torch.nn module into model_general_nn
+    """
+
+    data_mf = joblib.load(log_dir)
+    policy_mf = data_mf['policy']   
+    policy_mf_params = policy_mf.get_param_values()
+    torch.save(policy_mf_params, '_policies/test.pth')
+
+    
 
 """
 NOTE: Adapted from Vitchyr Pong's rlkit implementation of SAC
 need to implement a modified building of me-sac on top of RLKIT with the 
   policy improvement iteration stop
 """
-
-
 class METwinSAC(TorchRLAlgorithm):
     """
     SAC with the twin architecture from TD3 running on a model ensemble.

@@ -648,7 +648,7 @@ class CrazyFlie():
         x1[x1 < 1e-12] = 0
         return x1+x_noise_vec
 
-def explore_policy(dataset, policy):
+def explore_policy(dataset, policy, policy2 = []):
     '''
     Function to take a trained control policy and export a analysis 
       of what the policy will do on the trained dataset
@@ -656,11 +656,17 @@ def explore_policy(dataset, policy):
     print("TEST")
     """ 
     Some ideas
-    - can we plot distribution of actions taken.
+    - can we plot distribution of actions taken over the trained dataset.
+        - we could have a "validation" portion of the dataset that corresponds
+            to the test data for the neural network
     - How do you test train / validate this etc
     
     Some thoughts from email:
     - perturb states slightly and check how much policies change
-    - somehow plot action choices over the logged state space data and see if distributions have different variance etc
-    - With the action space being 4 dimensional, maybe we can reduce it to something like “Thrust, roll power, and pitch power” which we could visualize in 3d
+    - somehow plot action choices over the logged state space data and 
+        see if distributions have different variance etc
+    - With the action space being 4 dimensional, maybe we can reduce it to something 
+        like “Thrust, roll power, and pitch power” which we could visualize in 3d
     """
+
+    

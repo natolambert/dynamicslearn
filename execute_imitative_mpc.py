@@ -1,6 +1,7 @@
 from utils.data import *
 from utils.sim import *
 from utils.nn import *
+from utils.rl import *
 
 # data packages
 import pickle
@@ -24,6 +25,25 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 
+# for importing the rlkit model
+from rlkit.rlkit.torch.networks import Mlp
+from rlkit.rlkit.torch.sac.policies import TanhGaussianPolicy
+save_rlkit_policy(
+    'data/tsac-cf/tsac-cf_2019_03_24_15_12_56_0000--s-0/params.pkl')
+
+# model = nn.Module()
+# model.load_state_dict(torch.load('_policies/test.pth'))
+# model.eval()
+
+model = TanhGaussianPolicy(
+    hidden_sizes=[300, 300],
+    obs_dim=27,
+    action_dim=12,
+)
+model.load_state_dict(torch.load('_policies/test.pth'))
+model.eval()
+print(model.forward(torch.zeros([1,27])))
+quit()
 
 load_params = {
     'delta_state': True,                # normally leave as True, prediction mode

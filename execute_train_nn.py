@@ -64,7 +64,7 @@ load_params ={
     'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
     'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
     'find_move': True,
-    'trime_large_dX': True,             # if the states change by a large amount, not realistic
+    'trime_large_dX': False,             # if the states change by a large amount, not realistic
     'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
     'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
     'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
@@ -76,7 +76,7 @@ load_params ={
     'contFreq' : 1,                      # Number of times the control freq you will be using is faster than that at data logging
     'iono_data': True,
     'zero_yaw': True,
-    'moving_avg': 7
+    'moving_avg': 2
 }
 
 # for generating summaries
@@ -140,8 +140,9 @@ dir_list = ["_newquad1/publ2/c25_rand/",
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-# df = stack_dir_pd_iono('broken/', load_params)
+df = stack_dir_pd_iono('angle-check/', load_params)
 # print(df.columns)
+quit()
 
 
 # quit()

@@ -18,7 +18,12 @@ from rlkit.rlkit.torch.sac.twin_sac import TwinSAC
 def experiment(variant):
     import gym
     env = QuadEnv()
-    env = NormalizedBoxEnv(env)
+
+    # NOL: The line below will normalzie automatically, 
+    #   we want to normalize on our own to compare policies easier
+    # the obs mean is substracted and scaled by std, we should still do this
+    env = NormalizedBoxEnv(env, obs_mean = env.norm_means, obs_std = env.norm_stds)
+
     # env = NormalizedBoxEnv(gym.make('HalfCheetah-v2'))
     obs_dim = int(np.prod(env.observation_space.shape))
     action_dim = int(np.prod(env.action_space.shape))
