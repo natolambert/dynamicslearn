@@ -606,6 +606,9 @@ def df_to_training(df, data_params):
 
     # Otherwise take lists
     else:
+        print(targets)
+        print(states)
+        print(inputs)
         dX = df[targets].values
         X = df[states].values
         U = df[inputs].values
@@ -1172,13 +1175,13 @@ def load_iono_txt(fname, load_params):
                 # ax1.plot(U[:200, 2], label='T3')
                 # ax1.plot(U[:200, 3], label='T4')
 
-            ax1.legend()
-            plt.show()
-            fig.set_size_inches(8, 4.5)
+            # ax1.legend()
+            # plt.show()
+            # fig.set_size_inches(8, 4.5)
 
-            # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
+            # # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
-            plt.savefig('iono_flight.eps', format='eps', dpi=300)
+            # plt.savefig('iono_flight.eps', format='eps', dpi=300)
             # quit()
 
         # print("State data shape, ", X.shape)

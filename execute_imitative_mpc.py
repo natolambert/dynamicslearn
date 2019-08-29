@@ -29,7 +29,7 @@ import matplotlib
 from rlkit.rlkit.torch.networks import Mlp
 from rlkit.rlkit.torch.sac.policies import TanhGaussianPolicy
 save_rlkit_policy(
-    'data/tsac-cf/tsac-cf_2019_03_24_15_12_56_0000--s-0/params.pkl')
+    'data/tsac-cf/tsac-cf_2019_04_17_10_53_10_0000--s-0/'+'params.pkl')
 
 # model = nn.Module()
 # model.load_state_dict(torch.load('_policies/test.pth'))
@@ -37,12 +37,13 @@ save_rlkit_policy(
 
 model = TanhGaussianPolicy(
     hidden_sizes=[300, 300],
-    obs_dim=27,
-    action_dim=12,
+    obs_dim=35,
+    action_dim=4,
 )
 model.load_state_dict(torch.load('_policies/test.pth'))
 model.eval()
-print(model.forward(torch.zeros([1,27])))
+model.training = False
+print(model.forward(torch.zeros(35)))
 quit()
 
 load_params = {

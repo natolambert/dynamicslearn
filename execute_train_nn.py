@@ -140,13 +140,13 @@ dir_list = ["_newquad1/publ2/c25_rand/",
 # for dir in dir_list:
 #     dir_summary_csv(dir, load_params)
 
-df = stack_dir_pd_iono('angle-check/', load_params)
+df = stack_dir_pd_iono('video-setup/', load_params)
 # print(df.columns)
-quit()
+# quit()
 
 
 # quit()
-df = load_dirs(dir_list, load_params)
+# df = load_dirs(dir_list, load_params)
 # print(np.min(df[['m1_pwm_0','m2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']]))
 # quit()
 
@@ -190,8 +190,32 @@ data_params = {
     'battery' : False                    # Need to include battery here too
 }
 
-# the true state target values
-# 't1_omega_x', 't1_omega_y', 't1_omega_z', 't1_pitch', 't1_roll', 't1_yaw', 't1_lina_x', 't1_lina_y' 't1_lina_z'
+data_params_iono = {
+    # Note the order of these matters. that is the order your array will be in
+    'states': ['omega_x0', 'omega_y0', 'omega_z0',
+               'pitch0',   'roll0',    'yaw0',
+               'lina_x0',  'lina_y0',  'lina_z0',
+               'omega_x1', 'omega_y1', 'omega_z1',
+               'pitch1',   'roll1',    'yaw1',
+               'lina_x1',  'lina_y1',  'lina_z1',
+               'omega_x2', 'omega_y2', 'omega_z2',
+               'pitch2',   'roll2',    'yaw2',
+               'lina_x2',  'lina_y2',  'lina_z2'],
+    # 'omega_x3', 'omega_y3', 'omega_z3',
+    # 'pitch3',   'roll3',    'yaw3',
+    # 'lina_x3',  'lina_y3',  'lina_z3'],
+
+    'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
+               'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+               'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
+    # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
+
+    'targets': ['t1_omega_x', 't1_omega_y', 't1_omega_z',
+                'd_pitch', 'd_roll', 'd_yaw',
+                't1_lina_x', 't1_lina_y', 't1_lina_z'],
+
+    'battery': False                    # Need to include battery here too
+}
 
 st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
                     'd_pitch', 'd_omega_z', 'd_pitch',
@@ -205,30 +229,57 @@ print("U has shape: ", np.shape(U))
 print("dX has shape: ", np.shape(dX))
 print('---')
 
+# nn_params = {                           # all should be pretty self-explanatory
+#     'dx' : np.shape(X)[1],
+#     'du' : np.shape(U)[1],
+#     'dt' : np.shape(dX)[1],
+#     'hid_width' : 250,
+#     'hid_depth' : 2,
+#     'bayesian_flag' : True,
+#     'activation': Swish(),
+#     'dropout' : 0.0,
+#     'split_flag' : False,
+#     'pred_mode' : 'Delta State',
+#     'ensemble' : ensemble
+# }
+
+# train_params = {
+#     'epochs' : 20,
+#     'batch_size' : 18,
+#     'optim' : 'Adam',
+#     'split' : 0.8,
+#     'lr': .00155, # bayesian .00175, mse:  .0001
+#     'lr_schedule' : [30,.6],
+#     'test_loss_fnc' : [],
+#     'preprocess' : True,
+#     'noprint' : noprint
+# }
+
+
 nn_params = {                           # all should be pretty self-explanatory
-    'dx' : np.shape(X)[1],
-    'du' : np.shape(U)[1],
-    'dt' : np.shape(dX)[1],
-    'hid_width' : 250,
-    'hid_depth' : 2,
-    'bayesian_flag' : True,
+    'dx': np.shape(X)[1],
+    'du': np.shape(U)[1],
+    'dt': np.shape(dX)[1],
+    'hid_width': 250,
+    'hid_depth': 2,
+    'bayesian_flag': True,
     'activation': Swish(),
-    'dropout' : 0.0,
-    'split_flag' : False,
-    'pred_mode' : 'Delta State',
-    'ensemble' : ensemble
+    'dropout': 0.0,
+    'split_flag': False,
+    'pred_mode': 'Delta State',
+    'ensemble': ensemble
 }
 
 train_params = {
-    'epochs' : 20,
-    'batch_size' : 18,
-    'optim' : 'Adam',
-    'split' : 0.8,
-    'lr': .00155, # bayesian .00175, mse:  .0001
-    'lr_schedule' : [30,.6],
-    'test_loss_fnc' : [],
-    'preprocess' : True,
-    'noprint' : noprint
+    'epochs': 33,
+    'batch_size': 18,
+    'optim': 'Adam',
+    'split': 0.8,
+    'lr': .00255,  # bayesian .00175, mse:  .0001
+    'lr_schedule': [30, .6],
+    'test_loss_fnc': [],
+    'preprocess': True,
+    'noprint': noprint
 }
 
 

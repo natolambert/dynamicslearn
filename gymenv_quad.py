@@ -4,7 +4,7 @@ from gym.spaces import Box
 import pickle
 import numpy as np
 import random
-from utils.sim import explore_pwm_equil
+from utils.sim import *#explore_pwm_equil
 from utils.nn import predict_nn_v2
 
 class QuadEnv(gym.Env):

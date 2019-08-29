@@ -2,6 +2,7 @@
 from utils.data import *
 from utils.nn import *
 from torch.utils.data import Dataset, DataLoader
+from gymenv_quad import QuadEnv
 
 # data packages
 import pickle
@@ -465,6 +466,8 @@ def gather_predictions(model_dir, dataset, delta=True, variances=False):
     else:
         predictions_1 = np.empty((0, 9))  # np.shape(X)[1]))
         predictions_1_var = np.empty((0, 9))  # np.shape(X)[1]))
+        # predictions_1 = torch.Tensor([[0,0,0,0,0,0,0,0,0]])
+        # predictions_1_var = torch.Tensor([[0,0,0,0,0,0,0,0,0]])
         for (dx, x, u) in zip(dX, X, U):
             # pred = predict_nn_v2(nn, x, u)
 
@@ -478,14 +481,22 @@ def gather_predictions(model_dir, dataset, delta=True, variances=False):
             #     if b:
             #         mean[i] = x[i] + mean[i]
                 # else:
-                #     mean[i] = mean[i]
-
+                    # mean[i] = mean[i]
+            print("MEAN")
+            print(mean.shape)
+            print(predictions_1.shape)
             predictions_1 = np.append(
                 predictions_1, mean.reshape(1, -1).detach().numpy(),  axis=0)
             predictions_1_var = np.append(
                 predictions_1_var, var.reshape(1, -1).detach().numpy(),  axis=0)
-
+            # predictions_1 = np.append(
+            #     predictions_1, mean.detach().numpy(),  axis=0)
+            # predictions_1_var = np.append(
+            #     predictions_1_var, var.detach().numpy(),  axis=0)
+            
+        print(predictions_1[1:, :].shape)
         return predictions_1, predictions_1_var
+        # return predictions_1[1:, :], predictions_1_var[1:, :]
 
 class CrazyFlie():
     def __init__(self, dt, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
@@ -648,7 +659,7 @@ class CrazyFlie():
         x1[x1 < 1e-12] = 0
         return x1+x_noise_vec
 
-def explore_policy(dataset, policy, policy2 = []):
+def explore_policy():#policy_imitate, policy_sac = [], policy_mpc = False):
     '''
     Function to take a trained control policy and export a analysis 
       of what the policy will do on the trained dataset
@@ -669,4 +680,43 @@ def explore_policy(dataset, policy, policy2 = []):
         like “Thrust, roll power, and pitch power” which we could visualize in 3d
     """
 
-    
+    data_file = open(
+        "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_--data.pkl", 'rb')
+    df = pickle.load(data_file)
+
+    Env = QuadEnv()
+    policy_sac = []
+    policy_Impc = []
+    state_data = df[['omega_x0', 'omega_y0', 'omega_z0', 'pitch0', 'roll0',
+                     'yaw0', 'lina_x0', 'lina_y0', 'lina_z0', 
+                     'omega_x1', 'omega_y1', 'omega_z1', 'pitch1', 'roll1',
+                     'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
+                     'omega_x1', 'omega_y1', 'omega_z1', 'pitch1', 'roll1',
+                     'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
+                     'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+                     'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2']]
+
+    # init action arrays
+    data_mpc = df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values
+    data_sac = np.empty(np.shape(data_mpc))
+    data_Impc = np.empty(np.shape(data_mpc))
+
+    def normalize_act(action):
+        # Returns 'flyable' pwm from NN output [-1,1]
+        return .5*(action+1)*(Env.act_high-Env.act_low)+Env.act_low
+
+    # itetate through all states and generate policy data
+    for i,state in enumerate(state_data.values):
+        # need to normalize the state for the policies
+        state_norm = (state - Env.norm_means)/Env.norm_stds
+        act_sac_raw, _ = policy_sac.get_action(state_norm)
+        act_sac = normalize_act(act_sac_raw)
+        data_sac[i, :] = act_sac
+
+        act_Impc_raw, _ = policy_Impc.forward(state_norm)
+        act_Impc = normalize_act(act_Impc_raw)
+        data_Impc[i, :] = act_Impc
+
+
+
+    quit()
