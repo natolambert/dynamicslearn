@@ -12,3 +12,5 @@ _summaries/
 /_training_logs
 /.vscode/
 
+*.pyc
+
