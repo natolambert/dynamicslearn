@@ -1,0 +1,14 @@
+todo.txt
+
+/__pycache__
+/data
+/_models
+/_policies
+/_logged_data_autonomous
+/_results
+/_simmed_data
+/_summaries/
+_summaries/
+/_training_logs
+/.vscode/
+
