@@ -5,9 +5,9 @@ sys.path.append(os.getcwd())
 # Our infrastucture files
 # from utils_data import * 
 # from utils_nn import *
-from utils.data import *
-from utils.sim import *
-from utils.nn import *
+from learn.utils.data import *
+from learn.utils.sim import *
+from learn.utils.nn import *
 
 
 # data packages
@@ -64,99 +64,10 @@ if __name__ == '__main__':
     date_str = date_str.replace(' ','--').replace(':', '-')
     print('Running... trainNN_RL.py' + date_str +'\n')
 
-    load_params ={
-        'delta_state': True,                # normally leave as True, prediction mode
-        'include_tplus1': True,             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
-        'trim_high_vbat': 4050,             # trims high vbat because these points the quad is not moving
-        'takeoff_points': 180,              # If not trimming data with fast log, need another way to get rid of repeated 0s
-        'trim_0_dX': True,                  # if all the euler angles (floats) don't change, it is not realistic data
-        'find_move': True,
-        'trime_large_dX': False,             # if the states change by a large amount, not realistic
-        'bound_inputs': [20000,65500],      # Anything out of here is erroneous anyways. Can be used to focus training
-        'stack_states': 3,                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
-        'collision_flag': False,            # looks for sharp changes to tthrow out items post collision
-        'shuffle_here': False,              # shuffle pre training, makes it hard to plot trajectories
-        'timestep_flags': [],               # if you want to filter rostime stamps, do it here
-        'battery' : True,                   # if battery voltage is in the state data
-        'terminals': True,                 # adds a column to the dataframe tracking end of trajectories
-        'fastLog' : True,                   # if using the software with the new fast log
-        'contFreq' : 1,                      # Number of times the control freq you will be using is faster than that at data logging
-        'iono_data': True,
-        'zero_yaw': True,
-        'moving_avg': 2
-    }
-
-    # for generating summaries
-    # output = [dI for dI in os.listdir("_logged_data_autonomous/_newquad1/publ2/") if os.path.isdir(os.path.join("_logged_data_autonomous/_newquad1/publ2/",dI))]
-    # print(output)
-    # for dir in output:
-    #     dir_summary_csv(dir, load_params)
-    # quit()
-
-    # rollouts_summary_csv("_summaries/trainedpoints/25hz/")
-    # rollouts_summary_csv("_summaries/trainedpoints/50hz/")
-    # rollouts_summary_csv("_summaries/trainedpoints/75hz/")
-
-
-    # For generating flight time plot vs rollouts
-    # flight_time_plot("_summaries/trainedpoints/")
-    # trained_points_plot("_results/_summaries/trainedpoints/")
-    # quit()
-    # trained_points_plot("_summaries/trainedpoints/")
-
-    # dir_list = ["_newquad1/publ2/c50_rand/",
-    #             "_newquad1/publ2/c50_roll01/",
-    #             "_newquad1/publ2/c50_roll02/",
-    #             "_newquad1/publ2/c50_roll03/",
-    #             "_newquad1/publ2/c50_roll04/",
-    #             "_newquad1/publ2/c50_roll05/",
-    #             "_newquad1/publ2/c50_roll06/",
-    #             "_newquad1/publ2/c50_roll07/",
-    #             "_newquad1/publ2/c50_roll08/",
-    #             "_newquad1/publ2/c50_roll09/",
-    #             "_newquad1/publ2/c50_roll10/",
-    #             "_newquad1/publ2/c50_roll11/",
-    #             "_newquad1/publ2/c50_roll12/"]
-
-    dir_list = ["_newquad1/publ2/c25_rand/",
-                "_newquad1/publ2/c25_roll01/",
-                "_newquad1/publ2/c25_roll02/",
-                "_newquad1/publ2/c25_roll03/",
-                "_newquad1/publ2/c25_roll04/",
-                "_newquad1/publ2/c25_roll05/",
-                "_newquad1/publ2/c25_roll06/",
-                "_newquad1/publ2/c25_roll07/",
-                "_newquad1/publ2/c25_roll08/",
-                "_newquad1/publ2/c25_roll09/",
-                "_newquad1/publ2/c25_roll10/",
-                "_newquad1/publ2/c25_roll11/",
-                "_newquad1/publ2/c25_roll12/"]
-
-    # dir_list = ["_newquad1/publ_data/c50_samp300_rand/",
-    #     "_newquad1/publ_data/c50_samp300_roll1/",
-    #     "_newquad1/publ_data/c50_samp300_roll2/",
-    #     "_newquad1/publ_data/c50_samp300_roll3/",
-    #     "_newquad1/publ_data/c50_samp300_roll4/"]
-    # dir_list = ["_newquad1/publ_data/c25_samp300_rand/",
-    #     "_newquad1/publ_data/c25_samp300_roll1/",
-    #     "_newquad1/publ_data/c25_samp300_roll2/",
-    #     "_newquad1/publ_data/c25_samp300_roll3/",
-    #     "_newquad1/publ_data/c25_samp300_roll4/"]
-    # dir_list = ["_newquad1/fixed_samp/c50_samp300_rand/", "_newquad1/fixed_samp/c50_samp300_roll1/", "_newquad1/fixed_samp/c50_samp300_roll2/", "_newquad1/fixed_samp/c50_samp300_roll3/"]#, "_newquad1/new_samp/c50_samp400_roll1/"]                                   # for contFreq, use 1 if training at the same rate data was collected at
-    # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/","_newquad1/fixed_samp/c100_samp250_roll1/","_newquad1/fixed_samp/c100_samp250_roll2/"]#,"_newquad1/fixed_samp/c100_samp300_roll1/","_newquad1/fixed_samp/c100_samp300_roll2/" ]
-    # for dir in dir_list:
-    #     dir_summary_csv(dir, load_params)
-
-    df = stack_dir_pd_iono('video-setup/', load_params)
-    # print(df.columns)
-    # quit()
-
-
-    # quit()
-    # df = load_dirs(dir_list, load_params)
-    # print(np.min(df[['m1_pwm_0','m2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']]))
-    # quit()
-
+    c = OmegaConf.load('conf/trainer.yaml')
+    
+    data_dir = c.load.base_dir
+    df = stack_dir_pd_iono(data_dir, c.load)
     '''
     ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
     'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
@@ -197,6 +108,9 @@ if __name__ == '__main__':
         'battery' : False                    # Need to include battery here too
     }
 
+    def create_model_params(model_cfg):
+
+        return 
     data_params_iono = {
         # Note the order of these matters. that is the order your array will be in
         'states': ['omega_x0', 'omega_y0', 'omega_z0',

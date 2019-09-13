@@ -1,0 +1,63 @@
+load:
+  delta_state: true
+  include_tplus1: True             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)
+  trim_high_vbat: 4050             # trims high vbat because these points the quad is not moving
+  takeoff_points: 180              # If not trimming data with fast log, need another way to get rid of repeated 0s
+  trim_0_dX: True                  # if all the euler angles (floats) don't change, it is not realistic data
+  find_move: True
+  trime_large_dX: False             # if the states change by a large amount, not realistic
+  bound_inputs: [20000,65500]      # Anything out of here is erroneous anyways. Can be used to focus training
+  stack_states: 3                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
+  collision_flag: False            # looks for sharp changes to tthrow out items post collision
+  shuffle_here: False              # shuffle pre training, makes it hard to plot trajectories
+  timestep_flags: []               # if you want to filter rostime stamps, do it here
+  battery: True                   # if battery voltage is in the state data
+  terminals: True                 # adds a column to the dataframe tracking end of trajectories
+  fastLog: True                   # if using the software with the new fast log
+  contFreq: 1                     # Number of times the control freq you will be using is faster than that at data logging
+  iono_data: True
+  zero_yaw: True
+  moving_avg: 2
+  base_dir: video-setup/
+data_dirs: 
+- "_newquad1/publ2/c25_rand/"
+- "_newquad1/publ2/c25_roll01/"
+- "_newquad1/publ2/c25_roll02/"
+- "_newquad1/publ2/c25_roll03/"
+- "_newquad1/publ2/c25_roll04/"
+- "_newquad1/publ2/c25_roll05/"
+- "_newquad1/publ2/c25_roll06/"
+- "_newquad1/publ2/c25_roll07/"
+- "_newquad1/publ2/c25_roll08/"
+- "_newquad1/publ2/c25_roll09/"
+- "_newquad1/publ2/c25_roll10/"
+- "_newquad1/publ2/c25_roll11/"
+- "_newquad1/publ2/c25_roll12/"
+model:
+  flight_mode: basic
+  history: 3
+  ignore: 
+  - acc
+  - vbat
+  training:
+    dx: -1
+    du: -1
+    dt: -1
+    hid_width: 250
+    hid_depth: 2
+    probl: true
+    activ: swish
+    extra:
+      dropout: 0
+      split: false
+      mode: delta
+    ensemble: false
+  optimizer:
+    epochs: 33
+    batch: 18
+    optim: Adam
+    split: .8
+    lr: .0025
+    lr_schedule: [30,6]
+    preprocess: true
+    verbose: false
