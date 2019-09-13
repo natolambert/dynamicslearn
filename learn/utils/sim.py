@@ -2,16 +2,17 @@
 from utils.data import *
 from utils.nn import *
 from torch.utils.data import Dataset, DataLoader
+# from gymenv_quad import QuadEnv
 
 # data packages
 import pickle
 import random
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
 
-# neural nets
-from model_split_nn import SplitModel
-from _activation_swish import Swish
-from model_ensemble_nn import EnsembleNN
+# # neural nets
+# from model_split_nn import SplitModel
+# from _activation_swish import Swish
+# from model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
@@ -91,257 +92,7 @@ def explore_pwm_equil(df):
     print('----')
     return rounded_act
 
-def generate_mpc_imitate(dataset, data_params, nn_params, train_params):
-    """
-    Will be used for imitative control of the model predictive controller. 
-    Could try adding noise to the sampled acitons...
-    """
 
-    class ImitativePolicy(nn.Module):
-        def __init__(self, nn_params):
-            super(ImitativePolicy, self).__init__()
-
-            # Store the parameters:
-            self.hidden_w = nn_params['hid_width']
-            self.depth = nn_params['hid_depth']
-
-            self.n_in_input = nn_params['dx']
-            self.n_out = nn_params['du']
-
-            self.activation = nn_params['activation']
-            self.d = nn_params['dropout']
-
-            self.loss_fnc = nn.MSELoss()
-
-            # super(ImitativePolicy, self).__init__()
-
-            # Takes objects from the training parameters
-            layers = []
-            layers.append(nn.Linear(self.n_in_input, self.hidden_w)
-                          )       # input layer
-            layers.append(self.activation)
-            layers.append(nn.Dropout(p=self.d))
-            for d in range(self.depth):
-                # add modules
-                # input layer
-                layers.append(nn.Linear(self.hidden_w, self.hidden_w))
-                layers.append(self.activation)
-                layers.append(nn.Dropout(p=self.d))
-
-            # output layer
-            layers.append(nn.Linear(self.hidden_w, self.n_out))
-            self.features = nn.Sequential(*layers)
-
-            # Need to scale the state variables again etc
-            # inputs state, output an action (PWMs)
-            self.scalarX = StandardScaler()  # MinMaxScaler(feature_range=(-1, 1))
-            self.scalarU = MinMaxScaler(feature_range=(-1, 1))
-
-        def forward(self, x):
-            # Max pooling over a (2, 2) window
-            x = self.features(x)
-
-            return x
-
-        def preprocess(self, dataset):  # X, U):
-            """
-            Preprocess X and U for passing into the neural network. For simplicity, takes in X and U as they are output from generate data, but only passed the dimensions we want to prepare for real testing. This removes a lot of potential questions that were bugging me in the general implementation. Will do the cosine and sin conversions externally.
-            """
-            # Already done is the transformation from
-            # [yaw, pitch, roll, x_ddot, y_ddot, z_ddot]  to
-            # [sin(yaw), sin(pitch), sin(roll), cos(pitch), cos(yaw),  cos(roll), x_ddot, y_ddot, z_ddot]
-            # dX = np.array([utils_data.states2delta(val) for val in X])
-            if len(dataset) == 2:
-                X = dataset[0]
-                U = dataset[1]
-            else:
-                raise ValueError("Improper data shape for training")
-
-            self.scalarX.fit(X)
-            self.scalarU.fit(U)
-
-            #Normalizing to zero mean and unit variance
-            normX = self.scalarX.transform(X)
-            normU = self.scalarU.transform(U)
-
-            inputs = torch.Tensor(normX)
-            outputs = torch.Tensor(normU)
-
-            return list(zip(inputs, outputs))
-
-        def postprocess(self, U):
-            """
-            Given the raw output from the neural network, post process it by rescaling by the mean and variance of the dataset
-            """
-            # de-normalize so to say
-            U = self.U.inverse_transform(U.reshape(1, -1))
-            U = U.ravel()
-            return np.array(U)
-
-        def train_cust(self, dataset, train_params, gradoff=False):
-            """
-            Train the neural network.
-            if preprocess = False
-                dataset is a list of tuples to train on, where the first value in the tuple is the training data (should be implemented as a torch tensor), and the second value in the tuple
-                is the label/action taken
-            if preprocess = True
-                dataset is simply the raw output of generate data (X, U)
-            Epochs is number of times to train on given training data,
-            batch_size is hyperparameter dicating how large of a batch to use for training,
-            optim is the optimizer to use (options are "Adam", "SGD")
-            split is train/test split ratio
-            """
-            epochs = train_params['epochs']
-            batch_size = train_params['batch_size']
-            optim = train_params['optim']
-            split = train_params['split']
-            lr = train_params['lr']
-            lr_step_eps = train_params['lr_schedule'][0]
-            lr_step_ratio = train_params['lr_schedule'][1]
-            preprocess = train_params['preprocess']
-
-            if preprocess:
-                dataset = self.preprocess(dataset)  # [0], dataset[1])
-
-
-            trainLoader = DataLoader(
-                dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
-            testLoader = DataLoader(
-                dataset[int(split*len(dataset)):], batch_size=batch_size)
-
-            # Papers seem to say ADAM works better
-            if(optim == "Adam"):
-                optimizer = torch.optim.Adam(
-                    super(ImitativePolicy, self).parameters(), lr=lr)
-            elif(optim == "SGD"):
-                optimizer = torch.optim.SGD(
-                    super(ImitativePolicy, self).parameters(), lr=lr)
-            else:
-                raise ValueError(optim + " is not a valid optimizer type")
-
-            # most results at .6 gamma, tried .33 when got NaN
-            if lr_step_eps != []:
-                scheduler = torch.optim.lr_scheduler.StepLR(
-                    optimizer, step_size=lr_step_eps, gamma=lr_step_ratio)
-
-            testloss, trainloss = self._optimize(
-                self.loss_fnc, optimizer, split, scheduler, epochs, batch_size, dataset)  # trainLoader, testLoader)
-            
-            return testloss, trainloss
-
-        def predict(self, X):
-            """
-            Given a state X, predict the desired action U. This function is used when simulating, so it does all pre and post processing for the neural net
-            """
-
-            #normalizing and converting to single sample
-            normX = self.scalarX.transform(X.reshape(1, -1))
-
-            input = torch.Tensor(normX)
-
-            NNout = self.forward(input).data[0]
-
-            return NNout
-
-        # trainLoader, testLoader):
-        def _optimize(self, loss_fn, optim, split, scheduler, epochs, batch_size, dataset, gradoff=False):
-            errors = []
-            error_train = []
-            split = split
-
-            testLoader = DataLoader(
-                dataset[int(split*len(dataset)):], batch_size=batch_size)
-            trainLoader = DataLoader(
-                dataset[:int(split*len(dataset))], batch_size=batch_size, shuffle=True)
-
-            for epoch in range(epochs):
-                scheduler.step()
-                avg_loss = torch.zeros(1)
-                num_batches = len(trainLoader)/batch_size
-                for i, (input, target) in enumerate(trainLoader):
-                    # Add noise to the batch
-                    if False:
-                        if self.prob:
-                            n_out = int(self.n_out/2)
-                        else:
-                            n_out = self.n_out
-                        noise_in = torch.tensor(np.random.normal(
-                            0, .01, (input.size())), dtype=torch.float)
-                        noise_targ = torch.tensor(np.random.normal(
-                            0, .01, (target.size())), dtype=torch.float)
-                        input.add_(noise_in)
-                        target.add_(noise_targ)
-
-                    optim.zero_grad()                             # zero the gradient buffers
-                    # compute the output
-                    output = self.forward(input)
-                    
-                    loss = loss_fn(output, target)
-                    # add small loss term on the max and min logvariance if probablistic network
-                    # note, adding this term will backprob the values properly
-
-                    if loss.data.numpy() == loss.data.numpy():
-                        # print(self.max_logvar, self.min_logvar)
-                        if not gradoff:
-                            # backpropagate from the loss to fill the gradient buffers
-                            loss.backward()
-                            optim.step()                                  # do a gradient descent step
-                        # print('tain: ', loss.item())
-                    # if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
-                    else:
-                        # This is helpful: it'll catch that when it happens,
-                        print("loss is NaN")
-                        # print("Output: ", output, "\nInput: ", input, "\nLoss: ", loss)
-                        errors.append(np.nan)
-                        error_train.append(np.nan)
-                        # and give the output and input that made the loss NaN
-                        return errors, error_train
-                    # update the overall average loss with this batch's loss
-                    avg_loss += loss.item()/(len(trainLoader)*batch_size)
-
-                # self.features.eval()
-                test_error = torch.zeros(1)
-                for i, (input, target) in enumerate(testLoader):
-
-                    output = self.forward(input)
-                    loss = loss_fn(output, target)
-
-                    test_error += loss.item()/(len(testLoader)*batch_size)
-                test_error = test_error
-
-                #print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
-                #          "test_error={:.9f}".format(test_error))
-                if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]), "test loss=", "{:.6f}".format(test_error.data[0]))
-                # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
-                error_train.append(avg_loss.data[0].numpy())
-                errors.append(test_error.data[0].numpy())
-            #loss_fn.print_mmlogvars()
-            return errors, error_train
-
-
-    # create policy object
-    policy = ImitativePolicy(nn_params)
-
-    # train policy
-    # X, U, _ = df_to_training(df, data_params)
-    X = dataset[0]
-    U = dataset[1]
-    acctest, acctrain = policy.train_cust((X, U), train_params)
-    
-    if True:
-        ax1 = plt.subplot(211)
-        # ax1.set_yscale('log')
-        ax1.plot(acctest, label='Test Loss')
-        plt.title('Test Loss')
-        ax2 = plt.subplot(212)
-        # ax2.set_yscale('log')
-        ax2.plot(acctrain, label='Train Loss')
-        plt.title('Training Loss')
-        ax1.legend()
-        plt.show()
-
-    # return policy!
-    return policy
 
 def pred_traj(x0, action, model, T):
     # get dims
@@ -465,6 +216,8 @@ def gather_predictions(model_dir, dataset, delta=True, variances=False):
     else:
         predictions_1 = np.empty((0, 9))  # np.shape(X)[1]))
         predictions_1_var = np.empty((0, 9))  # np.shape(X)[1]))
+        # predictions_1 = torch.Tensor([[0,0,0,0,0,0,0,0,0]])
+        # predictions_1_var = torch.Tensor([[0,0,0,0,0,0,0,0,0]])
         for (dx, x, u) in zip(dX, X, U):
             # pred = predict_nn_v2(nn, x, u)
 
@@ -478,14 +231,22 @@ def gather_predictions(model_dir, dataset, delta=True, variances=False):
             #     if b:
             #         mean[i] = x[i] + mean[i]
                 # else:
-                #     mean[i] = mean[i]
-
+                    # mean[i] = mean[i]
+            print("MEAN")
+            print(mean.shape)
+            print(predictions_1.shape)
             predictions_1 = np.append(
                 predictions_1, mean.reshape(1, -1).detach().numpy(),  axis=0)
             predictions_1_var = np.append(
                 predictions_1_var, var.reshape(1, -1).detach().numpy(),  axis=0)
-
+            # predictions_1 = np.append(
+            #     predictions_1, mean.detach().numpy(),  axis=0)
+            # predictions_1_var = np.append(
+            #     predictions_1_var, var.detach().numpy(),  axis=0)
+            
+        print(predictions_1[1:, :].shape)
         return predictions_1, predictions_1_var
+        # return predictions_1[1:, :], predictions_1_var[1:, :]
 
 class CrazyFlie():
     def __init__(self, dt, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
@@ -648,7 +409,7 @@ class CrazyFlie():
         x1[x1 < 1e-12] = 0
         return x1+x_noise_vec
 
-def explore_policy(dataset, policy):
+def explore_policy():#policy_imitate, policy_sac = [], policy_mpc = False):
     '''
     Function to take a trained control policy and export a analysis 
       of what the policy will do on the trained dataset
@@ -656,11 +417,56 @@ def explore_policy(dataset, policy):
     print("TEST")
     """ 
     Some ideas
-    - can we plot distribution of actions taken.
+    - can we plot distribution of actions taken over the trained dataset.
+        - we could have a "validation" portion of the dataset that corresponds
+            to the test data for the neural network
     - How do you test train / validate this etc
     
     Some thoughts from email:
     - perturb states slightly and check how much policies change
-    - somehow plot action choices over the logged state space data and see if distributions have different variance etc
-    - With the action space being 4 dimensional, maybe we can reduce it to something like “Thrust, roll power, and pitch power” which we could visualize in 3d
+    - somehow plot action choices over the logged state space data and 
+        see if distributions have different variance etc
+    - With the action space being 4 dimensional, maybe we can reduce it to something 
+        like “Thrust, roll power, and pitch power” which we could visualize in 3d
     """
+
+    data_file = open(
+        "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_--data.pkl", 'rb')
+    df = pickle.load(data_file)
+
+    Env = QuadEnv()
+    policy_sac = []
+    policy_Impc = []
+    state_data = df[['omega_x0', 'omega_y0', 'omega_z0', 'pitch0', 'roll0',
+                     'yaw0', 'lina_x0', 'lina_y0', 'lina_z0', 
+                     'omega_x1', 'omega_y1', 'omega_z1', 'pitch1', 'roll1',
+                     'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
+                     'omega_x1', 'omega_y1', 'omega_z1', 'pitch1', 'roll1',
+                     'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
+                     'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+                     'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2']]
+
+    # init action arrays
+    data_mpc = df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values
+    data_sac = np.empty(np.shape(data_mpc))
+    data_Impc = np.empty(np.shape(data_mpc))
+
+    def normalize_act(action):
+        # Returns 'flyable' pwm from NN output [-1,1]
+        return .5*(action+1)*(Env.act_high-Env.act_low)+Env.act_low
+
+    # itetate through all states and generate policy data
+    for i,state in enumerate(state_data.values):
+        # need to normalize the state for the policies
+        state_norm = (state - Env.norm_means)/Env.norm_stds
+        act_sac_raw, _ = policy_sac.get_action(state_norm)
+        act_sac = normalize_act(act_sac_raw)
+        data_sac[i, :] = act_sac
+
+        act_Impc_raw, _ = policy_Impc.forward(state_norm)
+        act_Impc = normalize_act(act_Impc_raw)
+        data_Impc[i, :] = act_Impc
+
+
+
+    quit()

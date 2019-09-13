@@ -22,7 +22,6 @@ from utils.data import *
 # plot_flight_segment: plots a segment of a flight at given location
 
 
-
 def plot_flight_time(csv_dir):
     '''
     tool to take in a directory of flight summaries and plot the flight time vs rollouts
@@ -1288,9 +1287,12 @@ def plot_test_train(model, dataset, variances = True):
     new ensemble: '_models/temp/2019-02-23--16-10-00.4_plot_temp__stack3_'
     new single: '_models/temp/2019-02-23--17-03-22.0_plot_temp_single_stack3_'
     '''
+    #for crazyflie plots
     model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
     model_testing = '_models/temp/2019-02-25--09-51-49.1_temp_single_debug_stack3_.pth'
-
+    
+    # below for iono
+    model_testing = "_models/temp/2019-05-02--09-43-01.5_temp_stack3_.pth"
     if variances:
         predictions_means, predictions_vars = gather_predictions(
             model_testing, dataset, variances=variances)
@@ -1302,7 +1304,7 @@ def plot_test_train(model, dataset, variances = True):
     U = dataset[1]
     dX = dataset[2]
 
-    dim = 4
+    dim = 3
     # New plot
     font = {'size': 11}
 
@@ -1421,13 +1423,13 @@ def plot_test_train(model, dataset, variances = True):
         ax.set_ylim([-6.0, 6.0])
         ax.set_xlim([0, 1])
 
-    # fig.set_size_inches(5, 3.5)
+    fig.set_size_inches(5, 3.5)
 
     # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
-    # plt.savefig('testrain.pdf', format='pdf', dpi=300)
+    plt.savefig('testrain.pdf', format='pdf', dpi=300)
 
-    plt.show()
+    # plt.show()
 
 
 def plot_rollout_compare():
@@ -1437,7 +1439,7 @@ def plot_rollout_compare():
       Includes some commented code for an old version.
     """
 
-    font = {'size': 18}
+    font = {'size': 17}
 
     matplotlib.rc('font', **font)
     matplotlib.rc('lines', linewidth=3)
@@ -1510,7 +1512,8 @@ def plot_rollout_compare():
         'terminals': True,
         'fastLog': True,                   # if using the software with the new fast log
         # Number of times the control freq you will be using is faster than that at data logging
-        'contFreq': 1
+        'contFreq': 1,
+        'zero_yaw': False
     }
 
     # load_params ={
@@ -1584,19 +1587,18 @@ def plot_rollout_compare():
         ax.set_ylim([-40, 40])
         if i == 0 or i == 2:
             ax.set_ylabel("Pitch (Deg)")
-
-        # ax.grid(b=True, which='major', color='k',
-        #         linestyle='-', linewidth=0.05, alpha=.75)
+        ax.grid(b=True, which='major', color='k',
+                linestyle='-', linewidth=0.0, alpha=.75)
         ax.grid(b=True, which='minor', color='r', linestyle='--', linewidth=0)
 
-    plt.subplots_adjust(wspace=.12, left=.07, right=1-.02, hspace=.31)
+    plt.subplots_adjust(wspace=.12, left=.07, right=1-.02, hspace=.4)
     ax1.set_title("Random Controller Flights")
     ax2.set_title("After 1 Model Iteration")
     ax3.set_title("After 2 Model Iterations")
     ax4.set_title("After 3 Model Iterations")
     # plt.suptitle("Comparision of Flight Lengths in Early Rollouts")
 
-    fig.set_size_inches(16, 6)
+    fig.set_size_inches(16, 5.5)
 
     # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 

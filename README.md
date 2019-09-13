@@ -1,3 +1,10 @@
+CF Firmware: https://github.com/natolambert/crazyflie-firmware-pwm-control
+  - forked from: https://github.com/bitcraze/crazyflie-firmware
+
+Ros code: https://github.com/natolambert/ros-crazyflie-mbrl
+  - uh from: https://github.com/whoenig/crazyflie_ros
+  - want to use: https://github.com/USC-ACTLab/crazyswarm
+
 # dynamics-learn
 Working directory for my work on model-based reinforcement learning for novel robots. Best for robots with high test cost and difficult to model dynamics. Contact: [nol@berkeley.edu](mailto:nol@berkeley.edu)
 Project website: [https://sites.google.com/berkeley.edu/mbrl-quadrotor/](https://sites.google.com/berkeley.edu/mbrl-quadrotor/)

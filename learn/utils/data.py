@@ -606,6 +606,9 @@ def df_to_training(df, data_params):
 
     # Otherwise take lists
     else:
+        print(targets)
+        print(states)
+        print(inputs)
         dX = df[targets].values
         X = df[states].values
         U = df[inputs].values
@@ -655,7 +658,7 @@ def stack_dir_pd_iono(dir, load_params):
 
     for i,f in enumerate(files):
         
-        if f[:3] != 'DS_':
+        if f[:3] != '.DS':
             # print(f)
             X_t, U_t, dX_t = load_iono_txt(dir+f, load_params)
   
@@ -943,9 +946,10 @@ def load_iono_txt(fname, load_params):
     with open(file, "rb") as csvfile:
         # laod data
         # cols_use = np.linspace(0,13,14)
+        print(csvfile)
         cols_use = (0,1,2,3,4,5,6,7,8,9,10,11,12)
         new_data = np.genfromtxt(csvfile, delimiter=",", usecols=cols_use, autostrip=True)
-        # print(new_data)
+        print(new_data)
         # print(new_data.shape)
 
         
@@ -1110,7 +1114,7 @@ def load_iono_txt(fname, load_params):
             # this is repeated three times for some anomolous serial data
        
 
-        if False:
+        if True:
             # font = {'size': 22,'family': 'serif', 'serif': ['Times']}
             font = {'size': 12}
 
@@ -1131,7 +1135,7 @@ def load_iono_txt(fname, load_params):
                 
 
             ax1.set_title("Logged Iono Data")
-            ax1.set_xlabel("Datapoint (No Timestamp)")
+            ax1.set_xlabel("Datapoint (Collected Approx. 200Hz)")
             ax1.set_ylabel("Angle (Degrees)")
 
             if False:
@@ -1162,16 +1166,22 @@ def load_iono_txt(fname, load_params):
                 ax1.plot(butter_lowpass_filter(
                     X[:, 8], cutoff, fs, order), label='filtered yaw')
             else:   
-                ax1.plot(X[:, 6], label='pitch')
-                ax1.plot(X[:, 7], label='roll')
-                ax1.plot(X[:, 8], label='yaw')
-            ax1.legend()
+                ax1.plot(X[:, -3], label='roll')
+                ax1.plot(X[:, -2], label='pitch')
+                ax1.plot(X[:, -1], label='yaw')
+
+                # ax1.plot(U[:200, 0], label='T1')
+                # ax1.plot(U[:200, 1], label='T2')
+                # ax1.plot(U[:200, 2], label='T3')
+                # ax1.plot(U[:200, 3], label='T4')
+
+            # ax1.legend()
             # plt.show()
-            fig.set_size_inches(8, 4.5)
+            # fig.set_size_inches(8, 4.5)
 
-            # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
+            # # plt.savefig('psoter', edgecolor='black', dpi=100, transparent=True)
 
-            plt.savefig('iono_flight.pdf', format='pdf', dpi=300)
+            # plt.savefig('iono_flight.eps', format='eps', dpi=300)
             # quit()
 
         # print("State data shape, ", X.shape)
