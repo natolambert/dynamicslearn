@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.getcwd())
+
 # Our infrastucture files
 # from utils_data import * 
 # from utils_nn import *
@@ -5,11 +9,12 @@ from utils.data import *
 from utils.sim import *
 from utils.nn import *
 
+
 # data packages
 import pickle
 
 # neural nets
-from model_general_nn import GeneralNN
+from learn.model_general_nn import GeneralNN
 # from model_split_nn import SplitModel
 # from model_ensemble_nn import EnsembleNN
 
@@ -28,6 +33,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 import argparse
+from omegaconf import Omegaconf
 
 ######################################################################
 
@@ -358,10 +364,10 @@ if __name__ == '__main__':
 
         normX, normU, normdX = newNN.getNormScalers()
         with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
-        pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
-        time.sleep(2)
+            pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
+            time.sleep(2)
 
         # Saves data file
         with open(model_name+"--data.pkl", 'wb') as pickle_file:
-        pickle.dump(df, pickle_file, protocol=2)
-        time.sleep(2)
+            pickle.dump(df, pickle_file, protocol=2)
+            time.sleep(2)
