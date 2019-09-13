@@ -19,17 +19,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.distributions.normal import Normal
-from _activation_swish import Swish
-from model_split_nn import SplitModel
-# from model_split_nn_v2 import SplitModel2
+
 import matplotlib.pyplot as plt
 from collections import OrderedDict
-
-# neural nets
-from model_split_nn import SplitModel
-# from _activation_swish import Swish
-# from utils_nn import *
-
 
 class GeneralNN(nn.Module):
     def __init__(self, nn_params):

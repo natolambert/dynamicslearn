@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 import argparse
-from omegaconf import Omegaconf
+from omegaconf import OmegaConf
 
 ######################################################################
 
