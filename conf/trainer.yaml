@@ -36,8 +36,16 @@ data_dirs:
 model:
   flight_mode: basic
   history: 3
-  ignore: 
-  - acc
+  delta_state_targets:
+  - pitch
+  - roll
+  - yaw
+  true_state_targets: 
+  - lina
+  - omega
+  ignore_in: 
+  - vbat
+  ignore_out:
   - vbat
   training:
     dx: -1

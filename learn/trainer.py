@@ -109,8 +109,51 @@ if __name__ == '__main__':
     }
 
     def create_model_params(model_cfg):
+        params = dict()
+        # For delta state, prepend with d_omega_y
+        # for true state, prepend with t1_lina_x
+        # for history of said item, append the number directly  m2_pwm2
+        base_list = ['omega_x', 'omega_y', 'omega_z', 'pitch', 'roll', 'yaw', 'lina_x',
+                        'lina_y', 'liny_z', 'timesteps', 'objective vals', 'flight times',
+                        'm1_pwm', 'm2_pwm', 'm3_pwm', 'm4_pwm', 'vbat']
+        always_ignore = ['timesteps', 'objective vals', 'flight times',]
+        for a in always_ignore: base_list.remove(a)
+        base_list = np.array(base_list)
+        states = base_list[['pwm' not in b for b in base_list]]
+        targets = base_list
+        inputs = base_list[['pwm' in b for b in base_list]].tolist()
+        if model_cfg.history > 0:
+            expanded_s = []
+            expanded_i = []
+            for h in range(model_cfg.history):
+                for s in states:
+                    if s in model_cfg.ignore_in: continue
+                    s += str(h)
+                    expanded_s.append(s)
+                for i in inputs:
+                    i += str(h)
+                    expanded_i.append(i)
 
+            print("append historic elements for inputs")
+            states = expanded_s
+            inputs = expanded_i
+        
+
+        params['targets'] = targets
+        params['states'] = expanded_s
+        params['inputs'] = expanded_i
+        params['battery'] = False
+
+        def check_in(string, set):
+            out = False
+            for s in set:
+                if  s in string: 
+                    out = True
+            return out
+        print('trim')
         return 
+
+    create_model_params(c.model)
     data_params_iono = {
         # Note the order of these matters. that is the order your array will be in
         'states': ['omega_x0', 'omega_y0', 'omega_z0',
@@ -223,7 +266,7 @@ if __name__ == '__main__':
             my_file.write("NN Train Params:"+"\n")
             for k, v in train_params.items():
                 my_file.write(str(k) + ' >>> '+ str(v) + '\n')
-            my_file.write("\n")
+            my_file.write("\n") 
 
 
     if ensemble:
