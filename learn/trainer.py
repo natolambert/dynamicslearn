@@ -64,7 +64,7 @@ if __name__ == '__main__':
     date_str = date_str.replace(' ','--').replace(':', '-')
     print('Running... trainNN_RL.py' + date_str +'\n')
 
-    c = OmegaConf.load('conf/trainer.yaml')
+    c = OmegaConf.load('learn/conf/trainer.yaml')
     
     data_dir = c.load.base_dir
     df = stack_dir_pd_iono(data_dir, c.load)
