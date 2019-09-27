@@ -3,25 +3,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import copy
 import math
 
-import utils
+import utils # TODO check: I don't think this refers to the utils directory we have
 
 LOG_FREQ = 10000
 OUT_SIZE = 29
 
-
 def soft_update_params(net, target_net, tau):
     for param, target_param in zip(net.parameters(), target_net.parameters()):
-        target_param.data.copy_(tau * param.data +
-                                (1 - tau) * target_param.data)
+        target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
 
 def gaussian_likelihood(noise, log_std):
     pre_sum = -0.5 * noise.pow(2) - log_std
-    return pre_sum.sum(
-        -1, keepdim=True) - 0.5 * np.log(2 * np.pi) * noise.size(-1)
+    return pre_sum.sum(-1, keepdim=True) - 0.5 * np.log(2 * np.pi) * noise.size(-1)
 
 
 def apply_squashing_func(mu, pi, log_pi):
@@ -53,147 +49,10 @@ def tie_weights(src, trg):
     trg.bias = src.bias
 
 
-class PixelsEncoder(nn.Module):
-    def __init__(self, frame_stack, log_std_min, log_std_max, share_latent=False, logstd=False):
-        super().__init__()
-
-        self.output_dim = 50
-        self.logstd = logstd
-        self.share_latent = share_latent
-        self.log_std_min = log_std_min
-        self.log_std_max = log_std_max
-
-        self.conv1 = nn.Conv2d(3 * frame_stack, 32, 3, stride=2)
-        self.conv2 = nn.Conv2d(32, 32, 3, stride=1)
-
-        self.fc = nn.Linear(32 * OUT_SIZE * OUT_SIZE, self.output_dim)
-        if self.logstd:
-            self.fc_logstd = nn.Linear(32 * OUT_SIZE * OUT_SIZE,
-                                       self.output_dim)
-        self.ln = nn.LayerNorm(self.output_dim)
-
-        self.outputs = dict()
-
-    def reparameterize(self, mu, logstd):
-        std = torch.exp(logstd)
-        eps = torch.randn_like(std)
-        return mu + eps * std
-
-    def forward(self, x, detach=False, return_logstd=False):
-        x = x / 255.
-        self.outputs['obs'] = x
-
-        conv1 = torch.relu(self.conv1(x))
-        self.outputs['conv1'] = conv1
-
-        conv2 = torch.relu(self.conv2(conv1))
-        self.outputs['conv2'] = conv2
-
-        h = conv2.view(conv2.size(0), -1)
-
-        if detach:
-            h = h.detach()
-
-        h_ = self.fc(h)
-
-        if self.logstd:
-            h_logstd = self.fc_logstd(h)
-            h_logstd = torch.tanh(h_logstd)
-            h_logstd = self.log_std_min + 0.5 * (
-                self.log_std_max - self.log_std_min) * (h_logstd + 1)
-            h_ = self.reparameterize(h_, h_logstd)
-
-        if self.share_latent and detach:
-            h_ = h_.detach()
-
-        self.outputs['fc'] = h_
-
-        h_norm = self.ln(h_)
-        self.outputs['ln'] = h_norm
-
-        out = torch.tanh(h_norm)
-        self.outputs['tanh'] = out
-
-        if return_logstd:
-            return out, h_, h_logstd
-        return out
-
-    def log(self, L, step, log_freq=LOG_FREQ):
-        if step % log_freq != 0:
-            return
-
-        L.log_image('train_encoder/obs_i', self.outputs['obs'][0], step)
-        L.log_image('train_encoder/conv1_i', self.outputs['conv1'][0], step)
-        L.log_image('train_encoder/conv2_i', self.outputs['conv2'][0], step)
-
-        for k, v in self.outputs.items():
-            L.log_histogram('train_encoder/%s_o' % k, v, step)
-
-        L.log_param('train_encoder/conv1', self.conv1, step)
-        L.log_param('train_encoder/conv2', self.conv2, step)
-        L.log_param('train_encoder/fc', self.fc, step)
-        L.log_param('train_encoder/ln', self.ln, step)
-
-
-class PixelsDecoder(nn.Module):
-    def __init__(self, frame_stack):
-        super().__init__()
-
-        self.output_dim = 50
-
-        self.fc = nn.Linear(self.output_dim, 32 * OUT_SIZE * OUT_SIZE)
-
-        self.deconv1 = nn.ConvTranspose2d(32, 32, 3, stride=1)
-        self.deconv2 = nn.ConvTranspose2d(
-            32, 3 * frame_stack, 3, stride=2, output_padding=1)
-
-        self.apply(weight_init)
-        self.outputs = dict()
-
-    def forward(self, h):
-        h = torch.relu(self.fc(h))
-        self.outputs['fc'] = h
-
-        deconv1 = h.view(-1, 32, OUT_SIZE, OUT_SIZE)
-        self.outputs['deconv1'] = deconv1
-
-        deconv2 = torch.relu(self.deconv1(deconv1))
-        self.outputs['deconv2'] = deconv2
-
-        obs = self.deconv2(deconv2)
-        self.outputs['obs'] = obs
-
-        return obs
-
-    def log(self, L, step, log_freq=LOG_FREQ):
-        if step % log_freq != 0:
-            return
-
-        L.log_image('train_decoder/obs_i', self.outputs['obs'][0], step)
-        L.log_image('train_decoder/deconv1_i', self.outputs['deconv1'][0],
-                    step)
-        L.log_image('train_decoder/deconv2_i', self.outputs['deconv2'][0],
-                    step)
-
-        for k, v in self.outputs.items():
-            L.log_histogram('train_decoder/%s_o' % k, v, step)
-
-        L.log_param('train_decoder/deconv1', self.deconv1, step)
-        L.log_param('train_decoder/deconv2', self.deconv2, step)
-        L.log_param('train_decoder/fc', self.fc, step)
-
-
 class Actor(nn.Module):
     def __init__(self, obs_dim, action_dim, hidden_dim, log_std_min,
                  log_std_max, from_pixels, frame_stack, share_latent, use_vae):
         super().__init__()
-
-        if from_pixels:
-            self.encoder = PixelsEncoder(
-                frame_stack, log_std_min, log_std_max, logstd=use_vae, share_latent=share_latent)
-            obs_dim = self.encoder.output_dim
-        else:
-            self.encoder = None
 
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
@@ -210,9 +69,6 @@ class Actor(nn.Module):
                 compute_pi=True,
                 compute_log_pi=True,
                 detach_encoder=False):
-        if self.encoder is not None:
-            obs = self.encoder(obs, detach=detach_encoder)
-
         mu, log_std = self.trunk(obs).chunk(2, dim=-1)
 
         log_std = torch.tanh(log_std)
@@ -282,21 +138,12 @@ class Critic(nn.Module):
                  use_vae=False):
         super().__init__()
 
-        if from_pixels:
-            self.encoder = PixelsEncoder(
-                frame_stack, log_std_min, log_std_max, logstd=use_vae)
-            obs_dim = self.encoder.output_dim
-        else:
-            self.encoder = None
-
         self.Q1 = QFunction(obs_dim, action_dim, hidden_dim)
         self.Q2 = QFunction(obs_dim, action_dim, hidden_dim)
 
         self.apply(weight_init)
 
     def forward(self, obs, action, detach_encoder=False):
-        if self.encoder is not None:
-            obs = self.encoder(obs, detach=detach_encoder)
         q1 = self.Q1(obs, action)
         q2 = self.Q2(obs, action)
 
@@ -310,9 +157,8 @@ class Critic(nn.Module):
 class SAC(object):
     def __init__(self, device, obs_dim, action_dim, hidden_dim,
                  initial_temperature, actor_lr, critic_lr, actor_beta,
-                 critic_beta, log_std_min, log_std_max, from_pixels,
-                 frame_stack, use_decoder, decoder_decay_step,
-                 decoder_decay_gamma, use_vae, vae_beta, share_latent):
+                 critic_beta, log_std_min, log_std_max,
+                 frame_stack, use_vae, vae_beta, share_latent, from_pixels=False):
         self.device = device
         self.use_vae = use_vae
         self.vae_beta = vae_beta
@@ -341,24 +187,6 @@ class SAC(object):
             use_vae=use_vae).to(device)
 
         self.obs_decoder = None
-
-        if from_pixels:
-            tie_weights(self.critic.encoder.conv1, self.actor.encoder.conv1)
-            tie_weights(self.critic.encoder.conv2, self.actor.encoder.conv2)
-            if self.share_latent:
-                tie_weights(self.critic.encoder.fc, self.actor.encoder.fc)
-                if self.use_vae:
-                    tie_weights(self.critic.encoder.fc_logstd,
-                                self.actor.encoder.fc_logstd)
-            if use_decoder or use_vae:
-                self.obs_decoder = PixelsDecoder(frame_stack).to(device)
-                self.decoder_optimizer = torch.optim.Adam(
-                    list(self.critic.encoder.parameters()) +
-                    list(self.obs_decoder.parameters()))
-                self.decoder_scheduler = torch.optim.lr_scheduler.StepLR(
-                    self.decoder_optimizer,
-                    step_size=decoder_decay_step,
-                    gamma=decoder_decay_gamma)
 
         self.critic_target = Critic(
             obs_dim,
@@ -413,8 +241,7 @@ class SAC(object):
             _, policy_action, log_pi, _ = self.actor(next_obs)
             target_Q1, target_Q2, _ = self.critic_target(
                 next_obs, policy_action)
-            target_V = torch.min(target_Q1,
-                                 target_Q2) - self.alpha.detach() * log_pi
+            target_V = torch.min(target_Q1, target_Q2) - self.alpha.detach() * log_pi
             target_Q = reward + (not_done * discount * target_V)
 
         # Get current Q estimates
@@ -442,6 +269,7 @@ class SAC(object):
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
         L.log('train_actor/loss', actor_loss, step)
         L.log('train_actor/entropy', entropy.mean(), step)
+
         # Optimize the actor
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -465,14 +293,13 @@ class SAC(object):
         else:
             h = self.critic.encoder(obs)
         # preprocess images to be in [-0.5, 0.5] range
-        prep_obs = utils.preprocess_obs(obs)
+        prep_obs = utils.preprocess_obs(obs) # TODO: Check where this preprocess_obs comes from as it is no longer in here
 
         rec_obs = self.obs_decoder(h)
 
         rec_loss = F.mse_loss(prep_obs, rec_obs)
         if self.use_vae:
-            kld = -0.5 * torch.sum(1 + 2 * logstd -
-                                   mu.pow(2) - (2 * logstd).exp())
+            kld = -0.5 * torch.sum(1 + 2 * logstd - mu.pow(2) - (2 * logstd).exp())
             rec_loss += self.vae_beta * kld
         self.decoder_optimizer.zero_grad()
         rec_loss.backward()
