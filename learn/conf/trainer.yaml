@@ -26,34 +26,8 @@ load:
   zero_yaw: True
   moving_avg: 0
   base_dir: video-setup/
-data_dirs: 
-- "_newquad1/publ2/c25_rand/"
-- "_newquad1/publ2/c25_roll01/"
-- "_newquad1/publ2/c25_roll02/"
-- "_newquad1/publ2/c25_roll03/"
-- "_newquad1/publ2/c25_roll04/"
-- "_newquad1/publ2/c25_roll05/"
-- "_newquad1/publ2/c25_roll06/"
-- "_newquad1/publ2/c25_roll07/"
-- "_newquad1/publ2/c25_roll08/"
-- "_newquad1/publ2/c25_roll09/"
-- "_newquad1/publ2/c25_roll10/"
-- "_newquad1/publ2/c25_roll11/"
-- "_newquad1/publ2/c25_roll12/"
+
 model:
-  flight_mode: basic
-  history: 3
-  delta_state_targets:
-  - pitch
-  - roll
-  - yaw
-  true_state_targets: 
-  - lina
-  - omega
-  ignore_in: 
-  - vbat
-  ignore_out:
-  - vbat
   training:
     dx: -1
     du: -1

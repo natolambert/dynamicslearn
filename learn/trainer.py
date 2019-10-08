@@ -49,7 +49,7 @@ def trainer(cfg):
     log.info("=========================================")
 
     ensemble = cfg.ensemble
-    model_name = cfg.model_name
+    model_name = cfg.model.name
 
     ######################################################################
 
@@ -78,8 +78,7 @@ def trainer(cfg):
     'm2pwm_0' 'm3pwm_0' 'm4pwm_0' 'm1pwm_1' 'm2pwm_1' 'm3pwm_1'
     'm4pwm_1' 'm1pwm_2' 'm2pwm_2' 'm3pwm_2' 'm4pwm_2' 'vbat']
     '''
-    # explorepwm_equil(df)
-    # quit()
+
 
     data_params = {
         # Note the order of these matters. that is the order your array will be in
@@ -108,52 +107,51 @@ def trainer(cfg):
         'battery': False  # Need to include battery here too
     }
 
-    def create_model_params(model_cfg):
+    def create_model_params(df, model_cfg):
+        # only take targets from robot.yaml
+        target_keys = []
+        for typ in model_cfg.delta_state_targets:
+            target_keys.append(typ+'_0dx')
+        for typ in model_cfg.true_state_targets:
+            target_keys.append(typ+'_1fx')
+
+        # grab variables
+        history_states = df.filter(regex='tx')
+        history_actions = df.filter(regex='tu')
+
+        # add extra inputs like objective function
+        extra_inputs = []
+        if model_cfg.extra_inputs:
+            for extra in model_cfg.extra_inputs:
+                extra_inputs.append(extra)
+
+        # trim past states to be what we want
+        history = int(history_states.columns[-1][-3])
+        if history > model_cfg.history:
+            for i in range(history, model_cfg.history,-1):
+                str_remove = str(i)+'t'
+                for state in history_states.columns:
+                    if str_remove in state:
+                        history_states.drop(columns=state, inplace=True)
+                for action in history_actions.columns:
+                    if str_remove in action:
+                        history_actions.drop(columns=action, inplace=True)
+
+        # ignore states not helpful to prediction
+        for ignore in model_cfg.ignore_in:
+            for state in history_states.columns:
+                if ignore in state:
+                    history_states.drop(columns=state, inplace=True)
+
         params = dict()
-        # For delta state, prepend with d_omega_y
-        # for true state, prepend with t1_lina_x
-        # for history of said item, append the number directly  m2pwm2
-        base_list = ['omegax', 'omegay', 'omegaz', 'pitch', 'roll', 'yaw', 'linax',
-                     'linay', 'linyz', 'timesteps', 'objective vals', 'flight times',
-                     'm1pwm', 'm2pwm', 'm3pwm', 'm4pwm', 'vbat']
-        always_ignore = ['timesteps', 'objective vals', 'flight times', ]
-        for a in always_ignore: base_list.remove(a)
-        base_list = np.array(base_list)
-        states = base_list[['pwm' not in b for b in base_list]]
-        targets = base_list
-        inputs = base_list[['pwm' in b for b in base_list]].tolist()
-        if model_cfg.history > 0:
-            expanded_s = []
-            expanded_i = []
-            for h in range(model_cfg.history):
-                for s in states:
-                    if s in model_cfg.ignore_in: continue
-                    s += str(h)
-                    expanded_s.append(s)
-                for i in inputs:
-                    i += str(h)
-                    expanded_i.append(i)
+        params['targets'] = target_keys #df.loc[:, target_keys]
+        params['states'] = history_states.columns
+        params['inputs'] = history_actions.columns
+        # TODO add extra inputs to these parameters
 
-            print("append historic elements for inputs")
-            states = expanded_s
-            inputs = expanded_i
+        return params
 
-        params['targets'] = targets
-        params['states'] = expanded_s
-        params['inputs'] = expanded_i
-        params['battery'] = False
-
-        def check_in(string, set):
-            out = False
-            for s in set:
-                if s in string:
-                    out = True
-            return out
-
-        print('trim')
-        return
-
-    create_model_params(cfg.model)
+    params = create_model_params(df, cfg.model)
     data_params_iono = {
         # Note the order of these matters. that is the order your array will be in
         'states': ['omega_x0', 'omega_y0', 'omega_z0',
