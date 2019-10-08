@@ -1,3 +1,7 @@
+model_name: ???
+log: true
+ensemble: true
+
 load:
   delta_state: true
   include_tplus1: True             # when true, will include the time plus one in the dataframe (for trying predictions of true state vs delta)

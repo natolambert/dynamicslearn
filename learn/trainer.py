@@ -27,6 +27,7 @@ from torch.nn import MSELoss
 import time
 import datetime
 import os
+import hydra
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -35,27 +36,15 @@ import matplotlib
 import argparse
 from omegaconf import OmegaConf
 
+import logging
+log = logging.getLogger(__name__)
+
 ######################################################################
-
-if __name__ == '__main__':
-    # adding arguments to make code easier to work with
-    parser = argparse.ArgumentParser(description='Train a Neural Netowrk off Autonomous Data')
-    parser.add_argument('model_name', type=str, help='Give this string to give your model a memorable name')
-    parser.add_argument('--log', action='store_true',
-                        help='a flag for storing a training log in a txt file')
-    parser.add_argument('--noprint', action='store_false',
-                        help='turn off printing in the terminal window for epochs')
-    parser.add_argument('--ensemble', action='store_true',
-                        help='trains an ensemble of models instead of one network')
-    parser.add_argument('--nosave', action='store_false',
-                        help='if you want to test code and not save the model')
-
-    args = parser.parse_args()
-
-    log = args.log
-    noprint = args.noprint
-    ensemble = args.ensemble
-    model_name = args.model_name
+@hydra.main(config_path = 'conf/trainer.yaml')
+def trainer(cfg):
+    log = cfg.log
+    ensemble = cfg.ensemble
+    model_name = cfg.model_name
 
     ######################################################################
 
@@ -64,10 +53,9 @@ if __name__ == '__main__':
     date_str = date_str.replace(' ','--').replace(':', '-')
     print('Running... trainNN_RL.py' + date_str +'\n')
 
-    c = OmegaConf.load('learn/conf/trainer.yaml')
     
-    data_dir = c.load.base_dir
-    df = stack_dir_pd_iono(data_dir, c.load)
+    data_dir = cfg.load.base_dir
+    df = stack_dir_pd_iono(data_dir, cfg.load)
     '''
     ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
     'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
@@ -153,7 +141,7 @@ if __name__ == '__main__':
         print('trim')
         return 
 
-    create_model_params(c.model)
+    create_model_params(cfg.model)
     data_params_iono = {
         # Note the order of these matters. that is the order your array will be in
         'states': ['omega_x0', 'omega_y0', 'omega_z0',
@@ -243,7 +231,6 @@ if __name__ == '__main__':
         'lr_schedule': [30, .6],
         'test_loss_fnc': [],
         'preprocess': True,
-        'noprint': noprint
     }
 
 
@@ -328,3 +315,6 @@ if __name__ == '__main__':
         with open(model_name+"--data.pkl", 'wb') as pickle_file:
             pickle.dump(df, pickle_file, protocol=2)
             time.sleep(2)
+
+if __name__ == '__main__':
+    sys.exit(trainer())

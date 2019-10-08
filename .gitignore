@@ -11,6 +11,7 @@ todo.txt
 _summaries/
 /_training_logs
 /.vscode/
+/outputs/
 
 *.pyc
 

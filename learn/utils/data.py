@@ -641,7 +641,9 @@ def stack_dir_pd_iono(dir, load_params):
     Takes in a directory and returns a dataframe for the data, specifically for ionocraft data
     '''
     print('Loading dir: ', dir)
-    files = os.listdir("_logged_data_autonomous/iono/"+dir)
+    print(os.getcwd())
+    files = os.listdir(
+        "/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/_logged_data_autonomous/iono/"+dir)
     print('...number of flights: ', len(files))
 
     # init arrays
@@ -941,7 +943,7 @@ def load_iono_txt(fname, load_params):
     m_avg = int(load_params['moving_avg'])
 
     # files = os.listdir("_logged_data_autonomous/"+dir)
-    file = "_logged_data_autonomous/iono/" + fname
+    file = "/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/_logged_data_autonomous/iono/" + fname
     # print(file)
     with open(file, "rb") as csvfile:
         # laod data
