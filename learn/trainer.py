@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(os.getcwd())
 
 # Our infrastucture files
@@ -8,7 +9,6 @@ sys.path.append(os.getcwd())
 from learn.utils.data import *
 from learn.utils.sim import *
 from learn.utils.nn import *
-
 
 # data packages
 import pickle
@@ -37,28 +37,40 @@ import argparse
 from omegaconf import OmegaConf
 
 import logging
+
 log = logging.getLogger(__name__)
 
+
 ######################################################################
-@hydra.main(config_path = 'conf/trainer.yaml')
+@hydra.main(config_path='conf/trainer.yaml')
 def trainer(cfg):
-    log = cfg.log
+    log.info("============= Configuration =============")
+    log.info(f"Config:\n{cfg.pretty()}")
+    log.info("=========================================")
+
     ensemble = cfg.ensemble
     model_name = cfg.model_name
 
     ######################################################################
 
-    print('\n')
     date_str = str(datetime.datetime.now())[:-5]
-    date_str = date_str.replace(' ','--').replace(':', '-')
-    print('Running... trainNN_RL.py' + date_str +'\n')
+    date_str = date_str.replace(' ', '--').replace(':', '-')
+    log.info('Training a new model')
 
-    
     data_dir = cfg.load.base_dir
-    df = stack_dir_pd_iono(data_dir, cfg.load)
+    df, log_load = preprocess_iono(data_dir, cfg.load)
+    msg = f"Loading Data"
+    if 'dir' in log_load is not None:
+        msg += f", dir={log_load['dir']}"
+    if 'num_files' in log_load is not None:
+        msg += f", num_files={log_load['num_files']}"
+    if 'datapoints' in log_load:
+        msg += f", datapoints={log_load['datapoints']}"
+    log.info(msg)
+
     '''
-    ['d_omega_x' 'd_omega_y' 'd_omega_z' 'd_pitch' 'd_roll' 'd_yaw' 'd_lina_x'
-    'd_lina_y' 'd_liny_z' 'timesteps' 'objective vals' 'flight times'
+    ['d_omegax' 'd_omegay' 'd_omegaz' 'd_pitch' 'd_roll' 'd_yaw' 'd_linax'
+    'd_linay' 'd_linyz' 'timesteps' 'objective vals' 'flight times'
     'omega_x0' 'omega_y0' 'omega_z0' 'pitch0' 'roll0' 'yaw0' 'lina_x0'
     'lina_y0' 'lina_z0' 'omega_x1' 'omega_y1' 'omega_z1' 'pitch1' 'roll1'
     'yaw1' 'lina_x1' 'lina_y1' 'lina_z1' 'omega_x2' 'omega_y2' 'omega_z2'
@@ -71,29 +83,29 @@ def trainer(cfg):
 
     data_params = {
         # Note the order of these matters. that is the order your array will be in
-        'states' : ['omega_x0', 'omega_y0', 'omega_z0',
-                    'pitch0',   'roll0',    'yaw0',
-                    'lina_x0',  'lina_y0',  'lina_z0',
-                    'omega_x1', 'omega_y1', 'omega_z1',
-                    'pitch1',   'roll1',    'yaw1',
-                    'lina_x1',  'lina_y1',  'lina_z1',
-                    'omega_x2', 'omega_y2', 'omega_z2',
-                    'pitch2',   'roll2',    'yaw2',
-                    'lina_x2',  'lina_y2',  'lina_z2'],
-                    # 'omega_x3', 'omega_y3', 'omega_z3',
-                    # 'pitch3',   'roll3',    'yaw3',
-                    # 'lina_x3',  'lina_y3',  'lina_z3'],
+        'states': ['omega_x0', 'omega_y0', 'omega_z0',
+                   'pitch0', 'roll0', 'yaw0',
+                   'lina_x0', 'lina_y0', 'lina_z0',
+                   'omega_x1', 'omega_y1', 'omega_z1',
+                   'pitch1', 'roll1', 'yaw1',
+                   'lina_x1', 'lina_y1', 'lina_z1',
+                   'omega_x2', 'omega_y2', 'omega_z2',
+                   'pitch2', 'roll2', 'yaw2',
+                   'lina_x2', 'lina_y2', 'lina_z2'],
+        # 'omega_x3', 'omega_y3', 'omega_z3',
+        # 'pitch3',   'roll3',    'yaw3',
+        # 'lina_x3',  'lina_y3',  'lina_z3'],
 
-        'inputs' : ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                    'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                    'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],# 'vbat'],
-                    # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
+        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
+                   'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+                   'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
+        # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
-        'targets' : ['t1_omega_x', 't1_omega_y', 't1_omega_z',
-                            'd_pitch', 'd_roll', 'd_yaw',
-                            't1_lina_x', 't1_lina_y', 't1_lina_z'],
+        'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
+                    'd_pitch', 'd_roll', 'd_yaw',
+                    't1_linax', 't1_linay', 't1_linaz'],
 
-        'battery' : False                    # Need to include battery here too
+        'battery': False  # Need to include battery here too
     }
 
     def create_model_params(model_cfg):
@@ -101,10 +113,10 @@ def trainer(cfg):
         # For delta state, prepend with d_omega_y
         # for true state, prepend with t1_lina_x
         # for history of said item, append the number directly  m2_pwm2
-        base_list = ['omega_x', 'omega_y', 'omega_z', 'pitch', 'roll', 'yaw', 'lina_x',
-                        'lina_y', 'liny_z', 'timesteps', 'objective vals', 'flight times',
-                        'm1_pwm', 'm2_pwm', 'm3_pwm', 'm4_pwm', 'vbat']
-        always_ignore = ['timesteps', 'objective vals', 'flight times',]
+        base_list = ['omegax', 'omegay', 'omegaz', 'pitch', 'roll', 'yaw', 'linax',
+                     'linay', 'linyz', 'timesteps', 'objective vals', 'flight times',
+                     'm1_pwm', 'm2_pwm', 'm3_pwm', 'm4_pwm', 'vbat']
+        always_ignore = ['timesteps', 'objective vals', 'flight times', ]
         for a in always_ignore: base_list.remove(a)
         base_list = np.array(base_list)
         states = base_list[['pwm' not in b for b in base_list]]
@@ -125,7 +137,6 @@ def trainer(cfg):
             print("append historic elements for inputs")
             states = expanded_s
             inputs = expanded_i
-        
 
         params['targets'] = targets
         params['states'] = expanded_s
@@ -135,43 +146,44 @@ def trainer(cfg):
         def check_in(string, set):
             out = False
             for s in set:
-                if  s in string: 
+                if s in string:
                     out = True
             return out
+
         print('trim')
-        return 
+        return
 
     create_model_params(cfg.model)
     data_params_iono = {
         # Note the order of these matters. that is the order your array will be in
         'states': ['omega_x0', 'omega_y0', 'omega_z0',
-                'pitch0',   'roll0',    'yaw0',
-                'lina_x0',  'lina_y0',  'lina_z0',
-                'omega_x1', 'omega_y1', 'omega_z1',
-                'pitch1',   'roll1',    'yaw1',
-                'lina_x1',  'lina_y1',  'lina_z1',
-                'omega_x2', 'omega_y2', 'omega_z2',
-                'pitch2',   'roll2',    'yaw2',
-                'lina_x2',  'lina_y2',  'lina_z2'],
+                   'pitch0', 'roll0', 'yaw0',
+                   'lina_x0', 'lina_y0', 'lina_z0',
+                   'omega_x1', 'omega_y1', 'omega_z1',
+                   'pitch1', 'roll1', 'yaw1',
+                   'lina_x1', 'lina_y1', 'lina_z1',
+                   'omega_x2', 'omega_y2', 'omega_z2',
+                   'pitch2', 'roll2', 'yaw2',
+                   'lina_x2', 'lina_y2', 'lina_z2'],
         # 'omega_x3', 'omega_y3', 'omega_z3',
         # 'pitch3',   'roll3',    'yaw3',
         # 'lina_x3',  'lina_y3',  'lina_z3'],
 
         'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
+                   'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
+                   'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
         # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
-        'targets': ['t1_omega_x', 't1_omega_y', 't1_omega_z',
+        'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
                     'd_pitch', 'd_roll', 'd_yaw',
-                    't1_lina_x', 't1_lina_y', 't1_lina_z'],
+                    't1_linax', 't1_linay', 't1_linaz'],
 
-        'battery': False                    # Need to include battery here too
+        'battery': False  # Need to include battery here too
     }
 
-    st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
-                        'd_pitch', 'd_omega_z', 'd_pitch',
-                        'd_lina_x', 'd_lina_y', 'd_liny_z']
+    st = ['d_omegax', 'd_omegay', 'd_omegaz',
+          'd_pitch', 'd_omegaz', 'd_pitch',
+          'd_linax', 'd_linay', 'd_linyz']
 
     X, U, dX = df_to_training(df, data_params)
 
@@ -207,8 +219,7 @@ def trainer(cfg):
     #     'noprint' : noprint
     # }
 
-
-    nn_params = {                           # all should be pretty self-explanatory
+    nn_params = {  # all should be pretty self-explanatory
         'dx': np.shape(X)[1],
         'du': np.shape(U)[1],
         'dt': np.shape(dX)[1],
@@ -233,31 +244,29 @@ def trainer(cfg):
         'preprocess': True,
     }
 
-
     # log file
     if log:
-        with open('_training_logs/'+'logfile' + date_str + '.txt', 'w') as my_file:
-            my_file.write("Logfile for training run: " + date_str +"\n")
+        with open('_training_logs/' + 'logfile' + date_str + '.txt', 'w') as my_file:
+            my_file.write("Logfile for training run: " + date_str + "\n")
             my_file.write("Net Name: " + str(model_name) + "\n")
-            my_file.write("============================================="+"\n")
-            my_file.write("Data Load Params:"+"\n")
+            my_file.write("=============================================" + "\n")
+            my_file.write("Data Load Params:" + "\n")
             for k, v in load_params.items():
-                my_file.write(str(k) + ' >>> '+ str(v) + '\n')
+                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
             my_file.write("\n")
 
-            my_file.write("NN Structure Params:"+"\n")
+            my_file.write("NN Structure Params:" + "\n")
             for k, v in nn_params.items():
-                my_file.write(str(k) + ' >>> '+ str(v) + '\n')
+                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
             my_file.write("\n")
 
-            my_file.write("NN Train Params:"+"\n")
+            my_file.write("NN Train Params:" + "\n")
             for k, v in train_params.items():
-                my_file.write(str(k) + ' >>> '+ str(v) + '\n')
-            my_file.write("\n") 
-
+                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
+            my_file.write("\n")
 
     if ensemble:
-        newNN = EnsembleNN(nn_params,7)
+        newNN = EnsembleNN(nn_params, 7)
         acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
         print(acctest)
@@ -265,33 +274,33 @@ def trainer(cfg):
     else:
         newNN = GeneralNN(nn_params)
         newNN.init_weights_orth()
-        if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX,l_mean = 1,l_cov = 1) # data for std,
+        if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX, l_mean=1, l_cov=1)  # data for std,
         acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
 
-    newNN.store_training_lists(data_params['states'],data_params['inputs'],data_params['targets'])
+    newNN.store_training_lists(data_params['states'], data_params['inputs'], data_params['targets'])
 
     # plot
     if ensemble:
-        min_err = np.min(acctrain,0)
-        min_err_test = np.min(acctest,0)
+        min_err = np.min(acctrain, 0)
+        min_err_test = np.min(acctest, 0)
     else:
         min_err = np.min(acctrain)
         min_err_test = np.min(acctest)
 
     if log:
-        with open('_training_logs/'+'logfile' + date_str + '.txt', 'a') as my_file:
-            my_file.write("Prediction List" + str(data_params['targets'])+"\n")
-            my_file.write("Min test error: " +str(min_err_test)+ "\n")
+        with open('_training_logs/' + 'logfile' + date_str + '.txt', 'a') as my_file:
+            my_file.write("Prediction List" + str(data_params['targets']) + "\n")
+            my_file.write("Min test error: " + str(min_err_test) + "\n")
             my_file.write("Mean Min test error: " + str(np.mean(min_err_test)) + "\n")
-            my_file.write("Min train error: " +str(min_err)+ "\n")
+            my_file.write("Min train error: " + str(min_err) + "\n")
 
     ax1 = plt.subplot(211)
     # ax1.set_yscale('log')
-    ax1.plot(acctest, label = 'Test Loss')
+    ax1.plot(acctest, label='Test Loss')
     plt.title('Test Loss')
     ax2 = plt.subplot(212)
     # ax2.set_yscale('log')
-    ax2.plot(acctrain, label = 'Train Loss')
+    ax2.plot(acctrain, label='Train Loss')
     plt.title('Training Loss')
     ax1.legend()
     plt.show()
@@ -301,20 +310,22 @@ def trainer(cfg):
         dir_str = str('_models/temp/')
         data_name = '_100Hz_'
         # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-        info_str = "_" + model_name +"_" + "stack" + str(load_params['stack_states']) + "_" #+ "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+        info_str = "_" + model_name + "_" + "stack" + str(
+            load_params['stack_states']) + "_"  # + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
         model_name = dir_str + date_str + info_str
         newNN.save_model(model_name + '.pth')
         print('Saving model to', model_name)
 
         normX, normU, normdX = newNN.getNormScalers()
-        with open(model_name+"--normparams.pkl", 'wb') as pickle_file:
-            pickle.dump((normX,normU,normdX), pickle_file, protocol=2)
+        with open(model_name + "--normparams.pkl", 'wb') as pickle_file:
+            pickle.dump((normX, normU, normdX), pickle_file, protocol=2)
             time.sleep(2)
 
         # Saves data file
-        with open(model_name+"--data.pkl", 'wb') as pickle_file:
+        with open(model_name + "--data.pkl", 'wb') as pickle_file:
             pickle.dump(df, pickle_file, protocol=2)
             time.sleep(2)
+
 
 if __name__ == '__main__':
     sys.exit(trainer())

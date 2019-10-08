@@ -260,9 +260,9 @@ class CrazyFlie():
             'yaw': [6, 'angle'],
             'pitch': [7, 'angle'],
             'roll': [8, 'angle'],
-            'w_x': [9, 'omega'],
-            'w_y': [10, 'omega'],
-            'w_z': [11, 'omega']
+            'wx': [9, 'omega'],
+            'wy': [10, 'omega'],
+            'wz': [11, 'omega']
         }
         # user can pass a list of items they want to train on in the neural net, eg learn_list = ['vx', 'vy', 'vz', 'yaw'] and iterate through with this dictionary to easily stack data
 

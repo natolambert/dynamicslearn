@@ -1,0 +1,20 @@
+load:
+  dir: false
+  type: .csv
+  fname: /Users/nol/Documents/code-bases/data/iono/ex1.txt
+  data_labels:
+    - pwm1
+    - pwm2
+    - pwm3
+    - pwm4
+    - ax
+    - ay
+    - az
+    - wx
+    - wy
+    - wz
+    - pitch
+    - roll
+    - yaw
+
+model_name: iono

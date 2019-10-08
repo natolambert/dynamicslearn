@@ -391,15 +391,15 @@ def plot_sensor_quality(dir):
     # ax1.set_title("Noise on certain variables across flights")
     ax1.set_xlabel("Chronological Flight")
     ax1.set_ylabel("Std. Dev. Data (deg/s^2) - Noise")
-    p1 = plt.plot(l1, label='angular_x')
-    p2 = plt.plot(l2, label='angular_y')
-    p3 = plt.plot(l3, label='angular_z')
+    p1 = plt.plot(l1, label='angularx')
+    p2 = plt.plot(l2, label='angulary')
+    p3 = plt.plot(l3, label='angularz')
 
     ax1.set_ylim([0, 6])
 
-    # p4 = plt.plot(l7, label='linear_x')
-    # p5 = plt.plot(l8, label='linear_y')
-    # p6 = plt.plot(l9, label='linear_z')
+    # p4 = plt.plot(l7, label='linearx')
+    # p5 = plt.plot(l8, label='lineary')
+    # p6 = plt.plot(l9, label='linearz')
 
     lns = p1+p2+p3+[lab1]+[lab2]+[lab3]+[lab50]+[lab75]
     labs = [l.get_label() for l in lns]
@@ -1772,3 +1772,61 @@ def plot_prediction_histograms_traj(dataset, model1, model2, model3=[]):
         trajectories. The trajectoriees are of leength of the flight rollout, so some will get quite long.
 
     """
+
+
+def plot_timeseries():
+    #TODO Fix
+    # font = {'size': 22,'family': 'serif', 'serif': ['Times']}
+    font = {'size': 12}
+
+    matplotlib.rc('font', **font)
+    matplotlib.rc('lines', linewidth=1.25)
+    matplotlib.rc('text', usetex=True)
+
+    # plt.tight_layout()
+
+    fig = plt.figure()
+    with sns.axes_style("whitegrid"):
+        plt.rcParams["font.family"] = "Times New Roman"
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.5
+        plt.subplots_adjust(top=.93, bottom=0.13, left=.13,
+                            right=1 - .03, hspace=.25)
+        ax1 = plt.subplot(111)
+
+    ax1.set_title("Logged Iono Data")
+    ax1.set_xlabel("Datapoint (Collected Approx. 200Hz)")
+    ax1.set_ylabel("Angle (Degrees)")
+
+    if False:
+        def butter_lowpass(cutoff, fs, order=5):
+            nyq = 0.5 * fs
+            normal_cutoff = cutoff / nyq
+            b, a = butter(order, normal_cutoff, btype='low', analog=False)
+            return b, a
+
+
+        def butter_lowpass_filter(data, cutoff, fs, order=5):
+            b, a = butter_lowpass(cutoff, fs, order=order)
+            y = lfilter(b, a, data)
+            return y
+
+
+        # Filter requirements.
+        order = 6
+        fs = 100.0  # sample rate, Hz
+        cutoff = 1.667  # desired cutoff frequency of the filter, Hz
+
+        # Get the filter coefficients so we can check its frequency response.
+        b, a = butter_lowpass(cutoff, fs, order)
+
+        ax1.plot(butter_lowpass_filter(
+            X[:, 6], cutoff, fs, order), label='filtered pitch')
+        ax1.plot(butter_lowpass_filter(
+            X[:, 7], cutoff, fs, order), label='filtered roll')
+        ax1.plot(butter_lowpass_filter(
+            X[:, 8], cutoff, fs, order), label='filtered yaw')
+    else:
+        ax1.plot(X[:, -3], label='roll')
+        ax1.plot(X[:, -2], label='pitch')
+        ax1.plot(X[:, -1], label='yaw')

@@ -370,19 +370,19 @@ if __name__ == '__main__':
                 'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
         # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
 
-        'targets': ['t1_omega_x', 't1_omega_y', 't1_omega_z',
+        'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
                     'd_pitch', 'd_roll', 'd_yaw',
-                    't1_lina_x', 't1_lina_y', 't1_lina_z'],
+                    't1_linax', 't1_linay', 't1_linaz'],
 
         'battery': False                    # Need to include battery here too
     }
 
     # the true state target values
-    # 't1_omega_x', 't1_omega_y', 't1_omega_z', 't1_pitch', 't1_roll', 't1_yaw', 't1_lina_x', 't1_lina_y' 't1_lina_z'
+    # 't1_omegax', 't1_omegay', 't1_omegaz', 't1_pitch', 't1_roll', 't1_yaw', 't1_linax', 't1_linay' 't1_linaz'
 
-    st = ['d_omega_x', 'd_omega_y', 'd_omega_z',
-        'd_pitch', 'd_omega_z', 'd_pitch',
-        'd_lina_x', 'd_lina_y', 'd_liny_z']
+    st = ['d_omegax', 'd_omegay', 'd_omegaz',
+        'd_pitch', 'd_omegaz', 'd_pitch',
+        'd_linax', 'd_linay', 'd_linyz']
 
     X, U, dX = df_to_training(df, data_params)
 
