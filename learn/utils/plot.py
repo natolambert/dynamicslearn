@@ -430,7 +430,7 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     print("Looking around the action of: ", action, "\n    for a range of: ", act_range)
 
     # grab unique actions
-    pwms_vals = np.unique(df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values)
+    pwms_vals = np.unique(df[['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0']].values)
 
 
     # grabs the actions within the range for each motor
@@ -440,10 +440,10 @@ def plot_voltage_context(model, df, action = [37000,37000, 30000, 45000], act_ra
     pwms_vals_range4 = pwms_vals[(pwms_vals < action[3]+act_range) & (pwms_vals > action[3]-act_range)]
 
     # filters the dataframe by these new conditions
-    df_action_filtered = df.loc[(df['m1_pwm_0'].isin(pwms_vals_range1) &
-                                 df['m2_pwm_0'].isin(pwms_vals_range2) &
-                                 df['m3_pwm_0'].isin(pwms_vals_range3) &
-                                 df['m4_pwm_0'].isin(pwms_vals_range4))]
+    df_action_filtered = df.loc[(df['m1pwm_0'].isin(pwms_vals_range1) &
+                                 df['m2pwm_0'].isin(pwms_vals_range2) &
+                                 df['m3pwm_0'].isin(pwms_vals_range3) &
+                                 df['m4pwm_0'].isin(pwms_vals_range4))]
 
     if len(df_action_filtered) == 0:
         raise ValueError("Given action not present in dataset")

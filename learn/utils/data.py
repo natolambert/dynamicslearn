@@ -148,10 +148,10 @@ def preprocess_cf(dir, load_params):
         for j in input_idxs:
             st = str(k)
             k += 1
-            d['m1_pwm_' + st + 'tu'] = U[:, 0 + j]
-            d['m2_pwm_' + st + 'tu'] = U[:, 1 + j]
-            d['m3_pwm_' + st + 'tu'] = U[:, 2 + j]
-            d['m4_pwm_' + st + 'tu'] = U[:, 3 + j]
+            d['m1pwm_' + st + 'tu'] = U[:, 0 + j]
+            d['m2pwm_' + st + 'tu'] = U[:, 1 + j]
+            d['m3pwm_' + st + 'tu'] = U[:, 2 + j]
+            d['m4pwm_' + st + 'tu'] = U[:, 3 + j]
 
     else:  # standard
         d = {'omegax' + '_0tx': X[:, 0],
@@ -164,10 +164,10 @@ def preprocess_cf(dir, load_params):
              'linay' + '_0tx': X[:, 7],
              'linyz' + '_0tx': X[:, 8],
 
-             'm1_pwm' + '_0tu': U[:, 0],
-             'm2_pwm' + '_0tu': U[:, 1],
-             'm3_pwm' + '_0tu': U[:, 2],
-             'm4_pwm' + '_0tu': U[:, 3],
+             'm1pwm' + '_0tu': U[:, 0],
+             'm2pwm' + '_0tu': U[:, 1],
+             'm3pwm' + '_0tu': U[:, 2],
+             'm4pwm' + '_0tu': U[:, 3],
 
              'omegax_0dx': dX[:, 0],
              'omegay_0dx': dX[:, 1],
@@ -715,10 +715,10 @@ def preprocess_iono(dir, load_params):
         for j in input_idxs:
             st = str(k)
             k += 1
-            d['m1_pwm_' + st+'tu'] = U[:, 0 + j]
-            d['m2_pwm_' + st+'tu'] = U[:, 1 + j]
-            d['m3_pwm_' + st+'tu'] = U[:, 2 + j]
-            d['m4_pwm_' + st+'tu'] = U[:, 3 + j]
+            d['m1pwm_' + st+'tu'] = U[:, 0 + j]
+            d['m2pwm_' + st+'tu'] = U[:, 1 + j]
+            d['m3pwm_' + st+'tu'] = U[:, 2 + j]
+            d['m4pwm_' + st+'tu'] = U[:, 3 + j]
 
     else:  # standard
         d = {'omegax'+'_0tx': X[:, 3],
@@ -731,10 +731,10 @@ def preprocess_iono(dir, load_params):
              'linay'+'_0tx': X[:, 1],
              'linyz'+'_0tx': X[:, 2],
 
-             'm1_pwm'+'_0tu': U[:, 0],
-             'm2_pwm'+'_0tu': U[:, 1],
-             'm3_pwm'+'_0tu': U[:, 2],
-             'm4_pwm'+'_0tu': U[:, 3],
+             'm1pwm'+'_0tu': U[:, 0],
+             'm2pwm'+'_0tu': U[:, 1],
+             'm3pwm'+'_0tu': U[:, 2],
+             'm4pwm'+'_0tu': U[:, 3],
 
              'omegax_0dx': dX[:, 3],
              'omegay_0dx': dX[:, 4],
@@ -905,8 +905,6 @@ def load_iono_txt(fname, load_params):
         # laod data
         cols_use = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
         new_data = np.genfromtxt(csvfile, delimiter=",", usecols=cols_use, autostrip=True)
-        print(new_data)
-        # print(new_data.shape)
 
         serial_error_flag = (
                 ((new_data[:, -1] > -360) & (new_data[:, -1] < 360)) &  # yaw

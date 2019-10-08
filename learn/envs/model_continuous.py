@@ -4,7 +4,7 @@ from gym.spaces import Box
 import pickle
 import numpy as np
 import random
-from utils.sim import explore_pwm_equil
+from utils.sim import explorepwm_equil
 from utils.nn import predict_nn_v2
 
 class QuadEnv(gym.Env):
@@ -33,12 +33,12 @@ class QuadEnv(gym.Env):
 		self.dyn_data = df
 
 		# generate equilibrium data
-		self.equil_act = explore_pwm_equil(df)
+		self.equil_act = explorepwm_equil(df)
 		# self.init_act = np.tile(self.equil_act,self.num_stack)
 		self.init_act = self.equil_act
 
 		# set action bounds
-		act_data = df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']]
+		act_data = df[['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0']]
 		self.act_low = np.min(act_data.values, axis=0)
 		self.act_high = np.max(act_data.values, axis=0)
 		self.act_means = np.mean(act_data, axis=0).values

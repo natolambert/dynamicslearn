@@ -124,14 +124,14 @@ class crazyPID():
     """
     Class for bootstrapping PID controllers off of a learned dynamics model.
     """
-    def __init__(self, equil, dt, min_pwm = 0, max_pwm = 65535, out_lim = 5000,
+    def __init__(self, equil, dt, minpwm = 0, maxpwm = 65535, out_lim = 5000,
                 att_pitch = [], att_roll = [], att_yaw = [],
                 rate_pitch = [], rate_roll = [], rate_yaw = []):
 
         self.equil = equil
         self.dt = dt
-        self.min_pwm = 0
-        self.max_pwm = 65535
+        self.minpwm = 0
+        self.maxpwm = 65535
 
         self.output = equil
 
@@ -209,7 +209,7 @@ class crazyPID():
                 """
                 Limits thrust, can be adjusted for different robots
                 """
-                return np.clip(PWM, self.min_pwm, self.max_pwm)
+                return np.clip(PWM, self.minpwm, self.maxpwm)
 
             # Update Attitude PIDs first
             out_pitch = self.PID_att_pitch.update(x[3])

@@ -31,7 +31,7 @@ import matplotlib
 from scipy.optimize import curve_fit
 
 
-def explore_pwm_equil(df):
+def explorepwm_equil(df):
     """
     Function that takes in a dataset and a model and will look through the distributions of PWM actions
       for which the change in angles was low to try and derive a psuedo equilibrium for a given dataset.
@@ -69,7 +69,7 @@ def explore_pwm_equil(df):
             df = df.loc[df[var].between(-tolerance, tolerance)]
 
     # print(df)
-    df_actions = df[['m1_pwm_0','m2_pwm_0','m3_pwm_0','m4_pwm_0']]
+    df_actions = df[['m1pwm_0','m2pwm_0','m3pwm_0','m4pwm_0']]
     # print(df_actions)
 
     print('----')
@@ -443,11 +443,11 @@ def explore_policy():#policy_imitate, policy_sac = [], policy_mpc = False):
                      'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
                      'omega_x1', 'omega_y1', 'omega_z1', 'pitch1', 'roll1',
                      'yaw1', 'lina_x1', 'lina_y1', 'lina_z1', 
-                     'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                     'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2']]
+                     'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                     'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2']]
 
     # init action arrays
-    data_mpc = df[['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0']].values
+    data_mpc = df[['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0']].values
     data_sac = np.empty(np.shape(data_mpc))
     data_Impc = np.empty(np.shape(data_mpc))
 

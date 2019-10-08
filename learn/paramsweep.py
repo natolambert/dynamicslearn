@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     data_params_stack1 = {
         'states': ['pitch0', 'roll0', 'yaw0', 'lina_x0', 'lina_y0', 'lina_z0'],                      # most of these are to be implented for easily training specific states etc
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0'],
         'targets': ['d_pitch', 'd_roll', 'd_yaw',
                     't1_linax', 't1_linay', 't1_linaz'],
         'battery': True                    # Need to include battery here too
@@ -44,8 +44,8 @@ if __name__ == '__main__':
     data_params_stack2 = {
         'states': ['pitch0', 'roll0', 'yaw0', 'lina_x0', 'lina_y0', 'lina_z0',
                 'pitch1', 'roll1', 'yaw1', 'lina_x1', 'lina_y1', 'lina_z1'],                      # most of these are to be implented for easily training specific states etc
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
+                'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1'],
         'targets': ['d_pitch', 'd_roll', 'd_yaw',
                     't1_linax', 't1_linay', 't1_linaz'],
         'battery': True                    # Need to include battery here too
@@ -55,9 +55,9 @@ if __name__ == '__main__':
         'states': ['pitch0', 'roll0', 'yaw0', 'lina_x0', 'lina_y0', 'lina_z0',
                 'pitch1', 'roll1', 'yaw1', 'lina_x1', 'lina_y1', 'lina_z1',
                 'pitch2', 'roll2', 'yaw2', 'lina_x2', 'lina_y2', 'lina_z2'],                      # most of these are to be implented for easily training specific states etc
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0', 
-                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0', 
+                'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],
         'targets': ['d_pitch', 'd_roll', 'd_yaw',
                     't1_linax', 't1_linay', 't1_linaz'],
         'battery': True                    # Need to include battery here too
@@ -68,10 +68,10 @@ if __name__ == '__main__':
                 'pitch1', 'roll1', 'yaw1', 'lina_x1', 'lina_y1', 'lina_z1',
                 'pitch2', 'roll2', 'yaw2', 'lina_x2', 'lina_y2', 'lina_z2',
                 'pitch3', 'roll3', 'yaw3', 'lina_x3', 'lina_y3', 'lina_z3'],                      # most of these are to be implented for easily training specific states etc
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2',
-                'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
+                'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2',
+                'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3'],
         'targets': ['d_pitch', 'd_roll', 'd_yaw',
                     't1_linax', 't1_linay', 't1_linaz'],
         'battery': True                    # Need to include battery here too

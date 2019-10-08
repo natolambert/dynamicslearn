@@ -365,10 +365,10 @@ if __name__ == '__main__':
         # 'pitch3',   'roll3',    'yaw3',
         # 'lina_x3',  'lina_y3',  'lina_z3'],
 
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
-        # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
+                'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],  # 'vbat'],
+        # 'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3', 'vbat'],
 
         'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
                     'd_pitch', 'd_roll', 'd_yaw',

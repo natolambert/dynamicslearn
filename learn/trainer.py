@@ -74,11 +74,11 @@ def trainer(cfg):
     'omega_x0' 'omega_y0' 'omega_z0' 'pitch0' 'roll0' 'yaw0' 'lina_x0'
     'lina_y0' 'lina_z0' 'omega_x1' 'omega_y1' 'omega_z1' 'pitch1' 'roll1'
     'yaw1' 'lina_x1' 'lina_y1' 'lina_z1' 'omega_x2' 'omega_y2' 'omega_z2'
-    'pitch2' 'roll2' 'yaw2' 'lina_x2' 'lina_y2' 'liny_z2' 'm1_pwm_0'
-    'm2_pwm_0' 'm3_pwm_0' 'm4_pwm_0' 'm1_pwm_1' 'm2_pwm_1' 'm3_pwm_1'
-    'm4_pwm_1' 'm1_pwm_2' 'm2_pwm_2' 'm3_pwm_2' 'm4_pwm_2' 'vbat']
+    'pitch2' 'roll2' 'yaw2' 'lina_x2' 'lina_y2' 'liny_z2' 'm1pwm_0'
+    'm2pwm_0' 'm3pwm_0' 'm4pwm_0' 'm1pwm_1' 'm2pwm_1' 'm3pwm_1'
+    'm4pwm_1' 'm1pwm_2' 'm2pwm_2' 'm3pwm_2' 'm4pwm_2' 'vbat']
     '''
-    # explore_pwm_equil(df)
+    # explorepwm_equil(df)
     # quit()
 
     data_params = {
@@ -96,10 +96,10 @@ def trainer(cfg):
         # 'pitch3',   'roll3',    'yaw3',
         # 'lina_x3',  'lina_y3',  'lina_z3'],
 
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                   'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                   'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
-        # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
+                   'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                   'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],  # 'vbat'],
+        # 'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3', 'vbat'],
 
         'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
                     'd_pitch', 'd_roll', 'd_yaw',
@@ -112,10 +112,10 @@ def trainer(cfg):
         params = dict()
         # For delta state, prepend with d_omega_y
         # for true state, prepend with t1_lina_x
-        # for history of said item, append the number directly  m2_pwm2
+        # for history of said item, append the number directly  m2pwm2
         base_list = ['omegax', 'omegay', 'omegaz', 'pitch', 'roll', 'yaw', 'linax',
                      'linay', 'linyz', 'timesteps', 'objective vals', 'flight times',
-                     'm1_pwm', 'm2_pwm', 'm3_pwm', 'm4_pwm', 'vbat']
+                     'm1pwm', 'm2pwm', 'm3pwm', 'm4pwm', 'vbat']
         always_ignore = ['timesteps', 'objective vals', 'flight times', ]
         for a in always_ignore: base_list.remove(a)
         base_list = np.array(base_list)
@@ -169,10 +169,10 @@ def trainer(cfg):
         # 'pitch3',   'roll3',    'yaw3',
         # 'lina_x3',  'lina_y3',  'lina_z3'],
 
-        'inputs': ['m1_pwm_0', 'm2_pwm_0', 'm3_pwm_0', 'm4_pwm_0',
-                   'm1_pwm_1', 'm2_pwm_1', 'm3_pwm_1', 'm4_pwm_1',
-                   'm1_pwm_2', 'm2_pwm_2', 'm3_pwm_2', 'm4_pwm_2'],  # 'vbat'],
-        # 'm1_pwm_3', 'm2_pwm_3', 'm3_pwm_3', 'm4_pwm_3', 'vbat'],
+        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
+                   'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
+                   'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],  # 'vbat'],
+        # 'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3', 'vbat'],
 
         'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
                     'd_pitch', 'd_roll', 'd_yaw',
