@@ -40,6 +40,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 def save_file(object, filename):
     path = os.path.join(os.getcwd(), filename)
     log.info(f"Saving File: {filename}")
@@ -90,11 +91,13 @@ def create_model_params(df, model_cfg):
 
     return params
 
+
 def params_to_training(data):
     X = data['states'].values
     U = data['inputs'].values
     dX = data['targets'].values
     return X, U, dX
+
 
 def train_model(X, U, dX, model_cfg):
     log.info("Training Model")
@@ -118,7 +121,7 @@ def train_model(X, U, dX, model_cfg):
         'hid_width': model_cfg.training.hid_width,
         'hid_depth': model_cfg.training.hid_depth,
         'bayesian_flag': model_cfg.training.probl,
-        'activation': Swish(), # TODO use hydra.utils.instantiate
+        'activation': Swish(),  # TODO use hydra.utils.instantiate
         'dropout': model_cfg.training.extra.dropout,
         'split_flag': False,
         'ensemble': model_cfg.ensemble
@@ -170,24 +173,25 @@ def trainer(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    model_name = cfg.model.name
-
     ######################################################################
-
-    date_str = str(datetime.datetime.now())[:-5]
-    date_str = date_str.replace(' ', '--').replace(':', '-')
     log.info('Training a new model')
 
     data_dir = cfg.load.base_dir
-    df, log_load = preprocess_iono(data_dir, cfg.load)
-    msg = f"Loading Data"
-    if 'dir' in log_load is not None:
-        msg += f", dir={log_load['dir']}"
-    if 'num_files' in log_load is not None:
-        msg += f", num_files={log_load['num_files']}"
-    if 'datapoints' in log_load:
-        msg += f", datapoints={log_load['datapoints']}"
-    log.info(msg)
+
+    avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs')-1]+f"/ex_data/{cfg.robot}.csv")
+    if os.path.isfile(avail_data):
+        df = pd.read_csv(avail_data)
+        log.info(f"Loaded preprocessed data from {avail_data}")
+    else:
+        df, log_load = preprocess_iono(data_dir, cfg.load)
+        msg = f"Loading Data"
+        if 'dir' in log_load is not None:
+            msg += f", dir={log_load['dir']}"
+        if 'num_files' in log_load is not None:
+            msg += f", num_files={log_load['num_files']}"
+        if 'datapoints' in log_load:
+            msg += f", datapoints={log_load['datapoints']}"
+        log.info(msg)
 
     data = create_model_params(df, cfg.model)
 
@@ -214,28 +218,17 @@ def trainer(cfg):
         plt.title('Training Loss')
         ax1.legend()
         # plt.show()
-        plt.savefig(os.path.join(os.getcwd()+'/modeltraining.pdf'))
+        plt.savefig(os.path.join(os.getcwd() + '/modeltraining.pdf'))
 
     # Saves NN params
     if cfg.save:
-        save_file(model, cfg.model.name+'.pth')
-        # dir_str = str('_models/temp/')
-        # data_name = '_100Hz_'
-        # # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-        # info_str = "_" + model_name + "_" + "stack" + str(
-        #     load_params['stack_states']) + "_"  # + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-        # model_name = dir_str + date_str + info_str
-        # newNN.save_model(model_name + '.pth')
+        save_file(model, cfg.model.name + '.pth')
 
         normX, normU, normdX = model.getNormScalers()
         save_file((normX, normU, normdX), cfg.model.name + "_normparams.pkl")
-        # with open(model_name + "_normparams.pkl", 'wb') as pickle_file:
-        #     pickle.dump((normX, normU, normdX), pickle_file, protocol=2)
-        #     time.sleep(2)
 
         # Saves data file
         save_file(data, cfg.model.name + "_data.pkl")
-
 
 
 if __name__ == '__main__':

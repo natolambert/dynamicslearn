@@ -1,3 +1,4 @@
+robot: iono
 load:
   dir: false
   type: .csv
