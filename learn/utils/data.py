@@ -556,6 +556,9 @@ def trim_load_param(fname, load_params):
         return np.array(X), np.array(U), np.array(dX), np.array(Objv), np.array(Ts), np.array(Time), terminals
 
 
+
+
+
 def df_to_training(df, data_params):
     '''
     Takes in a loaded and trimmed dataframe and a set of (future) parameters to

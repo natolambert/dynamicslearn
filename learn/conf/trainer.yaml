@@ -1,9 +1,7 @@
 defaults:
   - robot: iono
 
-model_name: ???
-log: true
-ensemble: true
+save: true
 
 load:
   delta_state: true
@@ -28,6 +26,7 @@ load:
   base_dir: video-setup/
 
 model:
+  ensemble: false
   training:
     dx: -1
     du: -1
@@ -40,11 +39,12 @@ model:
       dropout: 0
       split: false
       mode: delta
-    ensemble: false
+    E: 5
+    plot_loss: true
   optimizer:
     epochs: 33
     batch: 18
-    optim: Adam
+    name: Adam
     split: .8
     lr: .0025
     lr_schedule: [30,6]

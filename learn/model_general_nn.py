@@ -40,7 +40,6 @@ class GeneralNN(nn.Module):
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['dt']
 
-        self.pred_mode = nn_params['pred_mode']
         self.activation = nn_params['activation']
         self.d = nn_params['dropout']
         self.split_flag = nn_params['split_flag']

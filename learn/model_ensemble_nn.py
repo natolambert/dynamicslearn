@@ -7,7 +7,6 @@ import numpy as np
 
 # neural nets
 from model_general_nn import GeneralNN
-from model_split_nn import SplitModel
 # from _activation_swish import Swish
 
 
@@ -27,9 +26,6 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Qu
 import pickle
 from sklearn.model_selection import KFold   # for dataset
 
-
-from _activation_swish import Swish
-from _lossfnc_pnngaussian import PNNLoss_Gaussian
 
 import matplotlib.pyplot as plt
 

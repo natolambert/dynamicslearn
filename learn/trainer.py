@@ -16,7 +16,7 @@ import pickle
 # neural nets
 from learn.model_general_nn import GeneralNN
 # from model_split_nn import SplitModel
-# from model_ensemble_nn import EnsembleNN
+from model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
@@ -40,6 +40,128 @@ import logging
 
 log = logging.getLogger(__name__)
 
+def save_file(object, filename):
+    path = os.path.join(os.getcwd(), filename)
+    log.info(f"Saving File: {filename}")
+    torch.save(object, path)
+
+
+def create_model_params(df, model_cfg):
+    # only take targets from robot.yaml
+    target_keys = []
+    for typ in model_cfg.delta_state_targets:
+        target_keys.append(typ + '_0dx')
+    for typ in model_cfg.true_state_targets:
+        target_keys.append(typ + '_1fx')
+
+    # grab variables
+    history_states = df.filter(regex='tx')
+    history_actions = df.filter(regex='tu')
+
+    # add extra inputs like objective function
+    extra_inputs = []
+    if model_cfg.extra_inputs:
+        for extra in model_cfg.extra_inputs:
+            extra_inputs.append(extra)
+
+    # trim past states to be what we want
+    history = int(history_states.columns[-1][-3])
+    if history > model_cfg.history:
+        for i in range(history, model_cfg.history, -1):
+            str_remove = str(i) + 't'
+            for state in history_states.columns:
+                if str_remove in state:
+                    history_states.drop(columns=state, inplace=True)
+            for action in history_actions.columns:
+                if str_remove in action:
+                    history_actions.drop(columns=action, inplace=True)
+
+    # ignore states not helpful to prediction
+    for ignore in model_cfg.ignore_in:
+        for state in history_states.columns:
+            if ignore in state:
+                history_states.drop(columns=state, inplace=True)
+
+    params = dict()
+    params['targets'] = df.loc[:, target_keys]
+    params['states'] = history_states
+    params['inputs'] = history_actions
+    # TODO add extra inputs to these parameters
+
+    return params
+
+def params_to_training(data):
+    X = data['states'].values
+    U = data['inputs'].values
+    dX = data['targets'].values
+    return X, U, dX
+
+def train_model(X, U, dX, model_cfg):
+    log.info("Training Model")
+    dx = np.shape(X)[1]
+    du = np.shape(U)[1]
+    dt = np.shape(dX)[1]
+
+    # if set dimensions, double check them here
+    if model_cfg.training.dx != -1:
+        assert model_cfg.training.dx == dx, "model dimensions in cfg do not match data given"
+    if model_cfg.training.du != -1:
+        assert model_cfg.training.dx == du, "model dimensions in cfg do not match data given"
+    if model_cfg.training.dt != -1:
+        assert model_cfg.training.dx == dt, "model dimensions in cfg do not match data given"
+
+    train_log = dict()
+    nn_params = {  # all should be pretty self-explanatory
+        'dx': dx,
+        'du': du,
+        'dt': dt,
+        'hid_width': model_cfg.training.hid_width,
+        'hid_depth': model_cfg.training.hid_depth,
+        'bayesian_flag': model_cfg.training.probl,
+        'activation': Swish(), # TODO use hydra.utils.instantiate
+        'dropout': model_cfg.training.extra.dropout,
+        'split_flag': False,
+        'ensemble': model_cfg.ensemble
+    }
+
+    train_params = {
+        'epochs': model_cfg.optimizer.epochs,
+        'batch_size': model_cfg.optimizer.batch,
+        'optim': model_cfg.optimizer.name,
+        'split': model_cfg.optimizer.split,
+        'lr': model_cfg.optimizer.lr,  # bayesian .00175, mse:  .0001
+        'lr_schedule': model_cfg.optimizer.lr_schedule,
+        'test_loss_fnc': [],
+        'preprocess': model_cfg.optimizer.preprocess,
+    }
+
+    train_log['nn_params'] = nn_params
+    train_log['train_params'] = train_params
+
+    if model_cfg.ensemble:
+        newNN = EnsembleNN(nn_params, model_cfg.training.E)
+        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
+
+    else:
+        newNN = GeneralNN(nn_params)
+        newNN.init_weights_orth()
+        if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX, l_mean=1, l_cov=1)  # data for std,
+        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
+
+    if model_cfg.ensemble:
+        min_err = np.min(acctrain, 0)
+        min_err_test = np.min(acctest, 0)
+    else:
+        min_err = np.min(acctrain)
+        min_err_test = np.min(acctest)
+
+    train_log['testerror'] = acctest
+    train_log['trainerror'] = acctrain
+    train_log['min_trainerror'] = min_err
+    train_log['min_testerror'] = min_err_test
+
+    return newNN, train_log
+
 
 ######################################################################
 @hydra.main(config_path='conf/trainer.yaml')
@@ -48,7 +170,6 @@ def trainer(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    ensemble = cfg.ensemble
     model_name = cfg.model.name
 
     ######################################################################
@@ -68,261 +189,53 @@ def trainer(cfg):
         msg += f", datapoints={log_load['datapoints']}"
     log.info(msg)
 
-    '''
-    ['d_omegax' 'd_omegay' 'd_omegaz' 'd_pitch' 'd_roll' 'd_yaw' 'd_linax'
-    'd_linay' 'd_linyz' 'timesteps' 'objective vals' 'flight times'
-    'omega_x0' 'omega_y0' 'omega_z0' 'pitch0' 'roll0' 'yaw0' 'lina_x0'
-    'lina_y0' 'lina_z0' 'omega_x1' 'omega_y1' 'omega_z1' 'pitch1' 'roll1'
-    'yaw1' 'lina_x1' 'lina_y1' 'lina_z1' 'omega_x2' 'omega_y2' 'omega_z2'
-    'pitch2' 'roll2' 'yaw2' 'lina_x2' 'lina_y2' 'liny_z2' 'm1pwm_0'
-    'm2pwm_0' 'm3pwm_0' 'm4pwm_0' 'm1pwm_1' 'm2pwm_1' 'm3pwm_1'
-    'm4pwm_1' 'm1pwm_2' 'm2pwm_2' 'm3pwm_2' 'm4pwm_2' 'vbat']
-    '''
+    data = create_model_params(df, cfg.model)
 
+    X, U, dX = params_to_training(data)
 
-    data_params = {
-        # Note the order of these matters. that is the order your array will be in
-        'states': ['omega_x0', 'omega_y0', 'omega_z0',
-                   'pitch0', 'roll0', 'yaw0',
-                   'lina_x0', 'lina_y0', 'lina_z0',
-                   'omega_x1', 'omega_y1', 'omega_z1',
-                   'pitch1', 'roll1', 'yaw1',
-                   'lina_x1', 'lina_y1', 'lina_z1',
-                   'omega_x2', 'omega_y2', 'omega_z2',
-                   'pitch2', 'roll2', 'yaw2',
-                   'lina_x2', 'lina_y2', 'lina_z2'],
-        # 'omega_x3', 'omega_y3', 'omega_z3',
-        # 'pitch3',   'roll3',    'yaw3',
-        # 'lina_x3',  'lina_y3',  'lina_z3'],
+    model, train_log = train_model(X, U, dX, cfg.model)
+    model.store_training_lists(list(data['states'].columns),
+                               list(data['inputs'].columns),
+                               list(data['targets'].columns))
 
-        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
-                   'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
-                   'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],  # 'vbat'],
-        # 'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3', 'vbat'],
+    msg = "Trained Model..."
+    msg += "Prediction List" + str(list(data['targets'].columns)) + "\n"
+    msg += "Min test error: " + str(train_log['min_testerror']) + "\n"
+    msg += "Mean Min test error: " + str(np.mean(train_log['min_testerror'])) + "\n"
+    msg += "Min train error: " + str(train_log['min_trainerror']) + "\n"
+    log.info(msg)
 
-        'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
-                    'd_pitch', 'd_roll', 'd_yaw',
-                    't1_linax', 't1_linay', 't1_linaz'],
-
-        'battery': False  # Need to include battery here too
-    }
-
-    def create_model_params(df, model_cfg):
-        # only take targets from robot.yaml
-        target_keys = []
-        for typ in model_cfg.delta_state_targets:
-            target_keys.append(typ+'_0dx')
-        for typ in model_cfg.true_state_targets:
-            target_keys.append(typ+'_1fx')
-
-        # grab variables
-        history_states = df.filter(regex='tx')
-        history_actions = df.filter(regex='tu')
-
-        # add extra inputs like objective function
-        extra_inputs = []
-        if model_cfg.extra_inputs:
-            for extra in model_cfg.extra_inputs:
-                extra_inputs.append(extra)
-
-        # trim past states to be what we want
-        history = int(history_states.columns[-1][-3])
-        if history > model_cfg.history:
-            for i in range(history, model_cfg.history,-1):
-                str_remove = str(i)+'t'
-                for state in history_states.columns:
-                    if str_remove in state:
-                        history_states.drop(columns=state, inplace=True)
-                for action in history_actions.columns:
-                    if str_remove in action:
-                        history_actions.drop(columns=action, inplace=True)
-
-        # ignore states not helpful to prediction
-        for ignore in model_cfg.ignore_in:
-            for state in history_states.columns:
-                if ignore in state:
-                    history_states.drop(columns=state, inplace=True)
-
-        params = dict()
-        params['targets'] = target_keys #df.loc[:, target_keys]
-        params['states'] = history_states.columns
-        params['inputs'] = history_actions.columns
-        # TODO add extra inputs to these parameters
-
-        return params
-
-    params = create_model_params(df, cfg.model)
-    data_params_iono = {
-        # Note the order of these matters. that is the order your array will be in
-        'states': ['omega_x0', 'omega_y0', 'omega_z0',
-                   'pitch0', 'roll0', 'yaw0',
-                   'lina_x0', 'lina_y0', 'lina_z0',
-                   'omega_x1', 'omega_y1', 'omega_z1',
-                   'pitch1', 'roll1', 'yaw1',
-                   'lina_x1', 'lina_y1', 'lina_z1',
-                   'omega_x2', 'omega_y2', 'omega_z2',
-                   'pitch2', 'roll2', 'yaw2',
-                   'lina_x2', 'lina_y2', 'lina_z2'],
-        # 'omega_x3', 'omega_y3', 'omega_z3',
-        # 'pitch3',   'roll3',    'yaw3',
-        # 'lina_x3',  'lina_y3',  'lina_z3'],
-
-        'inputs': ['m1pwm_0', 'm2pwm_0', 'm3pwm_0', 'm4pwm_0',
-                   'm1pwm_1', 'm2pwm_1', 'm3pwm_1', 'm4pwm_1',
-                   'm1pwm_2', 'm2pwm_2', 'm3pwm_2', 'm4pwm_2'],  # 'vbat'],
-        # 'm1pwm_3', 'm2pwm_3', 'm3pwm_3', 'm4pwm_3', 'vbat'],
-
-        'targets': ['t1_omegax', 't1_omegay', 't1_omegaz',
-                    'd_pitch', 'd_roll', 'd_yaw',
-                    't1_linax', 't1_linay', 't1_linaz'],
-
-        'battery': False  # Need to include battery here too
-    }
-
-    st = ['d_omegax', 'd_omegay', 'd_omegaz',
-          'd_pitch', 'd_omegaz', 'd_pitch',
-          'd_linax', 'd_linay', 'd_linyz']
-
-    X, U, dX = df_to_training(df, data_params)
-
-    print('---')
-    print("X has shape: ", np.shape(X))
-    print("U has shape: ", np.shape(U))
-    print("dX has shape: ", np.shape(dX))
-    print('---')
-
-    # nn_params = {                           # all should be pretty self-explanatory
-    #     'dx' : np.shape(X)[1],
-    #     'du' : np.shape(U)[1],
-    #     'dt' : np.shape(dX)[1],
-    #     'hid_width' : 250,
-    #     'hid_depth' : 2,
-    #     'bayesian_flag' : True,
-    #     'activation': Swish(),
-    #     'dropout' : 0.0,
-    #     'split_flag' : False,
-    #     'pred_mode' : 'Delta State',
-    #     'ensemble' : ensemble
-    # }
-
-    # train_params = {
-    #     'epochs' : 20,
-    #     'batch_size' : 18,
-    #     'optim' : 'Adam',
-    #     'split' : 0.8,
-    #     'lr': .00155, # bayesian .00175, mse:  .0001
-    #     'lr_schedule' : [30,.6],
-    #     'test_loss_fnc' : [],
-    #     'preprocess' : True,
-    #     'noprint' : noprint
-    # }
-
-    nn_params = {  # all should be pretty self-explanatory
-        'dx': np.shape(X)[1],
-        'du': np.shape(U)[1],
-        'dt': np.shape(dX)[1],
-        'hid_width': 250,
-        'hid_depth': 2,
-        'bayesian_flag': True,
-        'activation': Swish(),
-        'dropout': 0.0,
-        'split_flag': False,
-        'pred_mode': 'Delta State',
-        'ensemble': ensemble
-    }
-
-    train_params = {
-        'epochs': 33,
-        'batch_size': 18,
-        'optim': 'Adam',
-        'split': 0.8,
-        'lr': .00255,  # bayesian .00175, mse:  .0001
-        'lr_schedule': [30, .6],
-        'test_loss_fnc': [],
-        'preprocess': True,
-    }
-
-    # log file
-    if log:
-        with open('_training_logs/' + 'logfile' + date_str + '.txt', 'w') as my_file:
-            my_file.write("Logfile for training run: " + date_str + "\n")
-            my_file.write("Net Name: " + str(model_name) + "\n")
-            my_file.write("=============================================" + "\n")
-            my_file.write("Data Load Params:" + "\n")
-            for k, v in load_params.items():
-                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
-            my_file.write("\n")
-
-            my_file.write("NN Structure Params:" + "\n")
-            for k, v in nn_params.items():
-                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
-            my_file.write("\n")
-
-            my_file.write("NN Train Params:" + "\n")
-            for k, v in train_params.items():
-                my_file.write(str(k) + ' >>> ' + str(v) + '\n')
-            my_file.write("\n")
-
-    if ensemble:
-        newNN = EnsembleNN(nn_params, 7)
-        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
-
-        print(acctest)
-
-    else:
-        newNN = GeneralNN(nn_params)
-        newNN.init_weights_orth()
-        if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX, l_mean=1, l_cov=1)  # data for std,
-        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
-
-    newNN.store_training_lists(data_params['states'], data_params['inputs'], data_params['targets'])
-
-    # plot
-    if ensemble:
-        min_err = np.min(acctrain, 0)
-        min_err_test = np.min(acctest, 0)
-    else:
-        min_err = np.min(acctrain)
-        min_err_test = np.min(acctest)
-
-    if log:
-        with open('_training_logs/' + 'logfile' + date_str + '.txt', 'a') as my_file:
-            my_file.write("Prediction List" + str(data_params['targets']) + "\n")
-            my_file.write("Min test error: " + str(min_err_test) + "\n")
-            my_file.write("Mean Min test error: " + str(np.mean(min_err_test)) + "\n")
-            my_file.write("Min train error: " + str(min_err) + "\n")
-
-    ax1 = plt.subplot(211)
-    # ax1.set_yscale('log')
-    ax1.plot(acctest, label='Test Loss')
-    plt.title('Test Loss')
-    ax2 = plt.subplot(212)
-    # ax2.set_yscale('log')
-    ax2.plot(acctrain, label='Train Loss')
-    plt.title('Training Loss')
-    ax1.legend()
-    plt.show()
+    if cfg.model.training.plot_loss:
+        ax1 = plt.subplot(211)
+        ax1.plot(train_log['testerror'], label='Test Loss')
+        plt.title('Test Loss')
+        ax2 = plt.subplot(212)
+        ax2.plot(train_log['trainerror'], label='Train Loss')
+        plt.title('Training Loss')
+        ax1.legend()
+        # plt.show()
+        plt.savefig(os.path.join(os.getcwd()+'/modeltraining.pdf'))
 
     # Saves NN params
-    if args.nosave:
-        dir_str = str('_models/temp/')
-        data_name = '_100Hz_'
-        # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-        info_str = "_" + model_name + "_" + "stack" + str(
-            load_params['stack_states']) + "_"  # + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
-        model_name = dir_str + date_str + info_str
-        newNN.save_model(model_name + '.pth')
-        print('Saving model to', model_name)
+    if cfg.save:
+        save_file(model, cfg.model.name+'.pth')
+        # dir_str = str('_models/temp/')
+        # data_name = '_100Hz_'
+        # # info_str = "_" + model_name + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+        # info_str = "_" + model_name + "_" + "stack" + str(
+        #     load_params['stack_states']) + "_"  # + "--Min error"+ str(min_err_test)+ "d=" + str(data_name)
+        # model_name = dir_str + date_str + info_str
+        # newNN.save_model(model_name + '.pth')
 
-        normX, normU, normdX = newNN.getNormScalers()
-        with open(model_name + "--normparams.pkl", 'wb') as pickle_file:
-            pickle.dump((normX, normU, normdX), pickle_file, protocol=2)
-            time.sleep(2)
+        normX, normU, normdX = model.getNormScalers()
+        save_file((normX, normU, normdX), cfg.model.name + "_normparams.pkl")
+        # with open(model_name + "_normparams.pkl", 'wb') as pickle_file:
+        #     pickle.dump((normX, normU, normdX), pickle_file, protocol=2)
+        #     time.sleep(2)
 
         # Saves data file
-        with open(model_name + "--data.pkl", 'wb') as pickle_file:
-            pickle.dump(df, pickle_file, protocol=2)
-            time.sleep(2)
+        save_file(data, cfg.model.name + "_data.pkl")
+
 
 
 if __name__ == '__main__':
