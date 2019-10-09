@@ -1,0 +1,38 @@
+robot: cf
+load:
+  dir: true
+  type: .csv
+  fname: /Users/nol/Documents/code-bases/data/cf/
+  data_labels:
+    - pwm1
+    - pwm2
+    - pwm3
+    - pwm4
+    - ax
+    - ay
+    - az
+    - wx
+    - wy
+    - wz
+    - pitch
+    - roll
+    - yaw
+
+model:
+  name: cf_hover
+  flight_mode: basic
+  history: 4
+  delta_state_targets:
+  - pitch
+  - roll
+  - yaw
+  true_state_targets:
+  - linax
+  - linay
+  - linaz
+  - omegax
+  - omegay
+  - omegaz
+  ignore_in:  # can be non axis specific
+  - vbat
+  extra_inputs:

@@ -20,9 +20,18 @@ def preprocess_cf(dir, load_params):
 
     load_log = dict()
 
+
     if load_params.dir:
-        files = os.listdir(
+        files = []
+        dirs = os.listdir(
             load_params.fname)
+
+        for d in dirs:
+            if d == '.DS_Store':
+                continue
+            dir_files = os.listdir(load_params.fname+d)
+            dir_files_full = [load_params.fname+d+"/"+di for di in dir_files]
+            files += dir_files_full
     else:
         files = load_params.fname
 
@@ -45,8 +54,7 @@ def preprocess_cf(dir, load_params):
     for f in files:
         # print(f)
         if len(f) > 5 and f[-4:] == '.csv':
-            X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param("_logged_data_autonomous/" + dir + f,
-                                                                           load_params)
+            X_t, U_t, dX_t, objv_t, Ts_t, time, terminal = trim_load_param(f, load_params)
 
             # shortens length by one point
             if load_params['include_tplus1']:

@@ -183,7 +183,10 @@ def trainer(cfg):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
-        df, log_load = preprocess_iono(data_dir, cfg.load)
+        if cfg.robot =='iono':
+            df, log_load = preprocess_iono(data_dir, cfg.load)
+        else:
+            df, log_load = preprocess_cf(data_dir, cfg.load)
         msg = f"Loading Data"
         if 'dir' in log_load is not None:
             msg += f", dir={log_load['dir']}"
