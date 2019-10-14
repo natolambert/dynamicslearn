@@ -15,8 +15,7 @@ import pickle
 
 # neural nets
 from learn.model_general_nn import GeneralNN
-# from model_split_nn import SplitModel
-from model_ensemble_nn import EnsembleNN
+from learn.model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
