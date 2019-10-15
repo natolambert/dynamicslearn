@@ -5,9 +5,9 @@ sys.path.append(os.getcwd())
 
 from learn.control.pipps_policygrad import PIPPS_policy
 import gym
-from learn.model_general_nn import GeneralNN
+from learn.models.model_general_nn import GeneralNN
 
-from learn.model_ensemble_nn import EnsembleNN
+from learn.models.model_ensemble_nn import EnsembleNN
 
 from learn.utils.nn import *
 from learn.utils.data import *

@@ -10,8 +10,8 @@ from learn.utils.data import *
 from learn.utils.nn import *
 
 # neural nets
-from learn.model_general_nn import GeneralNN
-from learn.model_ensemble_nn import EnsembleNN
+from learn.models.model_general_nn import GeneralNN
+from learn.models.model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch

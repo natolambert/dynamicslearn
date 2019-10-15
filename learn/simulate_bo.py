@@ -7,13 +7,10 @@ sys.path.append(os.getcwd())
 # from utils_data import * 
 # from utils_nn import *
 from learn.utils.data import *
-from learn.utils.nn import *
 
 # data packages
 
 # neural nets
-from learn.model_general_nn import GeneralNN
-from learn.model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
@@ -23,20 +20,10 @@ import os
 import hydra
 
 # Plotting
-import matplotlib.pyplot as plt
 
 import logging
 
 log = logging.getLogger(__name__)
-
-import opto
-import opto.data as rdata
-from opto.opto.classes.OptTask import OptTask
-from opto.opto.classes import StopCriteria, Logs
-from opto.utils import bounds
-from opto.opto.acq_func import EI
-from opto import regression
-
 
 def save_file(object, filename):
     path = os.path.join(os.getcwd(), filename)
