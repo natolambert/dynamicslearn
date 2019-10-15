@@ -7,11 +7,7 @@ sys.path.append(os.getcwd())
 # from utils_data import * 
 # from utils_nn import *
 from learn.utils.data import *
-from learn.utils.sim import *
 from learn.utils.nn import *
-
-# data packages
-import pickle
 
 # neural nets
 from learn.model_general_nn import GeneralNN
@@ -19,21 +15,13 @@ from learn.model_ensemble_nn import EnsembleNN
 
 # Torch Packages
 import torch
-import torch.nn as nn
-from torch.nn import MSELoss
 
 # timing etc
-import time
-import datetime
 import os
 import hydra
 
 # Plotting
 import matplotlib.pyplot as plt
-import matplotlib
-
-import argparse
-from omegaconf import OmegaConf
 
 import logging
 
@@ -177,7 +165,7 @@ def trainer(cfg):
 
     data_dir = cfg.load.base_dir
 
-    avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs')-1]+f"/ex_data/{cfg.robot}.csv")
+    avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs')-1]+f"/ex_data/SAS/{cfg.robot}.csv")
     if os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
