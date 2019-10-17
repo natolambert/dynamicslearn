@@ -28,8 +28,8 @@ Main Scripts:
 
 In Development:
 -------------
-- `learn/bo_pid.py`: For generating PID parameters using a dynamics model as a simulation environment. This will eventually extend beyond PID control. See the controllers directory `learn/control`
-
+- `learn/bo_pid.py`: For generating PID parameters using a dynamics model as a simulation environment. This will eventually extend beyond PID control. See the controllers directory `learn/control`. I am working to integrate [opto](https://github.com/robertocalandra/opto).
+- `learn/pipps_experiment.py`: A reimplementation of the paper ["PIPPS: Flexible Model-Based Policy Search Robust to the Curse of Chaos"](https://arxiv.org/abs/1902.01240). I wrote a blog post summarizing the main derivation behind this work [here](https://medium.com/me/stats/post/4546434c84b0).
 
 Related Code for Experiments:
 -----------------------------
