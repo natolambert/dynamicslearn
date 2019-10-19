@@ -7,4 +7,7 @@ setup(
     packages=find_packages(),
     license='MIT License',
     long_description=open('README.md').read(),
+    install_requires=[
+          'hydra-core==0.9.0',
+      ],
 )  
