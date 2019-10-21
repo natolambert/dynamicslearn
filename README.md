@@ -18,7 +18,7 @@ Some potentially noteable implementations include:
 
 Usage is generally of the form, with hydra enabling more options:
 ```
-(learn) Natos-MBP15-457:dynamics-learn nato$ python learn/trainer.py robot=iono
+$ python learn/trainer.py robot=iono
 ```
 
 Main Scripts:
