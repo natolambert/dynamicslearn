@@ -1,7 +1,7 @@
 defaults:
   - robot: ???
 
-save: true
+save: false
 
 load:
   delta_state: true

@@ -165,12 +165,12 @@ def trainer(cfg):
 
     data_dir = cfg.load.base_dir
 
-    avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs')-1]+f"/ex_data/SAS/{cfg.robot}.csv")
+    avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
     if os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
-        if cfg.robot =='iono':
+        if cfg.robot == 'iono':
             df, log_load = preprocess_iono(data_dir, cfg.load)
         else:
             df, log_load = preprocess_cf(data_dir, cfg.load)
@@ -219,6 +219,8 @@ def trainer(cfg):
 
         # Saves data file
         save_file(data, cfg.model.name + "_data.pkl")
+
+    log.info(f"Saved to directory {os.getcwd()}")
 
 
 if __name__ == '__main__':

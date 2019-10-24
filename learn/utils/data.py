@@ -12,6 +12,8 @@ import seaborn as sns
 import csv
 from scipy.signal import butter, lfilter, freqz
 
+def cwd_basedir():
+    return os.getcwd()[:os.getcwd().rfind('outputs')]
 
 def preprocess_cf(dir, load_params):
     '''

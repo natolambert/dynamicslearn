@@ -89,8 +89,6 @@ def trainer(cfg):
     elif dim_s == 'roll':
         dim = 2
 
-
-
     ######################################################################
 
     # Code outline to predict states given an action or control scheme

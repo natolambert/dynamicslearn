@@ -69,6 +69,16 @@ def simulate(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    import pickle
+    # d = os.getcwd()[:os.getcwd().rfind('outputs')]+'outputs/2019-10-22/19-15-19/'
+    d = cwd_basedir()+'outputs/2019-10-22/19-49-39/'
+    model = torch.load(d+'iono.pth')
+    with open(d+'iono_data.pkl', 'rb') as pickle_file:
+        data = pickle.load(pickle_file)
+    with open(d+'iono_normparams.pkl', 'rb') as pickle_file:
+        normalization = pickle.load(pickle_file)
+
+
     ######################################################################
     log.info('Running offline simulations on a model')
 
@@ -83,10 +93,9 @@ def simulate(cfg):
     log.info(f"Load model from {cfg.model_path}")
     model = torch.load(model_path)
 
-
     # Saves NN params
+    save_file(model, cfg.model.name + '.pth')
     if cfg.save:
-        save_file(model, cfg.model.name + '.pth')
 
         normX, normU, normdX = model.getNormScalers()
         save_file((normX, normU, normdX), cfg.model.name + "_normparams.pkl")

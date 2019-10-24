@@ -2,34 +2,15 @@
 # from utils import *
 
 # data packages
-import pickle
 import numpy as np
-
-# neural nets
-from model_general_nn import GeneralNN
-# from _activation_swish import Swish
-
-
 # Torch Packages
 import torch
 import torch.nn as nn
-from torch.nn import MSELoss
-from torch.autograd import Variable
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from torch.distributions.normal import Normal
-
 # More NN such
-from sklearn.model_selection import train_test_split
-from sklearn import linear_model
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
-import pickle
 from sklearn.model_selection import KFold  # for dataset
 
-import matplotlib.pyplot as plt
-
-# my NN object
-from model_general_nn import GeneralNN
+# neural nets
+from learn.models.model_general_nn import GeneralNN
 
 
 class EnsembleNN(nn.Module):
