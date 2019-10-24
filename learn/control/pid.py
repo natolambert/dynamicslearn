@@ -133,22 +133,24 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 def gen_pid_params(policy_cfg):
     mode = policy_cfg.mode
     parameters = []
+    min_params = policy_cfg.pid.params.min_values
+    max_params = policy_cfg.pid.params.max_values
     if mode == 'BASIC':
         # Pitch and Roll PD control
         num_control = 2
         for _ in range(num_control):
-            P = np.random.uniform([0], [300])
+            P = np.random.uniform([min_params[0]], [max_params[0]])
             I = np.zeros(1)
-            D = np.random.uniform([0], [50])
+            D = np.random.uniform([min_params[2]], [max_params[2]])
             parameters.append([P, I, D])
 
     elif mode == 'EULER':
         # Pitch Roll and Yaw PID Control
         num_control = 3
         for _ in range(num_control):
-            P = np.random.uniform([0], [300])
-            I = np.random.uniform([0], [150])
-            D = np.random.uniform([0], [50])
+            P = np.random.uniform([min_params[0]], [max_params[0]])
+            I = np.random.uniform([min_params[1]], [max_params[1]])
+            D = np.random.uniform([min_params[2]], [max_params[2]])
             parameters.append([P, I, D])
 
     else:
@@ -161,27 +163,25 @@ class PidPolicy(Controller):
     def __init__(self, cfg):
         self.mode = cfg.mode
         self.pids = []
-        self.numPIDs = 0
-        assert len(cfg.min_pwm) == len(cfg.equil)
-        assert len(cfg.max_pwm) == len(cfg.equil)
 
-        self.min_pwm = cfg.min_pwm
-        self.max_pwm = cfg.max_pwm
-        self.equil = cfg.equil
-        self.dt = cfg.dt
+        assert len(cfg.params.min_pwm) == len(cfg.params.equil)
+        assert len(cfg.params.max_pwm) == len(cfg.params.equil)
+
+        self.min_pwm = cfg.params.min_pwm
+        self.max_pwm = cfg.params.max_pwm
+        self.equil = cfg.params.equil
+        self.dt = cfg.params.dt
         self.numParameters = 0
         parameters = gen_pid_params(cfg)
         # order: pitch, roll, yaw, pitchrate, rollrate, yawRate or pitch roll yaw yawrate for hybrid or pitch roll yaw for euler
         if self.mode == 'BASIC':
-            self.numPIDS = 2
+            self.numpids = 2
             self.numParameters = 4
         elif self.mode == 'EULER':
-            self.numPIDS = 3
+            self.numpids = 3
             self.numParameters = 9
         else:
             raise ValueError(f"Mode Not Supported {self.mode}")
-
-        self.numPIDs = int(self.numParameters / 3)
 
         for set in parameters:
             """

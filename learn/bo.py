@@ -40,27 +40,22 @@ def temp_objective(x):
 
 
 class BOPID():
-    def __init__(self, bo_cfg, policy_cfg):
+    def __init__(self, bo_cfg, policy_cfg, opt_function):
         # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
         self.PIDMODE = policy_cfg.mode
         self.policy = PidPolicy(policy_cfg)
         evals = bo_cfg.iterations
-        zeros = [0, 0, 0]
-        maximums = [300, 150, 20]
-        if self.PIDMODE == 'BASIC':
-            self.n_parameters = 4
-        elif self.PIDMODE == 'EULER':
-            self.n_parameters = 9
-        elif self.PIDMODE == 'HYBRID':
-            self.n_parameters = 12
-        elif self.PIDMODE == 'RATE' or self.PIDMODE == 'ALL':
-            self.n_parameters = 18
-        else:
-            print("Invalid PID mode selected")
-            sys.exit(0)
-        self.task = OptTask(f=temp_objective, n_parameters=self.n_parameters, n_objectives=1,
-                            bounds=bounds(min=zeros * int(self.n_parameters / 3),
-                                          max=maximums * int(self.n_parameters / 3)), task={'minimize'},
+        param_min = list(policy_cfg.pid.params.min_values)
+        param_max = list(policy_cfg.pid.params.max_values)
+        self.n_parameters = self.policy.numParameters
+        self.n_pids = self.policy.numpids
+        params_per_pid = self.n_parameters / self.n_pids
+        assert params_per_pid % 1 == 0
+        params_per_pid = int(params_per_pid)
+
+        self.task = OptTask(f=opt_function, n_parameters=self.n_parameters, n_objectives=1,
+                            bounds=bounds(min=param_min * params_per_pid,
+                                          max=param_max * params_per_pid), task={'minimize'},
                             vectorized=False)
         # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
         # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
@@ -140,6 +135,9 @@ def optimizer(cfg):
     log.info("=========================================")
 
     sim = BOPID(cfg.bo, cfg.policy)
+    msg = "Initialized BO Objective of PID Control"
+    # msg +=
+    log.info(msg)
     sim.optimize()
 
 

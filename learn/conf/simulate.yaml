@@ -1,20 +1,28 @@
 defaults:
   - robot: ???
 
-model_path: ???
+#model_path: ???
 dimension: all
 save: true
 
 policy:
   mode: BASIC
-  equil: [1500, 1500, 1500, 1500]
-  min_pwm: [0,0,0,0]
-  max_pwm: [3000, 3000, 3000, 3000]
-  dt: .02
+  params:
+    equil: [1500, 1500, 1500, 1500]
+    min_pwm: [0,0,0,0]
+    max_pwm: [3000, 3000, 3000, 3000]
+    dt: .02
+  pid:
+    params:
+      min_values: [0, 0, 0]
+      max_values: [300, 150, 20]
+
 
 bo:
   iterations: 10
   sim: true
+  rollouts: 100
+  
 
 model:
   ensemble: false
