@@ -130,135 +130,134 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 "the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
 
+def gen_pid_params(policy_cfg):
+    mode = policy_cfg.mode
+    parameters = []
+    if mode == 'BASIC':
+        # Pitch and Roll PD control
+        num_control = 2
+        for _ in range(num_control):
+            P = np.random.uniform([0], [300])
+            I = np.zeros(1)
+            D = np.random.uniform([0], [50])
+            parameters.append([P, I, D])
 
-# class to mimic the PID structure onboard the crazyflie
-class EulerController(Controller):
-    """
-    Class for bootstrapping PID controllers off of a learned dynamics model.
-    """
+    elif mode == 'EULER':
+        # Pitch Roll and Yaw PID Control
+        num_control = 3
+        for _ in range(num_control):
+            P = np.random.uniform([0], [300])
+            I = np.random.uniform([0], [150])
+            D = np.random.uniform([0], [50])
+            parameters.append([P, I, D])
 
-    def __init__(self, env, cfg):
+    else:
+        raise ValueError(f"Mode Not Supported {mode}")
 
-        raise NotImplementedError("Transition to cfgs")
-        self.equil = equil
-        self.dt = dt
-        self.minpwm = 0
-        self.maxpwm = 65535
+    return parameters
 
-        self.output = equil
 
-        # PIDs
-        self.PID_att_pitch = []
-        self.PID_att_roll = []
-        self.PID_att_yaw = []
-        self.PID_rate_pitch = []
-        self.PID_rate_roll = []
-        self.PID_rate_yaw = []
+class PidPolicy(Controller):
+    def __init__(self, cfg):
+        self.mode = cfg.mode
+        self.pids = []
+        self.numPIDs = 0
+        assert len(cfg.min_pwm) == len(cfg.equil)
+        assert len(cfg.max_pwm) == len(cfg.equil)
 
-        # Above, all of the last six inputs being att_pitch etc are lists of length 5
-        # Axis Mode: [KP, KI, KD, iLimit]
-        if att_pitch != []:
-            self.PID_att_pitch = PID(0, att_pitch[0],
-                                     att_pitch[1],
-                                     att_pitch[2],
-                                     att_pitch[3], dt)
+        self.min_pwm = cfg.min_pwm
+        self.max_pwm = cfg.max_pwm
+        self.equil = cfg.equil
+        self.dt = cfg.dt
+        self.numParameters = 0
+        parameters = gen_pid_params(cfg)
+        # order: pitch, roll, yaw, pitchrate, rollrate, yawRate or pitch roll yaw yawrate for hybrid or pitch roll yaw for euler
+        if self.mode == 'BASIC':
+            self.numPIDS = 2
+            self.numParameters = 4
+        elif self.mode == 'EULER':
+            self.numPIDS = 3
+            self.numParameters = 9
+        else:
+            raise ValueError(f"Mode Not Supported {self.mode}")
 
-        if att_roll != []:
-            self.PID_att_roll = PID(0, att_roll[0],
-                                    att_roll[1],
-                                    att_roll[2],
-                                    att_roll[3], dt)
+        self.numPIDs = int(self.numParameters / 3)
 
-        if att_yaw != []:
-            self.PID_att_yaw = PID(0, att_yaw[0],
-                                   att_yaw[1],
-                                   att_yaw[2],
-                                   att_yaw[3], dt)
-
-        if rate_pitch != []:
-            self.PID_rate_pitch = PID(0, rate_pitch[0],
-                                      rate_pitch[1],
-                                      rate_pitch[2],
-                                      rate_pitch[3], dt)
-
-        if rate_roll != []:
-            self.PID_rate_roll = PID(0, rate_roll[0],
-                                     rate_roll[1],
-                                     rate_roll[2],
-                                     rate_roll[3], dt)
-
-        if rate_yaw != []:
-            self.PID_rate_yaw = PID(0, rate_yaw[0],
-                                    rate_yaw[1],
-                                    rate_yaw[2],
-                                    rate_yaw[3], dt)
-
-        # create list of 'active' PIDs
-        self.PIDs = []
-        if self.PID_att_pitch != []: self.PIDs.append(self.PID_att_pitch)
-        if self.PID_att_roll != []: self.PIDs.append(self.PID_att_roll)
-        if self.PID_att_yaw != []: self.PIDs.append(self.PID_att_yaw)
-        if self.PID_rate_pitch != []: self.PIDs.append(self.PID_rate_pitch)
-        if self.PID_rate_roll != []: self.PIDs.append(self.PID_rate_roll)
-        if self.PID_rate_yaw != []: self.PIDs.append(self.PID_rate_yaw)
-
-        if len(self.PIDs) == 2:
-            print("INIT PID IN ATTITUDE MODE")
-            self.mode = 0
-        elif len(self.PIDs) == 3:
-            print("INIT PID IN ATTITUDE MODE w YAW")
-            self.mode = 1
-        elif len(self.PIDs) == 6:
-            print("INIT PID IN ATTITUDE+RATE MODE")
-            self.mode = 2
-
-    def reset(self):
-        [p.reset() for p in self.PIDS]
+        for set in parameters:
+            """
+            def __init__(self, desired,
+                 kp, ki, kd,
+                 ilimit, dt, outlimit=np.inf,
+                 samplingRate=0, cutoffFreq=-1,
+                 enableDFilter=False):
+             """
+            P = set[0]
+            I = set[1]
+            D = set[2]
+            self.pids += [PID(0, P, I, D, 1000, self.dt)]
 
     def get_action(self, state):
-        """
-        This function will take in the current state, and update the PID's output.
+        raise NotImplementedError("Must fix to take state in nicely")
 
-        Takes x: 9 dimensional state
-        Returns u: 4 dimensional action
-        """
+        def limit_thrust(pwm):  # Limits the thrust
+            return np.clip(pwm, self.min_pwm, self.max_pwm)
 
-        def limit_thrust(PWM):
-            """
-            Limits thrust, can be adjusted for different robots
-            """
-            return np.clip(PWM, self.minpwm, self.maxpwm)
+        output = [0, 0, 0, 0]
+        # PWM structure: 0:front right  1:front left  2:back left   3:back right
+        '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
+        if self.mode == 'BASIC':
+            output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out)
+            output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out)
+            output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out)
+            output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out)
+        elif self.mode == 'EULER':
+            output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
+            output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
+            output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
+            output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
+        elif self.mode == 'HYBRID':
+            output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
+            output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
+            output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
+            output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
+        elif self.mode == 'RATE':  # update this with the signs above
+            output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
+            output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
+            output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
+            output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
+        elif self.mode == 'ALL':  # update this with the signs above
+            output[0][0] = limit_thrust(
+                self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out - self.pids[
+                    4].out + self.pids[5].out)
+            output[0][1] = limit_thrust(
+                self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out - self.pids[
+                    4].out - self.pids[5].out)
+            output[0][2] = limit_thrust(
+                self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out + self.pids[
+                    4].out + self.pids[5].out)
+            output[0][3] = limit_thrust(
+                self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out + self.pids[
+                    4].out - self.pids[5].out)
+        return output
 
-        # Update Attitude PIDs first
-        out_pitch = self.PID_att_pitch.update(x[3])
-        out_roll = self.PID_att_roll.update(x[4])
-        out_yaw = self.PID_att_yaw.update(x[5])
+    def reset(self):
+        [p.reset() for p in self.pids]
 
-        # Pass their outputs into the rate PIDs, and update
-        out_pitch_rate = self.PID_rate_pitch.update(out_pitch)
-        out_roll_rate = self.PID_rate_roll.update(out_roll)
-        out_yaw_rate = self.PID_rate_yaw.update(out_yaw)
+    def update(self, states):
+        '''
 
-        # Update output from attitude PIDS
-        if self.mode == 1:
-            self.output[0] = limit_thrust(
-                self.equil[0] + self.PID_att_pitch.out + self.PID_att_yaw.out)
-            self.output[1] = limit_thrust(
-                self.equil[1] - self.PID_att_roll.out - self.PID_att_yaw.out)
-            self.output[2] = limit_thrust(
-                self.equil[2] - self.PID_att_pitch.out + self.PID_att_yaw.out)
-            self.output[3] = limit_thrust(
-                self.equil[3] + self.PID_att_roll.out - self.PID_att_yaw.out)
-
-        # Update output from Rate PIDs, which were updated from Attitude setpoints
-        elif self.mode == 0:
-            self.output[0] = limit_thrust(
-                self.equil[0] + self.PID_rate_pitch.out + self.PID_rate_yaw.out)
-            self.output[1] = limit_thrust(
-                self.equil[1] - self.PID_rate_roll.out - self.PID_rate_yaw.out)
-            self.output[2] = limit_thrust(
-                self.equil[2] - self.PID_rate_pitch.out + self.PID_rate_yaw.out)
-            self.output[3] = limit_thrust(
-                self.equil[3] + self.PID_rate_roll.out - self.PID_rate_yaw.out)
-
-        return self.output
+        :param states:
+        :return:
+        Order of states being passed: pitch, roll, yaw
+        Updates the PID outputs based on the states being passed in (must be in the specified order above)
+        Order of PIDs: pitch, roll, yaw, pitchRate, rollRate, yawRate
+        '''
+        assert len(states) == 3
+        EulerOut = [0, 0, 0]
+        for i in range(3):
+            EulerOut[i] = self.pids[i].update(states[i])
+        if self.mode == 'HYBRID':
+            self.pids[3].update(EulerOut[2])
+        if self.mode == 'RATE' or self.mode == 'ALL':
+            for i in range(3):
+                self.pids[i + 3].update(EulerOut[i])

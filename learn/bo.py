@@ -15,6 +15,7 @@ import torch
 import math
 
 from learn.control.pid import PID
+from learn.control.pid import PidPolicy
 import logging
 import hydra
 
@@ -42,12 +43,13 @@ class BOPID():
     def __init__(self, bo_cfg, policy_cfg):
         # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
         self.PIDMODE = policy_cfg.mode
+        self.policy = PidPolicy(policy_cfg)
         evals = bo_cfg.iterations
         zeros = [0, 0, 0]
         maximums = [300, 150, 20]
         if self.PIDMODE == 'BASIC':
             self.n_parameters = 4
-        if self.PIDMODE == 'EULER':
+        elif self.PIDMODE == 'EULER':
             self.n_parameters = 9
         elif self.PIDMODE == 'HYBRID':
             self.n_parameters = 12
@@ -73,7 +75,6 @@ class BOPID():
         self.opt = opto.BO(parameters=p, task=self.task, stopCriteria=self.Stop)
         self.opt.optimize()
 
-
     def getParameters(self, plotResults=False, printResults=False):
         log = self.opt.get_logs()
         losses = log.get_objectives()
@@ -95,6 +96,7 @@ class BOPID():
                 print("YawRate: Prop: ", best[15], " Int: ", best[16], "Deriv: ", best[17])
 
         return best, bestLoss
+
 
 '''
 Some notes on the crazyflie PID structure. Essentially there is a trajectory planner
@@ -128,85 +130,6 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 
 "the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
-
-
-class policy():
-    def __init__(self, cfg):
-        self.mode = cfg.mode
-        self.PID = []
-        self.numPIDs = 0
-        assert len(cfg.min_pwm) == len(cfg.equil)
-        assert len(cfg.max_pwm) == len(cfg.equil)
-
-        self.min_pwm = cfg.min_pwm
-        self.max_pwm = cfg.max_pwm
-        self.equil = cfg.equil
-        self.dt = cfg.dt
-        self.numParameters = 0
-        parameters = policyDict['PID']
-        # order: pitch, roll, yaw, pitchrate, rollrate, yawRate or pitch roll yaw yawrate for hybrid or pitch roll yaw for euler
-        if self.mode == 'EULER':
-            self.numParameters = 9
-        elif self.mode == 'HYBRID':
-            self.numParameters = 12
-        elif self.mode == 'RATE' or self.mode == 'ALL':
-            self.numParameters = 18
-        assert len(parameters) == self.numParameters
-        self.numPIDs = int(self.numParameters / 3)
-
-        for i in [3 * i for i in list(range(self.numPIDs))]:
-            self.PID += [PID(0, parameters[i], parameters[i + 1], parameters[i + 2], 1000, self.dt)]
-
-    def chooseAction(self):
-        def limit_thrust(PWM):  # Limits the thrust
-            return np.clip(PWM, self.min_pwm, self.max_pwm)
-
-        output = [0, 0, 0, 0]
-        # PWM structure: 0:front right  1:front left  2:back left   3:back right
-        '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
-        if self.mode == 'EULER':
-            output[0] = limit_thrust(self.equil[0] - self.PID[0].out + self.PID[1].out + self.PID[2].out)
-            output[1] = limit_thrust(self.equil[1] - self.PID[0].out - self.PID[1].out - self.PID[2].out)
-            output[2] = limit_thrust(self.equil[2] + self.PID[0].out - self.PID[1].out + self.PID[2].out)
-            output[3] = limit_thrust(self.equil[3] + self.PID[0].out + self.PID[1].out - self.PID[2].out)
-        elif self.mode == 'HYBRID':
-            output[0][0] = limit_thrust(self.equil[0] - self.PID[0].out + self.PID[1].out + self.PID[5].out)
-            output[0][1] = limit_thrust(self.equil[1] - self.PID[0].out - self.PID[1].out - self.PID[5].out)
-            output[0][2] = limit_thrust(self.equil[2] + self.PID[0].out - self.PID[1].out + self.PID[5].out)
-            output[0][3] = limit_thrust(self.equil[3] + self.PID[0].out + self.PID[1].out - self.PID[5].out)
-        elif self.mode == 'RATE':  # update this with the signs above
-            output[0][0] = limit_thrust(self.equil[0] + self.PID[3].out - self.PID[4].out + self.PID[5].out)
-            output[0][1] = limit_thrust(self.equil[1] - self.PID[3].out - self.PID[4].out - self.PID[5].out)
-            output[0][2] = limit_thrust(self.equil[2] - self.PID[3].out + self.PID[4].out + self.PID[5].out)
-            output[0][3] = limit_thrust(self.equil[3] + self.PID[3].out + self.PID[4].out - self.PID[5].out)
-        elif self.mode == 'ALL':  # update this with the signs above
-            output[0][0] = limit_thrust(
-                self.equil[0] + self.PID[0].out - self.PID[1].out + self.PID[2].out + self.PID[3].out - self.PID[
-                    4].out + self.PID[5].out)
-            output[0][1] = limit_thrust(
-                self.equil[1] - self.PID[0].out - self.PID[1].out - self.PID[2].out - self.PID[3].out - self.PID[
-                    4].out - self.PID[5].out)
-            output[0][2] = limit_thrust(
-                self.equil[2] - self.PID[0].out + self.PID[1].out + self.PID[2].out - self.PID[3].out + self.PID[
-                    4].out + self.PID[5].out)
-            output[0][3] = limit_thrust(
-                self.equil[3] + self.PID[0].out + self.PID[1].out - self.PID[2].out + self.PID[3].out + self.PID[
-                    4].out - self.PID[5].out)
-        return torch.FloatTensor(output)
-
-    def update(self, states):
-        '''Order of states being passed: pitch, roll, yaw'''
-        '''Updates the PID outputs based on the states being passed in (must be in the specified order above)'''
-        '''Order of PIDs: pitch, roll, yaw, pitchRate, rollRate, yawRate'''
-        assert len(states) == 3
-        EulerOut = [0, 0, 0]
-        for i in range(3):
-            EulerOut[i] = self.PID[i].update(states[i])
-        if self.mode == 'HYBRID':
-            self.PID[3].update(EulerOut[2])
-        if self.mode == 'RATE' or self.mode == 'ALL':
-            for i in range(3):
-                self.PID[i + 3].update(EulerOut[i])
 
 
 ######################################################################
