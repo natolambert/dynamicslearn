@@ -87,11 +87,15 @@ class EnsembleNN(nn.Module):
 
         return np.transpose(np.array(acctest_l)), np.transpose(np.array(acctrain_l))
 
-    def predict(self, X, U):
+    def predict(self, X, U, ret_var=False):
         prediction = np.zeros([9])
-
+        vars = np.zeros([9])
         for net in self.networks:
-            prediction += (1 / self.E) * net.predict(X, U)
+            if ret_var:
+                raise NotImplementedError("Need to handle Variance Returns")
+                prediction += (1 / self.E) * net.predict(X, U)
+            else:
+                prediction += (1 / self.E) * net.predict(X, U)
 
         return prediction
 

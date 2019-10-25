@@ -130,6 +130,7 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 "the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
 '''
 
+
 def gen_pid_params(policy_cfg):
     mode = policy_cfg.mode
     parameters = []
@@ -164,8 +165,8 @@ class PidPolicy(Controller):
         self.mode = cfg.mode
         self.pids = []
 
-        assert len(cfg.params.min_pwm) == len(cfg.params.equil)
-        assert len(cfg.params.max_pwm) == len(cfg.params.equil)
+        # assert len(cfg.params.min_pwm) == len(cfg.params.equil)
+        # assert len(cfg.params.max_pwm) == len(cfg.params.equil)
 
         self.min_pwm = cfg.params.min_pwm
         self.max_pwm = cfg.params.max_pwm
@@ -197,7 +198,10 @@ class PidPolicy(Controller):
             self.pids += [PID(0, P, I, D, 1000, self.dt)]
 
     def get_action(self, state):
-        raise NotImplementedError("Must fix to take state in nicely")
+
+        # PIDs must always come in order of states then
+        for i, pid in enumerate(self.pids):
+            pid.update(state[i])
 
         def limit_thrust(pwm):  # Limits the thrust
             return np.clip(pwm, self.min_pwm, self.max_pwm)
@@ -238,7 +242,7 @@ class PidPolicy(Controller):
             output[0][3] = limit_thrust(
                 self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out + self.pids[
                     4].out - self.pids[5].out)
-        return output
+        return np.array(output)
 
     def reset(self):
         [p.reset() for p in self.pids]

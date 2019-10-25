@@ -10,12 +10,14 @@ from opto.utils import bounds
 from opto.opto.acq_func import EI
 from opto import regression
 
+import pandas as pd
 import numpy as np
 import torch
 import math
 
 from learn.control.pid import PID
 from learn.control.pid import PidPolicy
+from learn.utils.data import cwd_basedir
 import logging
 import hydra
 
@@ -35,13 +37,12 @@ log = logging.getLogger(__name__)
 '''
 
 
-def temp_objective(x):
-    return np.random.rand(1)
-
-
 class BOPID():
     def __init__(self, bo_cfg, policy_cfg, opt_function):
         # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
+        self.b_cfg = bo_cfg
+        self.p_cfg = policy_cfg
+
         self.PIDMODE = policy_cfg.mode
         self.policy = PidPolicy(policy_cfg)
         evals = bo_cfg.iterations
@@ -92,6 +93,36 @@ class BOPID():
 
         return best, bestLoss
 
+    def basic_rollout(self, s0, model):
+        # todo need to accound for history automatically
+        max_len = self.b_cfg.max_length
+        cur_action = self.policy.get_action(s0)
+        next_state, logvars = smart_model_step(model, s0, cur_action)
+        state = push_history(next_state, s0)
+        for k in range(20):
+            print(f"Itr {k}")
+            print(f"Action {cur_action.tolist()}")
+            print(f"State {next_state.tolist()}")
+            cur_action = self.policy.get_action(next_state)
+            next_state, logvars = smart_model_step(model, state, cur_action)
+            state = push_history(next_state, state)
+            print(f"logvars {logvars}")
+
+def push_history(new, orig):
+    """
+    Takes in the new data and makes it the first elements of a vector.
+    - For using dynamics models with history.
+    :param new: New data
+    :param orig: old data (with some form of history)
+    :return: [new, orig] cut at old length
+    """
+    assert len(orig)/len(new) % 1.0 == 0
+    hist = int(len(orig)/len(new))
+    l = len(new)
+    data = np.copy(orig)
+    data[l:] = orig[:-l]
+    data[:l] = new
+    return data
 
 '''
 Some notes on the crazyflie PID structure. Essentially there is a trajectory planner
@@ -127,6 +158,41 @@ Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 '''
 
 
+# def rollout_model(s0, controller):
+
+def smart_model_step(model, state, action):
+    states_in = model.state_list
+    actions_in = model.input_list
+    targets = model.change_state_list
+    len_in = len(states_in)
+    len_out = len(targets)
+
+    def convert_predictions(prediction, state_in, targets_list):
+        output = np.copy(state_in[:len(targets_list)])
+        for i, (p, s, t_l) in enumerate(zip(prediction, state_in, targets_list)):
+            # if delta, add change
+            if t_l[-2:] == 'dx':
+                output[i] = s + p
+            else:
+                output[i] = p
+        return output
+
+    if len_out > len_in:
+        history_used = True
+
+    if len(action) < len(actions_in):
+        if len(actions_in) % len(action) ==0:
+            hist = int(len(actions_in)/len(action))
+            action = np.array([action]*hist).flatten()
+    output, logvars = model.predict(state, action, ret_var=True)
+    next_state = convert_predictions(output, state, targets)
+
+    return next_state, torch.exp(logvars)
+
+    # if history_used:
+    #     next_state = np.concatenate(next_state, state[len(targets):])
+
+
 ######################################################################
 @hydra.main(config_path='conf/simulate.yaml')
 def optimizer(cfg):
@@ -134,7 +200,28 @@ def optimizer(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    sim = BOPID(cfg.bo, cfg.policy)
+    temp_model = torch.load(cwd_basedir() + 'ex_data/models/iono.dat')
+    temp_data = pd.read_csv(cwd_basedir() + 'ex_data/SAS/iono.csv')
+
+    states_in = temp_model.state_list
+    actions_in = temp_model.input_list
+    targets = temp_model.change_state_list
+
+    s = temp_data[states_in].values
+    a = temp_data[actions_in].values
+    t = temp_data[targets].values
+
+    val = np.random.randint(0, len(s))
+    s0 = s[val]
+    a0 = a[val]
+    smart_model_step(temp_model, s0, a0)
+
+    def get_permissible_states(df, model):
+        # for a dataframe and a model, get some permissible data for initial states for model rollouts
+        raise NotImplementedError("Not done")
+
+    sim = BOPID(cfg.bo, cfg.policy, np.sum)
+    traj = sim.basic_rollout(s0, temp_model)
     msg = "Initialized BO Objective of PID Control"
     # msg +=
     log.info(msg)

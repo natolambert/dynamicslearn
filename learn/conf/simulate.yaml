@@ -9,8 +9,8 @@ policy:
   mode: BASIC
   params:
     equil: [1500, 1500, 1500, 1500]
-    min_pwm: [0,0,0,0]
-    max_pwm: [3000, 3000, 3000, 3000]
+    min_pwm: 0 #[0,0,0,0]
+    max_pwm: 3000 #[3000, 3000, 3000, 3000]
     dt: .02
   pid:
     params:
@@ -22,7 +22,9 @@ bo:
   iterations: 10
   sim: true
   rollouts: 100
-  
+  variable_length: true
+  max_length: 15
+
 
 model:
   ensemble: false

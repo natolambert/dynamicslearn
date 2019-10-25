@@ -105,8 +105,7 @@ class CrazyflieRigidEnv(gym.Env):
         return [seed]
 
     def step(self, u):
-        assert self.action_space.contains(
-            action), "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         state = self.state
 
         # TODO: Fill in dynamics for rigid quadrotor dynamics

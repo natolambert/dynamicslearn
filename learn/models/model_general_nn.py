@@ -329,7 +329,7 @@ class GeneralNN(nn.Module):
                                              dataset)  # trainLoader, testLoader)
         return testloss, trainloss
 
-    def predict(self, X, U):
+    def predict(self, X, U, ret_var=False):
         """
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
@@ -346,11 +346,13 @@ class GeneralNN(nn.Module):
         # print(NNout)
         # If probablistic only takes the first half of the outputs for predictions
         if self.prob:
-            NNout = self.postprocess(NNout[:int(self.n_out / 2)]).ravel()
+            ret = self.postprocess(NNout[:int(self.n_out / 2)]).ravel()
+            if ret_var:
+                return ret, NNout[int(self.n_out / 2):]
         else:
-            NNout = self.postprocess(NNout).ravel()
+            ret = self.postprocess(NNout).ravel()
 
-        return NNout
+        return ret
 
     def _optimize(self, loss_fn, optim, split, scheduler, epochs, batch_size, dataset,
                   gradoff=False):  # trainLoader, testLoader):
@@ -406,7 +408,7 @@ class GeneralNN(nn.Module):
                     error_train.append(np.nan)
                     return errors, error_train  # and give the output and input that made the loss NaN
                 avg_loss += loss.item() / (
-                            len(trainLoader) * batch_size)  # update the overall average loss with this batch's loss
+                        len(trainLoader) * batch_size)  # update the overall average loss with this batch's loss
 
             # self.features.eval()
             test_error = torch.zeros(1)
