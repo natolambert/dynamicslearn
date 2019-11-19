@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 import torch.optim as optim
-import joblib
 import math
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
+
 
 class CrazyflieRigidEnv(gym.Env):
     """
@@ -30,6 +30,7 @@ class CrazyflieRigidEnv(gym.Env):
         11  omega_z                     -Inf        Inf     (rad/s^2)
         
     Actions:
+        # BELOW NOT UPDATED TODO
         Type: box([-1,1])
         Num	Action 
         -1	Push cart to the left max force
@@ -69,14 +70,14 @@ class CrazyflieRigidEnv(gym.Env):
 
         # Define equilibrium input for quadrotor around hover
         # This is not the case for PWM inputs
-        self.u_e = np.array([m*self.g, 0, 0, 0])
+        self.u_e = np.array([m * self.g, 0, 0, 0])
         # Four PWM inputs around hover, extracted from mean of clean_hover_data.csv
         # self.u_e = np.array([42646, 40844, 47351, 40116])
 
         # Hover control matrices
-        self._hover_mats = [np.array([1, 0, 0, 0]),      # z
-                            np.array([0, 1, 0, 0]),   # pitch
-                            np.array([0, 0, 1, 0])]   # roll
+        self._hover_mats = [np.array([1, 0, 0, 0]),  # z
+                            np.array([0, 1, 0, 0]),  # pitch
+                            np.array([0, 0, 1, 0])]  # roll
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
@@ -89,10 +90,10 @@ class CrazyflieRigidEnv(gym.Env):
             self.theta_threshold_radians * 2,
             np.finfo(np.float32).max])
 
-        # self.action_space = spaces.Discrete(2)
-        self.action_space = spaces.Box(
-            low=np.array([-1.0]), high=np.array([1.0]))
-        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        # # self.action_space = spaces.Discrete(2)
+        # self.action_space = spaces.Box(
+        #     low=np.array([-1.0]), high=np.array([1.0]))
+        # self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
         self.seed()
         self.viewer = None
@@ -104,14 +105,15 @@ class CrazyflieRigidEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, u):
-        assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
+    def step(self, pwm):
+        # assert self.action_space.contains(u), "%r (%s) invalid" % (u, type(u))
+        u = self.pwm_thrust_torque(pwm)
         state = self.state
 
         # TODO: Fill in dynamics for rigid quadrotor dynamics
         dt = self.dt
         u0 = u
-        x0 = x
+        x0 = state
         idx_xyz = self.idx_xyz
         idx_xyz_dot = self.idx_xyz_dot
         idx_ptp = self.idx_ptp
@@ -153,7 +155,7 @@ class CrazyflieRigidEnv(gym.Env):
         x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
         x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
         x1[idx_ptp] = x0[idx_ptp] + dt * \
-            self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
+                      self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
         # Add noise component
         # x_noise_vec = np.random.normal(
@@ -162,6 +164,9 @@ class CrazyflieRigidEnv(gym.Env):
         # makes states less than 1e-12 = 0
         x1[x1 < 1e-12] = 0
 
+        reward = self.get_reward(x1, u)
+        done = self.get_done(x1)
+
         return np.array(self.state), reward, done, {}
 
     def reset(self):
@@ -169,3 +174,54 @@ class CrazyflieRigidEnv(gym.Env):
         self.state = 0
         self.steps_beyond_done = None
         return np.array(self.state)
+
+    def get_reward(self, state, action):
+        # Going to make the reward -c(x) where x is the attitude based cost
+        return 0
+
+    def get_done(self, state):
+        # Done is pitch or roll > 35 deg
+        # pitch is state 7, roll is state 8
+        max_a = 35
+        d = (abs(state[7]) > max_a) or (abs(state[8]) > max_a)
+        return d
+
+    def pwm_thrust_torque(self, PWM):
+        # Takes in the a 4 dimensional PWM vector and returns a vector of
+        # [Thrust, Taux, Tauy, Tauz] which is used for simulating rigid body dynam
+        # Sources of the fit: https://wiki.bitcraze.io/misc:investigations:thrust,
+        #   http://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8905295&fileOId=8905299
+
+        # The quadrotor is 92x92x29 mm (motor to motor, square along with the built in prongs). The the distance from the centerline,
+
+        # Thrust T = .35*d + .26*d^2 kg m/s^2 (d = PWM/65535 - normalized PWM)
+        # T = (.409e-3*pwm^2 + 140.5e-3*pwm - .099)*9.81/1000 (pwm in 0,255)
+
+        def pwm_to_thrust(PWM):
+            # returns thrust from PWM
+            pwm_n = PWM / 65535.0
+            thrust = .35 * pwm_n + .26 * pwm_n ** 2
+            return thrust
+
+        pwm_n = np.sum(PWM) / (4 * 65535.0)
+
+        l = 35.527e-3  # length to motors / axis of rotation for xy
+        lz = 46  # axis for tauz
+        c = .05  # coupling coefficient for yaw torque
+
+        # Torques are slightly more tricky
+        # x = m2+m3-m1-m4
+        # y =m1+m2-m3-m4
+
+        # Estimates forces
+        m1 = pwm_to_thrust(PWM[0])
+        m2 = pwm_to_thrust(PWM[1])
+        m3 = pwm_to_thrust(PWM[2])
+        m4 = pwm_to_thrust(PWM[3])
+
+        Thrust = pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
+        taux = l * (m2 + m3 - m4 - m1)
+        tauy = l * (m1 + m2 - m3 - m4)
+        tauz = -lz * c * (m1 + m3 - m2 - m4)
+
+        return np.array([Thrust, taux, tauy, tauz])
