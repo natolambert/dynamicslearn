@@ -35,21 +35,10 @@ class CrazyflieRigidEnv(gym.Env):
         Num	Action 
         -1	Push cart to the left max force
         1	Push cart to the right max force
-        
-        Note: The amount the velocity that is reduced or increased is not fixed; it depends on the angle the pole is pointing. This is because the center of gravity of the pole increases the amount of energy needed to move the cart underneath it
-    Reward:
-        Reward is 1 for every step taken, including the termination step
-    Starting State:
-        All observations are assigned a uniform random value in [-0.05..0.05]
-    Episode Termination:
-        Pole Angle is more than 12 degrees
-        Cart Position is more than 2.4 (center of the cart reaches the edge of the display)
-        Episode length is greater than 200
-        Solved Requirements
-        Considered solved when the average reward is greater than or equal to 195.0 over 100 consecutive trials.
+
     """
 
-    def __init__(self, dt=.01, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
+    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
@@ -74,31 +63,16 @@ class CrazyflieRigidEnv(gym.Env):
         # Four PWM inputs around hover, extracted from mean of clean_hover_data.csv
         # self.u_e = np.array([42646, 40844, 47351, 40116])
 
-        # Hover control matrices
-        self._hover_mats = [np.array([1, 0, 0, 0]),  # z
-                            np.array([0, 1, 0, 0]),  # pitch
-                            np.array([0, 0, 1, 0])]  # roll
-
         # Angle at which to fail the episode
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
-        self.x_threshold = 2.4
 
-        # Angle limit set to 2 * theta_threshold_radians so failing observation is still within bounds
-        high = np.array([
-            self.x_threshold * 2,
-            np.finfo(np.float32).max,
-            self.theta_threshold_radians * 2,
-            np.finfo(np.float32).max])
-
-        # # self.action_space = spaces.Discrete(2)
-        # self.action_space = spaces.Box(
-        #     low=np.array([-1.0]), high=np.array([1.0]))
-        # self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        self.action_space = spaces.Box(low=np.array([0, 0, 0, 0]),
+                                       high=np.array([65535, 65535, 65535, 65535]),
+                                       dtype=np.int32)
 
         self.seed()
         self.viewer = None
         self.state = None
-
         self.steps_beyond_done = None
 
     def seed(self, seed=None):
@@ -154,24 +128,28 @@ class CrazyflieRigidEnv(gym.Env):
         x1[idx_xyz_dot] = x0[idx_xyz_dot] + dt * Fxyz
         x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
         x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
-        x1[idx_ptp] = x0[idx_ptp] + dt * \
-                      self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
+        x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
         # Add noise component
         # x_noise_vec = np.random.normal(
         #     loc=0, scale=self.x_noise, size=(self.x_dim))
 
         # makes states less than 1e-12 = 0
-        x1[x1 < 1e-12] = 0
+        x1[abs(x1) < 1e-12] = 0
+        self.state = x1
 
         reward = self.get_reward(x1, u)
         done = self.get_done(x1)
 
-        return np.array(self.state), reward, done, {}
+        return np.array(x1), reward, done, {}
 
     def reset(self):
-        # self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        self.state = 0
+        x0 = np.array([0, 0, 0])
+        v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+        ypr0 = self.np_random.uniform(low=-0.1, high=0.1, size=(3,))
+        w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+
+        self.state = np.concatenate([x0, v0, ypr0, w0])
         self.steps_beyond_done = None
         return np.array(self.state)
 
@@ -185,6 +163,12 @@ class CrazyflieRigidEnv(gym.Env):
         max_a = 35
         d = (abs(state[7]) > max_a) or (abs(state[8]) > max_a)
         return d
+
+    def pqr2rpy(self, x0, pqr):
+        rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
+                                [0., math.cos(x0[0]), -math.sin(x0[0])],
+                                [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
+        return rotn_matrix.dot(pqr)
 
     def pwm_thrust_torque(self, PWM):
         # Takes in the a 4 dimensional PWM vector and returns a vector of
@@ -203,10 +187,8 @@ class CrazyflieRigidEnv(gym.Env):
             thrust = .35 * pwm_n + .26 * pwm_n ** 2
             return thrust
 
-        pwm_n = np.sum(PWM) / (4 * 65535.0)
-
-        l = 35.527e-3  # length to motors / axis of rotation for xy
-        lz = 46  # axis for tauz
+        l = 35.527e-3 / np.sqrt(2)  # length to motors / axis of rotation for xy
+        lz = 46e-3  # axis for tauz
         c = .05  # coupling coefficient for yaw torque
 
         # Torques are slightly more tricky
@@ -219,9 +201,11 @@ class CrazyflieRigidEnv(gym.Env):
         m3 = pwm_to_thrust(PWM[2])
         m4 = pwm_to_thrust(PWM[3])
 
-        Thrust = pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
-        taux = l * (m2 + m3 - m4 - m1)
-        tauy = l * (m1 + m2 - m3 - m4)
-        tauz = -lz * c * (m1 + m3 - m2 - m4)
-
-        return np.array([Thrust, taux, tauy, tauz])
+        Thrust = (m1 + m2 + m3 + m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
+        # taux = -l * (m2 + m3 - m4 - m1)
+        # tauy = -l * (m1 + m2 - m3 - m4)
+        # tauz = -lz * c * (m1 + m3 - m2 - m4)
+        taux = l * (m1 + m3 - m4 - m2)
+        tauy = l * (m2 + m3 - m4 - m1)
+        tauz = lz * c * (m2 + m4 - m1 - m3)
+        return -np.array([Thrust, taux, tauy, tauz])

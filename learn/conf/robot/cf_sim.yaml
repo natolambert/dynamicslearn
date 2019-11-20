@@ -1,0 +1,16 @@
+robot: cf
+
+model:
+  name: cf_sim
+  flight_mode: basic
+  history: 1
+  delta_state_targets:
+  - pitch
+  - roll
+  - yaw
+  true_state_targets:
+  - omegax
+  - omegay
+  - omegaz
+  ignore_in:  # can be non axis specific
+  extra_inputs:

@@ -7,20 +7,69 @@ import numpy as np
 import torch
 import math
 
-from learn.control.pid import PID
-from learn.control.pid import PidPolicy
-from learn.utils.data import cwd_basedir
+from learn.control.random import RandomController
+
+from learn import envs
+from learn.trainer import train_model
+import gym
 import logging
 import hydra
 
 log = logging.getLogger(__name__)
+
+
 ######################################################################
 @hydra.main(config_path='conf/mpc.yaml')
-def optimizer(cfg):
+def mpc(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    env = gym.make('CrazyflieRigid-v0')
+    env.reset()
+
+    data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
+    model = train_model(data, cfg.model)
+
+    for i in range(cfg.experiment.num_r):
+        controller = mpc(model)
+        states_ep, actions_ep, rews_ep = rollout(env, controller, cfg.experiment)
+        data_new = to_dataset(states_ep, actions_ep, rews_ep)
+
+        data = combine_data(data_new, data)
+
+        msg = "Rollout completed of "
+        msg += "TODO"
+        log.info(msg)
+
+
+def combine_data(new_data, full_data):
+    return 0
+
+
+def to_dataset(states, actions, rewards):
+    return 0
+
+
+def rollout(env, controller, exp_cfg):
+    done = False
+    states = []
+    actions = []
+    rews = []
+    state = env.reset()
+    for t in range(exp_cfg.r_len):
+        if done:
+            continue
+        action = controller.get_action(state)
+        action = np.array([52000., 48000., 48000., 52000.])
+        states.append(state)
+        actions.append(action)
+
+        state, rew, done, _ = env.step(action)
+        rews.append(rew)
+
+    return states, actions, rews
+
 
 if __name__ == '__main__':
-    sys.exit(optimizer())
+    sys.exit(mpc())

@@ -4,8 +4,6 @@ from gym.spaces import Box
 import pickle
 import numpy as np
 import random
-from utils.sim import explorepwm_equil
-from utils.nn import predict_nn_v2
 
 
 class QuadEnv(gym.Env):
@@ -19,14 +17,14 @@ class QuadEnv(gym.Env):
 
         # load dynamics model
         # self.dyn_nn = torch.load("_models/temp/2018-11-18--22-38-43.9_no_battery_dynamics_stack3_.pth")
-        self.dyn_nn = torch.load(
-            "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_.pth")
+        # self.dyn_nn = torch.load(
+        #     "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_.pth")
         self.dyn_nn.eval()
 
         # load trained data for bounds on evironment
         # data_file = open("_models/temp/2018-11-18--22-38-43.9_no_battery_dynamics_stack3_--data.pkl",'rb')
-        data_file = open(
-            "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_--data.pkl", 'rb')
+        # data_file = open(
+        #     "_models/temp/2019-03-22--09-29-48.4_mfrl_ens_stack3_--data.pkl", 'rb')
 
         self.num_stack = 3
         self.state = None

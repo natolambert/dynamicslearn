@@ -4,6 +4,10 @@ defaults:
 dimension: all
 save: true
 
+experiment:
+  num_r: 10
+  r_len: 250
+
 policy:
   mode: mpc
   params:
