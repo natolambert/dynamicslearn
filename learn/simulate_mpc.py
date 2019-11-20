@@ -29,31 +29,35 @@ def mpc(cfg):
     env.reset()
 
     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
-    states = np.stack(data[0])
-    X = states[:-1,:]
-    dX = states[1:,:] - states[:-1, :]
-    U = np.stack(data[1])[:-1, :]
+    X, dX, U = to_XUdX(data)
 
     model, train_log = train_model(X, U, dX, cfg.model)
 
     for i in range(cfg.experiment.num_r):
         controller = MPController(env, model, cfg.policy)
-        states_ep, actions_ep, rews_ep = rollout(env, controller, cfg.experiment)
-        data_new = to_dataset(states_ep, actions_ep, rews_ep)
+        data_new = rollout(env, controller, cfg.experiment)
 
-        data = combine_data(data_new, data)
-
+        X, dX, U = combine_data(data_new, (X, dX, U))
+        model, train_log = train_model(X, U, dX, cfg.model)
         msg = "Rollout completed of "
-        msg += f"Cumulative reward {np.sum(np.stack(rews_ep))}"
+        msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}"
         log.info(msg)
 
 
+def to_XUdX(data):
+    states = np.stack(data[0])
+    X = states[:-1, :]
+    dX = states[1:, :] - states[:-1, :]
+    U = np.stack(data[1])[:-1, :]
+    return X, dX, U
+
+
 def combine_data(new_data, full_data):
-    return 0
-
-
-def to_dataset(states, actions, rewards):
-    return 0
+    X_new, dX_new, U_new = to_XUdX(new_data)
+    X = np.concatenate((full_data[0], X_new), axis=0)
+    U = np.concatenate((full_data[2], U_new), axis=0)
+    dX = np.concatenate((full_data[1], dX_new), axis=0)
+    return X, dX, U
 
 
 def rollout(env, controller, exp_cfg):
