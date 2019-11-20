@@ -38,10 +38,12 @@ def mpc(cfg):
         data_new = rollout(env, controller, cfg.experiment)
 
         X, dX, U = combine_data(data_new, (X, dX, U))
-        model, train_log = train_model(X, U, dX, cfg.model)
         msg = "Rollout completed of "
-        msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}"
+        msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
+        msg += f"Flight length {len(np.stack(data_new[2]))}"
         log.info(msg)
+        model, train_log = train_model(X, U, dX, cfg.model)
+
 
 
 def to_XUdX(data):
@@ -68,7 +70,7 @@ def rollout(env, controller, exp_cfg):
     state = env.reset()
     for t in range(exp_cfg.r_len):
         if done:
-            continue
+            break
         action = controller.get_action(state)
         states.append(state)
         actions.append(action)

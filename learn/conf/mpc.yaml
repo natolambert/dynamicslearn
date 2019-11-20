@@ -11,9 +11,9 @@ experiment:
 policy:
   mode: mpc
   params:
-    N: 100
+    N: 500
     T: 5
-    hold: true
+    hold: false
 
 model:
   ensemble: false
