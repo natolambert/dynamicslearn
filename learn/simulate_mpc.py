@@ -8,7 +8,7 @@ import torch
 import math
 
 from learn.control.random import RandomController
-
+from learn.control.mpc import MPController
 from learn import envs
 from learn.trainer import train_model
 import gym
@@ -29,10 +29,15 @@ def mpc(cfg):
     env.reset()
 
     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
-    model = train_model(data, cfg.model)
+    states = np.stack(data[0])
+    X = states[:-1, 6:]
+    dX = states[1:, 6:] - states[:-1, 6:]
+    U = np.stack(data[1])[:-1, :]
+
+    model = train_model(X, dX, U, cfg.model)
 
     for i in range(cfg.experiment.num_r):
-        controller = mpc(model)
+        controller = MPController(env, model, cfg.policy)
         states_ep, actions_ep, rews_ep = rollout(env, controller, cfg.experiment)
         data_new = to_dataset(states_ep, actions_ep, rews_ep)
 
@@ -61,7 +66,6 @@ def rollout(env, controller, exp_cfg):
         if done:
             continue
         action = controller.get_action(state)
-        action = np.array([52000., 48000., 48000., 52000.])
         states.append(state)
         actions.append(action)
 

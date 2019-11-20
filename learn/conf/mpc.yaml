@@ -13,6 +13,7 @@ policy:
   params:
     N: 100
     T: 5
+    hold: true
 
 model:
   ensemble: false
