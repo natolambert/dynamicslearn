@@ -30,11 +30,11 @@ def mpc(cfg):
 
     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
     states = np.stack(data[0])
-    X = states[:-1, 6:]
-    dX = states[1:, 6:] - states[:-1, 6:]
+    X = states[:-1,:]
+    dX = states[1:,:] - states[:-1, :]
     U = np.stack(data[1])[:-1, :]
 
-    model = train_model(X, dX, U, cfg.model)
+    model, train_log = train_model(X, U, dX, cfg.model)
 
     for i in range(cfg.experiment.num_r):
         controller = MPController(env, model, cfg.policy)
@@ -44,7 +44,7 @@ def mpc(cfg):
         data = combine_data(data_new, data)
 
         msg = "Rollout completed of "
-        msg += "TODO"
+        msg += f"Cumulative reward {np.sum(np.stack(rews_ep))}"
         log.info(msg)
 
 

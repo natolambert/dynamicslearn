@@ -270,8 +270,11 @@ class GeneralNN(nn.Module):
         Given the raw output from the neural network, post process it by rescaling by the mean and variance of the dataset
         """
         # de-normalize so to say
-        dX = self.scalardX.inverse_transform(dX.reshape(1, -1))
-        dX = dX.ravel()
+        if len(np.shape(dX)) > 1:
+            l = np.shape(dX)[0]
+        else:
+            l = 1
+        dX = self.scalardX.inverse_transform(dX.reshape(l, -1)).squeeze()
         return np.array(dX)
 
     def train_cust(self, dataset, train_params, gradoff=False):
@@ -333,24 +336,29 @@ class GeneralNN(nn.Module):
         """
         Given a state X and input U, predict the change in state dX. This function is used when simulating, so it does all pre and post processing for the neural net
         """
-        dx = len(X)
-        # print("1.")
-
+        if len(np.shape(X)) > 1:
+            l = np.shape(X)[0]
+        else:
+            l = 1
         # normalizing and converting to single sample
-        normX = self.scalarX.transform(X.reshape(1, -1))
-        normU = self.scalarU.transform(U.reshape(1, -1))
+        normX = self.scalarX.transform(X.reshape(l, -1))
+        normU = self.scalarU.transform(U.reshape(l, -1))
 
         input = torch.Tensor(np.concatenate((normX, normU), axis=1))
 
-        NNout = self.forward(input).data[0]
-        # print(NNout)
+        # if l > 1:
+        #     NNout = self.forward(input).data
+        # else:
+        #     NNout = self.forward(input).data[
+        NNout = self.forward(input).data
+
         # If probablistic only takes the first half of the outputs for predictions
         if self.prob:
-            ret = self.postprocess(NNout[:int(self.n_out / 2)]).ravel()
+            ret = self.postprocess(NNout[:,:int(self.n_out / 2)]).squeeze()
             if ret_var:
-                return ret, NNout[int(self.n_out / 2):]
+                return ret, NNout[:, int(self.n_out / 2):]
         else:
-            ret = self.postprocess(NNout).ravel()
+            ret = self.postprocess(NNout).squeeze()
 
         return ret
 

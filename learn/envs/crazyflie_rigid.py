@@ -38,7 +38,7 @@ class CrazyflieRigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
+    def __init__(self, dt=.01, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
@@ -138,10 +138,14 @@ class CrazyflieRigidEnv(gym.Env):
         x1[abs(x1) < 1e-12] = 0
         self.state = x1
 
-        reward = self.get_reward(x1, u)
-        done = self.get_done(x1)
+        obs = self.get_obs()
+        reward = self.get_reward(obs, u)
+        done = self.get_done(obs)
 
-        return np.array(x1), reward, done, {}
+        return obs, reward, done, {}
+
+    def get_obs(self):
+        return np.array(self.state[6:])
 
     def reset(self):
         x0 = np.array([0, 0, 0])
@@ -151,17 +155,47 @@ class CrazyflieRigidEnv(gym.Env):
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
         self.steps_beyond_done = None
-        return np.array(self.state)
+        return self.get_obs()
 
-    def get_reward(self, state, action):
+    def get_reward(self, next_ob, action):
         # Going to make the reward -c(x) where x is the attitude based cost
-        return 0
+        assert isinstance(next_ob, np.ndarray)
+        assert isinstance(action, np.ndarray)
+        assert next_ob.ndim in (1, 2)
+
+        was1d = next_ob.ndim == 1
+        if was1d:
+            next_ob = np.expand_dims(next_ob, 0)
+            action = np.expand_dims(action, 0)
+
+        assert next_ob.ndim == 2
+        cost_pr = np.power(next_ob[:, 1], 2) + np.power(next_ob[:, 2], 2)
+        cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
+        lambda_omega = .01
+        cost = cost_pr + lambda_omega * cost_rates
+        return -cost
+
+    def get_reward_torch(self, next_ob, action):
+        assert torch.is_tensor(next_ob)
+        assert torch.is_tensor(action)
+        assert next_ob.dim() in (1, 2)
+
+        was1d = len(next_ob.shape) == 1
+        if was1d:
+            next_ob = next_ob.unsqueeze(0)
+            action = action.unsqueeze(0)
+
+        cost_pr = next_ob[:, 1].pow(2) + next_ob[:, 2].pow(2)
+        cost_rates = next_ob[:, 3].pow(2) + next_ob[:, 4].pow(2) + next_ob[:, 5].pow(2)
+        lambda_omega = .01
+        cost = cost_pr + lambda_omega * cost_rates
+        return -cost
 
     def get_done(self, state):
         # Done is pitch or roll > 35 deg
         # pitch is state 7, roll is state 8
         max_a = 35
-        d = (abs(state[7]) > max_a) or (abs(state[8]) > max_a)
+        d = (abs(state[1]) > max_a) or (abs(state[2]) > max_a)
         return d
 
     def pqr2rpy(self, x0, pqr):
