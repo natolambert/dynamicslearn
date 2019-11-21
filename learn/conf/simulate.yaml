@@ -14,16 +14,16 @@ policy:
     dt: .02
   pid:
     params:
-      min_values: [0, 0, 0]
-      max_values: [300, 150, 20]
+      min_values: [0, 0]
+      max_values: [300, 20]
 
 
 bo:
   iterations: 10
   sim: true
-  rollouts: 100
-  variable_length: true
-  max_length: 15
+  rollouts: 5
+  variable_length: false
+  max_length: 10
 
 
 model:

@@ -142,7 +142,7 @@ def gen_pid_params(policy_cfg):
         for _ in range(num_control):
             P = np.random.uniform([min_params[0]], [max_params[0]])
             I = np.zeros(1)
-            D = np.random.uniform([min_params[2]], [max_params[2]])
+            D = np.random.uniform([min_params[1]], [max_params[1]])
             parameters.append([P, I, D])
 
     elif mode == 'EULER':
