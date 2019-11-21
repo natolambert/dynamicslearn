@@ -197,6 +197,20 @@ class PidPolicy(Controller):
             D = set[2]
             self.pids += [PID(0, P, I, D, 1000, self.dt)]
 
+    def set_params(self, parameters):
+        for i, set in enumerate(parameters):
+            """
+            def __init__(self, desired,
+                 kp, ki, kd,
+                 ilimit, dt, outlimit=np.inf,
+                 samplingRate=0, cutoffFreq=-1,
+                 enableDFilter=False):
+             """
+            pid = self.pids[i]
+            pid.kp = set[0]
+            pid.ki = set[1]
+            pid.kd = set[2]
+
     def get_action(self, state):
 
         # PIDs must always come in order of states then

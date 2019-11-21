@@ -19,9 +19,9 @@ policy:
 
 
 bo:
-  iterations: 10
+  iterations: 5
   sim: true
-  rollouts: 5
+  rollouts: 250
   variable_length: false
   max_length: 10
 

@@ -71,7 +71,7 @@ class BOPID():
         self.opt = opto.BO(parameters=p, task=self.task, stopCriteria=self.Stop)
         self.opt.optimize()
 
-    def getParameters(self, plotResults=False, printResults=False):
+    def getParameters(self):
         log = self.opt.get_logs()
         losses = log.get_objectives()
         best = log.get_best_parameters()
@@ -79,19 +79,11 @@ class BOPID():
         nEvals = log.get_n_evals()
         best = [matrix.tolist() for matrix in best]  # can be a buggy line
 
-        if printResults:
-            print("Best PID parameters found with loss of: ", np.amin(bestLoss), " in ", nEvals, " evaluations.")
-            print("Pitch:   Prop: ", best[0], " Int: ", best[1], " Deriv: ", best[2])
-            print("Roll:    Prop: ", best[3], " Int: ", best[4], " Deriv: ", best[5])
-            print("Yaw:     Prop: ", best[6], " Int: ", best[7], " Deriv: ", best[8])
-            if self.PIDMODE == 'HYBRID':
-                print("YawRate: Prop: ", best[9], " Int: ", best[10], "Deriv: ", best[11])
-            if self.PIDMODE == 'RATE' or self.PIDMODE == 'ALL':
-                print("PitchRt: Prop: ", best[9], " Int: ", best[10], " Deriv: ", best[11])
-                print("RollRate:Prop: ", best[12], " Int: ", best[13], " Deriv: ", best[14])
-                print("YawRate: Prop: ", best[15], " Int: ", best[16], "Deriv: ", best[17])
+        print("Best PID parameters found with loss of: ", np.amin(bestLoss), " in ", nEvals, " evaluations.")
+        print("Pitch:   Prop: ", best[0], " Int: ", 0, " Deriv: ", best[1])
+        print("Roll:    Prop: ", best[2], " Int: ", 0, " Deriv: ", best[3])
 
-        return best, bestLoss
+        return log
 
     def basic_rollout(self, s0, i_model):
         # todo need to accound for history automatically
@@ -108,9 +100,10 @@ class BOPID():
             next_state, logvars = smart_model_step(i_model, state, cur_action)
             state = push_history(next_state, state)
             # print(f"logvars {logvars}")
-            cost += get_reward_iono(next_state, cur_action)
+            weight = .9 ** (max_len - k)
+            cost += weight * get_reward_iono(next_state, cur_action)
 
-        return cost
+        return get_reward_iono(next_state, cur_action)  # cost
 
 
 def get_reward_iono(next_ob, action):
@@ -123,9 +116,11 @@ def get_reward_iono(next_ob, action):
     if was1d:
         next_ob = np.expand_dims(next_ob, 0)
         action = np.expand_dims(action, 0)
-
     assert next_ob.ndim == 2
-    cost_pr = np.power(next_ob[:, 1], 2) + np.power(next_ob[:, 2], 2)
+
+    pitch = np.divide(next_ob[:, 0], 180)
+    roll = np.divide(next_ob[:, 1], 180)
+    cost_pr = np.power(pitch, 2) + np.power(roll, 2)
     cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
     lambda_omega = .0001
     cost = cost_pr + lambda_omega * cost_rates
@@ -217,7 +212,10 @@ def smart_model_step(model, state, action):
     # if history_used:
     #     next_state = np.concatenate(next_state, state[len(targets):])
 
+
 global cfg
+
+
 ######################################################################
 @hydra.main(config_path='conf/simulate.yaml')
 def optimizer(cfg):
@@ -243,7 +241,7 @@ def optimizer(cfg):
         # for a dataframe and a model, get some permissible data for initial states for model rollouts
 
         # Look for data with low pitch and roll
-        flag = (abs(states[:, 0]) < 5) & (abs(states[:, 1]) < 5)
+        flag = (abs(states[:, 0]) < 7.5) & (abs(states[:, 1]) < 7.5)
         reasonable = states[flag, :]
         return reasonable
 
@@ -253,9 +251,14 @@ def optimizer(cfg):
 
     def rollout_opttask(params):
         cum_cost = 0
-        for r in range(cfg.bo.rollouts):
-            val = np.random.randint(0, len(initial_states))
-            s0 = initial_states[val]
+        # for r in range(cfg.bo.rollouts):
+        #     val = np.random.randint(0, len(initial_states))
+        #     s0 = initial_states[val]
+        p = np.array(params)
+        pid_params = [[p[0, 0], 0.0, p[0, 1]], [p[0, 2], 0.0, p[0, 3]]]
+        sim.policy.set_params(pid_params)
+        sim.policy.reset()
+        for s0 in initial_states:
             cost = sim.basic_rollout(s0, model)
             cum_cost += cost
 
@@ -268,6 +271,13 @@ def optimizer(cfg):
     # msg +=
     log.info(msg)
     sim.optimize()
+    # sim.opt.plot_optimization_curve()
+    logs = sim.getParameters()
+    # from opto.opto.plot import paretoFront
+    # paretoFront(logs.data.fx)
+    print("\n Other items tried")
+    for vals, fx in zip(np.array(logs.data.x.T), np.array(logs.data.fx.T)):
+        print(f"Cost - {fx}: Pp: ", vals[0], " Dp: ", vals[1], "Pr: ", vals[2], " Dr: ", vals[3])
 
 
 def gen_rollouts(initial_states, model, cfg):
