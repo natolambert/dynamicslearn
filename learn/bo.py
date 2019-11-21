@@ -7,7 +7,7 @@ import opto.data as rdata
 from opto.opto.classes.OptTask import OptTask
 from opto.opto.classes import StopCriteria, Logs
 from opto.utils import bounds
-from opto.opto.acq_func import EI
+from opto.opto.acq_func import EI, UCB
 from opto import regression
 
 import pandas as pd
@@ -67,6 +67,7 @@ class BOPID():
         p = DotMap()
         p.verbosity = 1
         p.acq_func = EI(model=None, logs=None)
+        # p.acq_func = UCB(model=None, logs=None)
         p.model = regression.GP
         self.opt = opto.BO(parameters=p, task=self.task, stopCriteria=self.Stop)
         self.opt.optimize()
@@ -100,10 +101,11 @@ class BOPID():
             next_state, logvars = smart_model_step(i_model, state, cur_action)
             state = push_history(next_state, state)
             # print(f"logvars {logvars}")
+            # weight = 0 if k < 5 else 1
             weight = .9 ** (max_len - k)
             cost += weight * get_reward_iono(next_state, cur_action)
 
-        return get_reward_iono(next_state, cur_action)  # cost
+        return cost / max_len  # cost
 
 
 def get_reward_iono(next_ob, action):
@@ -241,7 +243,7 @@ def optimizer(cfg):
         # for a dataframe and a model, get some permissible data for initial states for model rollouts
 
         # Look for data with low pitch and roll
-        flag = (abs(states[:, 0]) < 7.5) & (abs(states[:, 1]) < 7.5)
+        flag = (abs(states[:, 0]) < 10) & (abs(states[:, 1]) < 10)
         reasonable = states[flag, :]
         return reasonable
 
@@ -273,6 +275,8 @@ def optimizer(cfg):
     sim.optimize()
     # sim.opt.plot_optimization_curve()
     logs = sim.getParameters()
+    plot_cost_itr(logs, cfg)
+    plot_parameters(logs, cfg)
     # from opto.opto.plot import paretoFront
     # paretoFront(logs.data.fx)
     print("\n Other items tried")
@@ -280,8 +284,55 @@ def optimizer(cfg):
         print(f"Cost - {fx}: Pp: ", vals[0], " Dp: ", vals[1], "Pr: ", vals[2], " Dr: ", vals[3])
 
 
-def gen_rollouts(initial_states, model, cfg):
-    return 0
+def plot_cost_itr(logs, cfg):
+    # TODO make a plot with the cost over time of iterations (with minimum)
+    import matplotlib.pyplot as plt
+    itr = np.arange(0, logs.data.n_evals)
+    costs = logs.data.fx
+    best = logs.data.opt_fx
+    ax = plt.subplot(111)
+    cum_min = np.minimum.accumulate(costs.squeeze()) - .02
+    plt.step(itr, costs.squeeze(), where='mid', label='Cost at Iteration')  # drawstyle="steps-post",
+    plt.step(itr, cum_min, where='mid', label='Best Cost')  # drawstyle="steps-post", l
+    plt.legend()
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Weighted, Cumulative Attitude Cost")
+    ax.set_ylim([0, 5])
+    plt.savefig("costs.pdf")
+    return
+
+
+def plot_parameters(logs, cfg):
+    # Returns a plot of the different PID parameters tested,
+    # with the P and D plotted separately
+    best = np.array(logs.data.opt_x).squeeze()
+    samples = np.array(logs.data.x).T
+    Kp1 = samples[:, 0]
+    Kp2 = samples[:, 2]
+    Kd1 = samples[:, 1]
+    Kd2 = samples[:, 3]
+
+    import matplotlib.pyplot as plt
+    ax1 = plt.subplot(111)
+    ax1.scatter(Kp1, Kp2, label='sampled Kp')
+    ax1.scatter(best[0], best[2], marker='*', s=130, label='Best Kp')
+    ax1.set_ylim([0, cfg.policy.pid.params.max_values[0]])
+    ax1.set_xlim([0, cfg.policy.pid.params.max_values[0]])
+    ax1.set_xlabel("KP Pitch")
+    ax1.set_ylabel("KP Roll")
+    plt.legend()
+    plt.savefig("KP.pdf")
+
+    ax2 = plt.subplot(111)
+    ax2.scatter(Kd1, Kd2, label='sampled Kd')
+    ax2.scatter(best[1], best[3], marker='*', s=130, label='Best Kd')
+    ax2.set_ylim([0, cfg.policy.pid.params.max_values[1]])
+    ax2.set_xlim([0, cfg.policy.pid.params.max_values[1]])
+    ax2.set_xlabel("KD Pitch")
+    ax2.set_ylabel("KD Roll")
+    ax2.legend()
+    plt.savefig("KD.pdf")
+    return
 
 
 if __name__ == '__main__':
