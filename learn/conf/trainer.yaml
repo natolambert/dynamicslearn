@@ -50,3 +50,16 @@ model:
     lr_schedule: [30,6]
     preprocess: true
     verbose: false
+  datahandler:
+    X:
+      type: sklearn.preprocessing.StandardScalar
+      params:
+    U:
+      type: sklearn.preprocessing.MinMaxScalar
+      params:
+        feature_range: (-1,1)
+    dX:
+      type: sklearn.preprocessing.MinMaxScalar
+      params:
+        feature_range: (-1,1)
+    sine_expand: []

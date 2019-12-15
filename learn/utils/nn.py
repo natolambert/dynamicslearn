@@ -4,19 +4,70 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
+
+
+class ModelDataHandler:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        # needs to have three types of scikitlearn preprocessing objects in the
+        self.scalarX = cfg.X.type(**cfg.X.params)
+        self.scalarU = cfg.U.type(**cfg.X.params)
+        self.scalardX = cfg.dX.type(**cfg.X.params)
+
+        self.sine_transform = cfg.sine_expand
+
+    def preprocess(self, dataset, ret_data=True):
+        # Get parts
+        if len(dataset) == 3:
+            X = dataset[0]
+            U = dataset[1]
+            dX = dataset[2]
+        else:
+            raise ValueError("Improper data shape for training")
+
+        # Transform if needed
+        if len(self.sine_transform) > 0:
+            raise NotImplementedError("Not Done Yet")
+
+        # fit
+        if ret_data:
+            self.scalarX.fit(X)
+            self.scalarU.fit(U)
+            self.scalardX.fit(dX)
+
+            # Normalizing to zero mean and unit variance
+            normX = self.scalarX.transform(X)
+            normU = self.scalarU.transform(U)
+            normdX = self.scalardX.transform(dX)
+
+            inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
+            outputs = torch.Tensor(normdX)
+            return inputs, outputs
+        else:
+            self.scalarX.fit(X)
+            self.scalarU.fit(U)
+            self.scalardX.fit(dX)
+            return self.scalarX, self.scalarU, self.scalardX
+
+    def postprocess(self, dX):
+        if len(np.shape(dX)) > 1:
+            l = np.shape(dX)[0]
+        else:
+            l = 1
+        dX = self.scalardX.inverse_transform(dX.reshape(l, -1)).squeeze()
+        return dX
 
 
 class Swish(nn.Module):
+    def __init__(self, B=1.0):
+        super(Swish, self).__init__()
+        self.B = B
 
-  def __init__(self, B=1.0):
-    super(Swish, self).__init__()
-    self.B = B
-
-  def forward(self, x):
-    Bx = x.mul(self.B)
-    omega = (1 + Bx.exp()) ** (-1)
-    return x.mul(omega)
-
+    def forward(self, x):
+        Bx = x.mul(self.B)
+        omega = (1 + Bx.exp()) ** (-1)
+        return x.mul(omega)
 
 
 class PNNLoss_Gaussian(torch.nn.Module):
@@ -42,7 +93,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         self.initialized_maxmin_logvar = True
         # Scalars are proportional to the variance to the loaded prediction data
         # self.scalers    = torch.tensor([2.81690141, 2.81690141, 1.0, 0.02749491, 0.02615976, 0.00791358])
-        self.scalers = torch.tensor([1, 1, 1, 1, 1, 1, 1,  1, 1])
+        self.scalers = torch.tensor([1, 1, 1, 1, 1, 1, 1, 1, 1])
 
         # weight the parts of loss
         self.lambda_cov = 1  # scaling the log(cov()) term in loss function
@@ -60,7 +111,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
         # Performs the elementwise softplus on the input
         # softplus(x) = 1/B * log(1+exp(B*x))
         B = torch.tensor(1, dtype=torch.float)
-        return (torch.log(1+torch.exp(input.mul_(B)))).div_(B)
+        return (torch.log(1 + torch.exp(input.mul_(B)))).div_(B)
 
     def forward(self, output, target, max_logvar, min_logvar):
         '''
@@ -72,7 +123,7 @@ class PNNLoss_Gaussian(torch.nn.Module):
 
         # Initializes parameterss
         d2 = output.size()[1]
-        d = torch.tensor(d2/2, dtype=torch.int32)
+        d = torch.tensor(d2 / 2, dtype=torch.int32)
         mean = output[:, :d]
         logvar = output[:, d:]
 
@@ -82,15 +133,17 @@ class PNNLoss_Gaussian(torch.nn.Module):
 
         # Computes loss
         var = torch.exp(logvar)
-        b_s = mean.size()[0]    # batch size
+        b_s = mean.size()[0]  # batch size
 
-        eps = 0              # Add to variance to avoid 1/0
+        eps = 0  # Add to variance to avoid 1/0
 
         A = mean - target.expand_as(mean)
         A.mul_(self.scalers)
         B = torch.div(mean - target.expand_as(mean), var.add(eps))
         # B.mul_(self.scalers)
-        loss = torch.sum(self.lambda_mean*torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1, 1)+self.lambda_cov*torch.log(torch.abs(torch.prod(var.add(eps),1)).reshape(-1,1)))
+        loss = torch.sum(self.lambda_mean * torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,
+                                                                                                      1) + self.lambda_cov * torch.log(
+            torch.abs(torch.prod(var.add(eps), 1)).reshape(-1, 1)))
         return loss
 
 
@@ -105,7 +158,7 @@ def predict_nn(model, x, u, indexlist):
     prediction = np.copy(x)
     pred = model.predict(x, u)
     for i, idx in enumerate(indexlist):
-        #print('x_nn = ', x[idx], 'predicted', pred)
+        # print('x_nn = ', x[idx], 'predicted', pred)
         prediction[idx] = x[idx] + pred[i]
 
     return prediction
@@ -143,65 +196,63 @@ def predict_nn_v2(model, x, u, targetlist=[]):
 # LEGACY CODE BELOW
 # module that sends the [0, nn_in - split] inputs through one network and the [split, nn_in] inputs through another
 class SplitModel(nn.Module):
+    def __init__(self, nn_in, nn_out, width, prob=True, activation='swish', dropout=0.02):
+        super(SplitModel, self).__init__()
 
-  def __init__(self, nn_in, nn_out, width, prob=True, activation='swish', dropout=0.02):
-    super(SplitModel, self).__init__()
+        self.nn_in = nn_in
+        self.nn_out = nn_out
+        self.prob = prob
+        self.dropout = dropout
+        self.width = width
 
-    self.nn_in = nn_in
-    self.nn_out = nn_out
-    self.prob = prob
-    self.dropout = dropout
-    self.width = width
+        if activation.lower() == 'swish':
+            self.activation = Swish(B=1.0)
+        elif activation.lower() == 'relu':
+            self.activation = nn.ReLU()
 
-    if activation.lower() == 'swish':
-      self.activation = Swish(B=1.0)
-    elif activation.lower() == 'relu':
-      self.activation = nn.ReLU()
+        # Common input layer:
+        self.main = nn.Sequential(nn.Linear(self.nn_in, self.width),
+                                  copy.deepcopy(self.activation),
+                                  nn.Dropout(p=self.dropout))
 
-    # Common input layer:
-    self.main = nn.Sequential(nn.Linear(self.nn_in, self.width),
-                              copy.deepcopy(self.activation),
-                              nn.Dropout(p=self.dropout))
+        # Angular accel model
+        self.angular = nn.Sequential(nn.Linear(self.width, self.width),
+                                     copy.deepcopy(self.activation),
+                                     nn.Dropout(p=self.dropout),
+                                     nn.Linear(self.width, self.width),
+                                     copy.deepcopy(self.activation),
+                                     nn.Dropout(p=self.dropout),
+                                     nn.Linear(self.width, int(nn_out / 3)))
 
-    # Angular accel model
-    self.angular = nn.Sequential(nn.Linear(self.width, self.width),
-                                 copy.deepcopy(self.activation),
-                                 nn.Dropout(p=self.dropout),
-                                 nn.Linear(self.width, self.width),
-                                 copy.deepcopy(self.activation),
-                                 nn.Dropout(p=self.dropout),
-                                 nn.Linear(self.width, int(nn_out/3)))
+        # Euler Angles Model accel model
+        self.euler = nn.Sequential(nn.Linear(self.width, self.width),
+                                   copy.deepcopy(self.activation),
+                                   nn.Dropout(p=self.dropout),
+                                   nn.Linear(self.width, self.width),
+                                   copy.deepcopy(self.activation),
+                                   nn.Dropout(p=self.dropout),
+                                   nn.Linear(self.width, int(nn_out / 3)))
 
-    # Euler Angles Model accel model
-    self.euler = nn.Sequential(nn.Linear(self.width, self.width),
-                               copy.deepcopy(self.activation),
-                               nn.Dropout(p=self.dropout),
-                               nn.Linear(self.width, self.width),
-                               copy.deepcopy(self.activation),
-                               nn.Dropout(p=self.dropout),
-                               nn.Linear(self.width, int(nn_out/3)))
+        # Linear accel model
+        self.linear = nn.Sequential(nn.Linear(self.width, self.width),
+                                    copy.deepcopy(self.activation),
+                                    nn.Dropout(p=self.dropout),
+                                    nn.Linear(self.width, self.width),
+                                    copy.deepcopy(self.activation),
+                                    nn.Dropout(p=self.dropout),
+                                    nn.Linear(self.width, int(nn_out / 3)))
 
-    # Linear accel model
-    self.linear = nn.Sequential(nn.Linear(self.width, self.width),
-                                copy.deepcopy(self.activation),
-                                nn.Dropout(p=self.dropout),
-                                nn.Linear(self.width, self.width),
-                                copy.deepcopy(self.activation),
-                                nn.Dropout(p=self.dropout),
-                                nn.Linear(self.width, int(nn_out/3)))
+    def forward(self, x):
+        x = self.main(x)
+        angular = self.angular(x)
+        euler = self.euler(x)
+        linear = self.linear(x)
 
-  def forward(self, x):
+        if self.prob:
+            means = torch.cat((angular[:, :3], euler[:, :3], linear[:, :3]), 1)
+            variances = torch.cat((angular[:, 3:], euler[:, 3:], linear[:, 3:]), 1)
+            x = torch.cat((means, variances), 1)
+        else:
+            x = torch.cat((angular, euler, linear), 1)
 
-    x = self.main(x)
-    angular = self.angular(x)
-    euler = self.euler(x)
-    linear = self.linear(x)
-
-    if self.prob:
-      means = torch.cat((angular[:, :3], euler[:, :3], linear[:, :3]), 1)
-      variances = torch.cat((angular[:, 3:], euler[:, 3:], linear[:, 3:]), 1)
-      x = torch.cat((means, variances), 1)
-    else:
-      x = torch.cat((angular, euler, linear), 1)
-
-    return x
+        return x

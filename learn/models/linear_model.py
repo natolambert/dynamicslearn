@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from .model import DynamicsModel
+from ..utils.nn import ModelDataHandler
 
 class LinearModel(DynamicsModel):
     def __init__(self, cfg):
@@ -13,6 +14,7 @@ class LinearModel(DynamicsModel):
         - Or something like logistic regression which is less aggressive to outliers (which we definitely have)
         """
         super(LinearModel, self).__init__(cfg)
+        self.data_handler = ModelDataHandler(cfg)
 
     def forward(self, x):
         raise NotImplementedError("Subclass must implement this function")
@@ -26,7 +28,13 @@ class LinearModel(DynamicsModel):
     def postprocess(self, dX):
         raise NotImplementedError("Subclass must implement this function")
 
-    def train_cust(self, dataset, train_params, gradoff=False):
+    def train_cust(self, dataset, train_params):
+        X = dataset[0]
+        U = dataset[1]
+        dX = dataset[2]
+
+        # Generate the weights of the least squares problem
+        w = np.linalg.lstsq(A, b)
         raise NotImplementedError("Subclass must implement this function")
 
     def predict(self, X, U):

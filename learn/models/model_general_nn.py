@@ -55,8 +55,7 @@ class GeneralNN(DynamicsModel, nn.Module):
 
         self.scalarX = StandardScaler()  # MinMaxScaler(feature_range=(-1,1))#StandardScaler()# RobustScaler()
         self.scalarU = MinMaxScaler(feature_range=(-1, 1))
-        self.scalardX = MinMaxScaler(feature_range=(-1,
-                                                    1))  # StandardScaler() #MinMaxScaler(feature_range=(-1,1))#StandardScaler() # RobustScaler(quantile_range=(25.0, 90.0))
+        self.scalardX = MinMaxScaler(feature_range=(-1, 1))
 
         # Sets loss function
         if self.prob:
@@ -70,33 +69,24 @@ class GeneralNN(DynamicsModel, nn.Module):
         else:
             self.loss_fnc = nn.MSELoss()
 
-        # If using split model, initiate here:
-        if self.split_flag:
-            self.features = nn.Sequential(
-                SplitModel(self.n_in, self.n_out,
-                           prob=self.prob,
-                           width=self.hidden_w,
-                           activation=self.activation,
-                           dropout=self.d))
-        else:
-            # create object nicely
-            layers = []
-            layers.append(('dynm_input_lin', nn.Linear(
-                self.n_in, self.hidden_w)))  # input layer
-            layers.append(('dynm_input_act', self.activation))
+        # create object nicely
+        layers = []
+        layers.append(('dynm_input_lin', nn.Linear(
+            self.n_in, self.hidden_w)))  # input layer
+        layers.append(('dynm_input_act', self.activation))
+        # layers.append(nn.Dropout(p=self.d))
+        for d in range(self.depth):
+            # add modules
+            # input layer
+            layers.append(
+                ('dynm_lin_' + str(d), nn.Linear(self.hidden_w, self.hidden_w)))
+            layers.append(('dynm_act_' + str(d), self.activation))
             # layers.append(nn.Dropout(p=self.d))
-            for d in range(self.depth):
-                # add modules
-                # input layer
-                layers.append(
-                    ('dynm_lin_' + str(d), nn.Linear(self.hidden_w, self.hidden_w)))
-                layers.append(('dynm_act_' + str(d), self.activation))
-                # layers.append(nn.Dropout(p=self.d))
 
-            # output layer
-            layers.append(('dynm_out_lin', nn.Linear(self.hidden_w, self.n_out)))
-            # print(*layers)
-            self.features = nn.Sequential(OrderedDict([*layers]))
+        # output layer
+        layers.append(('dynm_out_lin', nn.Linear(self.hidden_w, self.n_out)))
+        # print(*layers)
+        self.features = nn.Sequential(OrderedDict([*layers]))
 
     def init_weights_orth(self):
         # inits the NN with orthogonal weights
@@ -143,13 +133,8 @@ class GeneralNN(DynamicsModel, nn.Module):
         - Needs to scale the state and action distrubtions on the back end to match up.
         - Should be a combo of forward and pre/post processing
         """
-
-        # print("2.")
-
         # NORMALIZE ======================================================
         # normalize states because the action gradients affect future states
-        # normX = self.scalarX.transform(state.reshape(1, -1))    # okay to remove states from the gradient path
-        # normX_T = torch.Tensor(normX)
         normX_T = (state - self.scalarX_tensors_mean) / torch.sqrt(self.scalarX_tensors_var)
         # need to normalize the action with tensors to keep the gradient path
         U_std = (action - self.scalarU_tensors_d_min) / \
@@ -170,37 +155,10 @@ class GeneralNN(DynamicsModel, nn.Module):
         logvar = out[l:]
 
         # DE-NORMALIZE ======================================================
-        # means = (means-self.scalardX_tensors_f_range[0])/(
-        #     self.scalardX_tensors_f_range[-1]-self.scalardX_tensors_f_range[0])
-        # print(self.scalardX_tensors_d_max - self.scalardX_tensors_d_min)
         # to denormalize, add 1 so 0 to 2, divide by the scale, add the min
         means = ((means + 1.) / self.scalardX_tensors_scale) + self.scalardX_tensors_d_min
         # means = means*self.scalarX_tensors_var[:l]+self.scalarX_tensors_mean[:l]
         var = torch.exp(logvar)  # because of how the loss function is created
-
-        # raise NotImplementedError("Need to finish per state adjustments")
-        """
-        Snippet from old predict function. Need to match this in autodiff software
-        # important this list is in order
-        if targetlist == []:
-            _, _, targetlist = model.get_training_lists()
-
-        # generate labels as to whether or not it true state or delta
-        # true = delta
-        lab = [t[:2] == 'd_' for t in targetlist]
-
-        # Makes prediction for either prediction mode. Handles the need to only pass certain states
-        prediction = np.zeros(9)
-        pred = model.predict(x, u)
-        for i, l in enumerate(lab):
-            if l:
-                prediction[i] = x[i] + pred[i]
-            else:
-                prediction[i] = pred[i]
-
-        return prediction
-        """
-
         return means, var
 
     def preprocess(self, dataset):  # X, U):
@@ -223,7 +181,7 @@ class GeneralNN(DynamicsModel, nn.Module):
         self.scalardX.fit(dX)
 
         # Stores the fit as tensors for PIPPS policy propogation through network
-        if True:
+        if False:
             # U is a minmax scalar from -1 to 1
             # X is a standard scalar, mean 0, sigma 1
             self.scalarU_tensors_d_min = torch.FloatTensor(self.scalarU.data_max_)
@@ -234,32 +192,13 @@ class GeneralNN(DynamicsModel, nn.Module):
             self.scalarX_tensors_mean = torch.FloatTensor(self.scalarX.mean_)
             self.scalarX_tensors_var = torch.FloatTensor(self.scalarX.var_)
 
-            self.scalardX_tensors_d_min = torch.FloatTensor(
-                self.scalardX.data_min_)
-            self.scalardX_tensors_scale = torch.FloatTensor(
-                self.scalardX.scale_)
-            # self.scalardX_tensors_d_min = torch.FloatTensor(
-            #     self.scalardX.data_min_)
-            # self.scalardX_tensors_d_max = torch.FloatTensor(
-            #     self.scalardX.data_max_)
-            # self.scalardX_tensors_d_range = torch.FloatTensor(
-            #     self.scalardX.data_range_)
-            # self.scalardX_tensors_f_range = torch.FloatTensor([-1, 1])
+            self.scalardX_tensors_d_min = torch.FloatTensor(self.scalardX.data_min_)
+            self.scalardX_tensors_scale = torch.FloatTensor(self.scalardX.scale_)
 
         # Normalizing to zero mean and unit variance
         normX = self.scalarX.transform(X)
         normU = self.scalarU.transform(U)
         normdX = self.scalardX.transform(dX)
-
-        # Tool for plotting the scaled inputs as a histogram
-        if False:
-            plt.title('Scaled Inputs')
-            plt.hist(normU[:, 0], bins=1000)
-            plt.hist(normU[:, 1], bins=1000)
-            plt.hist(normU[:, 2], bins=1000)
-            plt.hist(normU[:, 3], bins=1000)
-            plt.legend()
-            plt.show()
 
         inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
         outputs = torch.Tensor(normdX)
