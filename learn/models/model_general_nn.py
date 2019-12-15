@@ -1,7 +1,8 @@
 # Import project files
 # from utils import *
-from utils.data import *
-from utils.nn import *
+from ..utils.data import *
+from ..utils.nn import *
+from .model import DynamicsModel
 
 # Import External Packages
 import numpy as np
@@ -24,7 +25,7 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 
 
-class GeneralNN(nn.Module):
+class GeneralNN(DynamicsModel, nn.Module):
     def __init__(self, nn_params):
 
         super(GeneralNN, self).__init__()
@@ -354,7 +355,7 @@ class GeneralNN(nn.Module):
 
         # If probablistic only takes the first half of the outputs for predictions
         if self.prob:
-            ret = self.postprocess(NNout[:,:int(self.n_out / 2)]).squeeze()
+            ret = self.postprocess(NNout[:, :int(self.n_out / 2)]).squeeze()
             if ret_var:
                 return ret, NNout[:, int(self.n_out / 2):]
         else:
