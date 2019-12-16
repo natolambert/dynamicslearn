@@ -1,7 +1,10 @@
 model:
   class: learn.models.LinearModel
   params:
-    solver: None
+    training:
+      solver: None
+      ensemble: false
+    optimizer: None
     datahandler:
       class: learn.utils.nn.ModelDataHandler
       params:

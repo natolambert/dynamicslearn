@@ -3,6 +3,7 @@ import numpy as np
 from .model import DynamicsModel
 import hydra
 
+
 class ResidualModel(DynamicsModel):
     def __init__(self, env, sub_model):
         """
@@ -30,9 +31,8 @@ class ResidualModel(DynamicsModel):
         self.sub_model.train_cust(dataset, **params)
 
     def predict(self, X, U):
-        pred_model = self.sub_model.predict(X,U)
+        pred_model = self.sub_model.predict(X, U)
         self.env.set_state(X)
         pred_env = self.env.step(U)
-        y = pred_env+pred_model
+        y = pred_env + pred_model
         return y
-

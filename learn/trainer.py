@@ -89,19 +89,7 @@ def params_to_training(data):
 
 def train_model(X, U, dX, model_cfg):
     log.info("Training Model")
-    dx = np.shape(X)[1]
-    du = np.shape(U)[1]
-    dt = np.shape(dX)[1]
-
-    # if set dimensions, double check them here
-    # if model_cfg.training.dx != -1:
-    #     assert model_cfg.training.dx == dx, "model dimensions in cfg do not match data given"
-    # if model_cfg.training.du != -1:
-    #     assert model_cfg.training.dx == du, "model dimensions in cfg do not match data given"
-    # if model_cfg.training.dt != -1:
-    #     assert model_cfg.training.dx == dt, "model dimensions in cfg do not match data given"
-
-    # train_log = dict()
+    train_log = dict()
     # nn_params = {  # all should be pretty self-explanatory
     #     'dx': dx,
     #     'du': du,
@@ -114,7 +102,7 @@ def train_model(X, U, dX, model_cfg):
     #     'split_flag': False,
     #     'ensemble': model_cfg.ensemble
     # }
-    #
+    #s
     # train_params = {
     #     'epochs': model_cfg.optimizer.epochs,
     #     'batch_size': model_cfg.optimizer.batch,
@@ -125,24 +113,11 @@ def train_model(X, U, dX, model_cfg):
     #     'test_loss_fnc': [],
     #     'preprocess': model_cfg.optimizer.preprocess,
     # }
+    train_log['model_params'] = model_cfg.params
     model = hydra.utils.instantiate(model_cfg)
-    model.train_cust((X, U, dX), {})
+    acctest, acctrain = model.train_cust((X, U, dX), model_cfg.params.training)
 
-
-    train_log['nn_params'] = nn_params
-    train_log['train_params'] = train_params
-
-    if model_cfg.ensemble:
-        newNN = EnsembleNN(nn_params, model_cfg.training.E)
-        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
-
-    else:
-        newNN = GeneralNN(nn_params)
-        newNN.init_weights_orth()
-        if nn_params['bayesian_flag']: newNN.init_loss_fnc(dX, l_mean=1, l_cov=1)  # data for std,
-        acctest, acctrain = newNN.train_cust((X, U, dX), train_params)
-
-    if model_cfg.ensemble:
+    if model_cfg.params.training.ensemble:
         min_err = np.min(acctrain, 0)
         min_err_test = np.min(acctest, 0)
     else:
@@ -154,7 +129,7 @@ def train_model(X, U, dX, model_cfg):
     train_log['min_trainerror'] = min_err
     train_log['min_testerror'] = min_err_test
 
-    return newNN, train_log
+    return model, train_log
 
 
 ######################################################################

@@ -57,6 +57,7 @@ class GeneralNN(DynamicsModel, nn.Module):
         self.scalarU = MinMaxScaler(feature_range=(-1, 1))
         self.scalardX = MinMaxScaler(feature_range=(-1, 1))
 
+        self.init_training = False
         # Sets loss function
         if self.prob:
             # INIT max/minlogvar if PNN
@@ -230,6 +231,12 @@ class GeneralNN(DynamicsModel, nn.Module):
         optim is the optimizer to use (options are "Adam", "SGD")
         split is train/test split ratio
         """
+        # Handle inizializations on first call
+        if self.init_training == False:
+            self.init_weights_orth()
+            if self.prob: self.init_loss_fnc(dataset[2], l_mean=1, l_cov=1)  # data for std,
+        self.init_training = True
+
         epochs = train_params['epochs']
         batch_size = train_params['batch_size']
         optim = train_params['optim']

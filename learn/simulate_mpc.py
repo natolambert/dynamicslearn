@@ -31,6 +31,18 @@ def mpc(cfg):
     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
     X, dX, U = to_XUdX(data)
 
+    # dx = np.shape(X)[1]
+    # du = np.shape(U)[1]
+    # dt = np.shape(dX)[1]
+    #
+    # # if set dimensions, double check them here
+    # if model_cfg.params.dx != -1:
+    #     assert model_cfg.params.dx == dx, "model dimensions in cfg do not match data given"
+    # if model_cfg.params.du != -1:
+    #     assert model_cfg.params.du == du, "model dimensions in cfg do not match data given"
+    # if model_cfg.params.dt != -1:
+    #     assert model_cfg.params.dt == dt, "model dimensions in cfg do not match data given"
+
     model, train_log = train_model(X, U, dX, cfg.model)
 
     for i in range(cfg.experiment.num_r):

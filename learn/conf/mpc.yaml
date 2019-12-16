@@ -1,5 +1,6 @@
 defaults:
   - robot: ???
+  - models: linear
 
 dimension: all
 save: true
@@ -15,28 +16,3 @@ policy:
     T: 5
     hold: false
 
-model:
-  ensemble: false
-  training:
-    dx: -1
-    du: -1
-    dt: -1
-    hid_width: 250
-    hid_depth: 2
-    probl: true
-    activ: swish
-    extra:
-      dropout: 0
-      split: false
-      mode: delta
-    E: 5
-    plot_loss: true
-  optimizer:
-    epochs: 33
-    batch: 18
-    name: Adam
-    split: .8
-    lr: .0025
-    lr_schedule: [30,6]
-    preprocess: true
-    verbose: false

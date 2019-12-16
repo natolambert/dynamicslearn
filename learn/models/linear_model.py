@@ -6,7 +6,7 @@ import hydra
 
 
 class LinearModel(DynamicsModel):
-    def __init__(self, datahandler, solver=None):
+    def __init__(self, datahandler, solver=None, training=None, optimizer=None):
         """
         Model for a simple linear prediction of the change in state. Consider the following optimization problem:
             (s_t+1 - s_t) = As_t + Bu_t
@@ -39,7 +39,7 @@ class LinearModel(DynamicsModel):
         dX = self.data_handler.postprocess(dX)
         return dX
 
-    def train_cust(self, dataset, train_params):
+    def train_cust(self, dataset, train_params, ret_params=False):
         X = dataset[0]
         U = dataset[1]
         dX = dataset[2]
@@ -50,9 +50,13 @@ class LinearModel(DynamicsModel):
         A = inputs
         b = outputs
         # Generate the weights of the least squares problem
-        w, res, rank, s = np.linalg.lstsq(A, b)
+        w, res, rank, s = np.linalg.lstsq(A, b, rcond=None)
         self.w = w
-        return w, res, rank, s
+        if ret_params:
+            return w, (res, rank, s)
+        else:
+            raise NotImplementedError("Implement Loss Estimate")
+            return acctest, acctrain
 
     def predict(self, X, U):
         normX, normU = self.data_handler.forward(X, U)

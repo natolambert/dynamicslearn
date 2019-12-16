@@ -19,18 +19,22 @@ load:
     - yaw
 
 model:
-  name: iono
-  flight_mode: basic
-  history: 2
-  delta_state_targets:
-  - pitch
-  - roll
-  - yaw
-  true_state_targets:
-  - linax
-  - linay
-  - linaz
-  ignore_in:  # can be non axis specific
-  - omega
-  - vbat
-  extra_inputs:
+  params:
+    dx: 6
+    du: 4
+    dt: 6
+    name: iono
+    flight_mode: basic
+    history: 2
+    delta_state_targets:
+    - pitch
+    - roll
+    - yaw
+    true_state_targets:
+    - linax
+    - linay
+    - linaz
+    ignore_in:  # can be non axis specific
+    - omega
+    - vbat
+    extra_inputs:
