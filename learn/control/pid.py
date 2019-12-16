@@ -197,6 +197,20 @@ class PidPolicy(Controller):
             D = set[2]
             self.pids += [PID(0, P, I, D, 1000, self.dt)]
 
+    def set_params(self, parameters):
+        for i, set in enumerate(parameters):
+            """
+            def __init__(self, desired,
+                 kp, ki, kd,
+                 ilimit, dt, outlimit=np.inf,
+                 samplingRate=0, cutoffFreq=-1,
+                 enableDFilter=False):
+             """
+            pid = self.pids[i]
+            pid.kp = set[0]
+            pid.ki = set[1]
+            pid.kd = set[2]
+
     def get_action(self, state):
 
         # PIDs must always come in order of states then
@@ -209,11 +223,12 @@ class PidPolicy(Controller):
         output = [0, 0, 0, 0]
         # PWM structure: 0:front right  1:front left  2:back left   3:back right
         '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
+        # TODO VERIFY THESE FOR IONOCRAFT
         if self.mode == 'BASIC':
-            output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out)
-            output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out)
-            output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out)
-            output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out)
+            output[0] = limit_thrust(self.equil[0] + self.pids[0].out + self.pids[1].out)
+            output[1] = limit_thrust(self.equil[1] + self.pids[0].out - self.pids[1].out)
+            output[2] = limit_thrust(self.equil[2] - self.pids[0].out - self.pids[1].out)
+            output[3] = limit_thrust(self.equil[3] - self.pids[0].out + self.pids[1].out)
         elif self.mode == 'EULER':
             output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
             output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)

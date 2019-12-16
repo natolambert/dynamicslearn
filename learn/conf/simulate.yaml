@@ -15,15 +15,15 @@ policy:
   pid:
     params:
       min_values: [0, 0]
-      max_values: [300, 20]
+      max_values: [300, 25]
 
 
 bo:
-  iterations: 10
+  iterations: 15
   sim: true
-  rollouts: 5
+  rollouts: 250
   variable_length: false
-  max_length: 10
+  max_length: 15
 
 
 model:
