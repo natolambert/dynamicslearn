@@ -12,6 +12,7 @@ from learn.utils.nn import *
 # neural nets
 from learn.models.model_general_nn import GeneralNN
 from learn.models.model_ensemble_nn import EnsembleNN
+from learn.models.linear_model import LinearModel
 
 # Torch Packages
 import torch
@@ -99,6 +100,7 @@ def train_model(X, U, dX, model_cfg):
         assert model_cfg.training.dx == du, "model dimensions in cfg do not match data given"
     if model_cfg.training.dt != -1:
         assert model_cfg.training.dx == dt, "model dimensions in cfg do not match data given"
+    model = hydra.utils.instantiate(model_cfg)
 
     train_log = dict()
     nn_params = {  # all should be pretty self-explanatory

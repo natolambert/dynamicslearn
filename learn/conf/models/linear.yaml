@@ -1,0 +1,19 @@
+model:
+  class: learn.models.LinearModel
+  params:
+    solver: None
+    datahandler:
+      class: learn.utils.nn.ModelDataHandler
+      params:
+        X:
+          class: sklearn.preprocessing.StandardScaler
+#          params:
+        U:
+          class: sklearn.preprocessing.MinMaxScaler
+          params:
+            feature_range: (-1,1)
+        dX:
+          class: sklearn.preprocessing.MinMaxScaler
+          params:
+            feature_range: (-1,1)
+        sine_expand: []

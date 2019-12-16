@@ -1,5 +1,6 @@
 defaults:
   - robot: ???
+  - models: linear
 
 save: false
 

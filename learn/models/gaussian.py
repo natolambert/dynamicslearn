@@ -1,11 +1,14 @@
 import torch
+import numpy as np
+from .model import DynamicsModel
 
 
-class DynamicsModel:
-    def __init__(self):
+class GaussianProcess(DynamicsModel):
+    def __init__(self, cfg):
         """
-        Parent class for different types of dynamics models
+        Models the one state predictions with a Gaussian Process. If anyone can help implement this, let me know!
         """
+        super(GaussianProcess, self).__init__(cfg)
 
     def forward(self, x):
         raise NotImplementedError("Subclass must implement this function")
@@ -25,5 +28,3 @@ class DynamicsModel:
     def predict(self, X, U):
         raise NotImplementedError("Subclass must implement this function")
 
-    def save_model(self, filepath):
-        torch.save(self, filepath)

@@ -3,19 +3,33 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+import hydra
 from torch.autograd import Variable
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, QuantileTransformer
 
 
 class ModelDataHandler:
-    def __init__(self, cfg):
-        self.cfg = cfg
+    def __init__(self, **params):
         # needs to have three types of scikitlearn preprocessing objects in the
-        self.scalarX = cfg.X.type(**cfg.X.params)
-        self.scalarU = cfg.U.type(**cfg.X.params)
-        self.scalardX = cfg.dX.type(**cfg.X.params)
+        self.scalarX = hydra.utils.instantiate(params['X']) #['X'].type(**params['X'].params)
+        self.scalarX = hydra.utils.instantiate(params['U']) #['X'].type(**params['X'].params)
+        self.scalarX = hydra.utils.instantiate(params['dX']) #['X'].type(**params['X'].params)
+        # self.scalarU = params['U'].type(**params['U'].params)
+        # self.scalardX = params['dX'].type(**params['dX'].params)
 
-        self.sine_transform = cfg.sine_expand
+        self.sine_transform = params['sine_expand']
+
+    def forward(self, X, U):
+        if not self.Fit:
+            raise ValueError("Fit the normalization before trying to use it")
+        if len(np.shape(X)) > 1:
+            l = np.shape(X)[0]
+        else:
+            l = 1
+        # normalizing and converting to single sample
+        normX = self.scalarX.transform(X.reshape(l, -1))
+        normU = self.scalarU.transform(U.reshape(l, -1))
+        return normX, normU
 
     def preprocess(self, dataset, ret_data=True):
         # Get parts
@@ -43,11 +57,15 @@ class ModelDataHandler:
 
             inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
             outputs = torch.Tensor(normdX)
+
+            self.fit = True
             return inputs, outputs
         else:
             self.scalarX.fit(X)
             self.scalarU.fit(U)
             self.scalardX.fit(dX)
+
+            self.fit = True
             return self.scalarX, self.scalarU, self.scalardX
 
     def postprocess(self, dX):
