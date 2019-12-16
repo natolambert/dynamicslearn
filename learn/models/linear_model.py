@@ -4,6 +4,7 @@ from .model import DynamicsModel
 from ..utils.nn import ModelDataHandler
 import hydra
 
+
 class LinearModel(DynamicsModel):
     def __init__(self, datahandler, solver=None):
         """
@@ -15,15 +16,16 @@ class LinearModel(DynamicsModel):
         - Or something like logistic regression which is less aggressive to outliers (which we definitely have)
         """
         super(LinearModel, self).__init__()
-        self.data_handler = hydra.utils.instantiate(datahandler) #ModelDataHandler(cfg)
+        self.data_handler = hydra.utils.instantiate(datahandler)  # ModelDataHandler(cfg)
         self.w = None
         self.solver = solver
-        self.ensemble = False # TODO try ensembling these
+        self.ensemble = False  # TODO try ensembling these
 
     def forward(self, x):
         if self.w is None:
             raise ValueError("Model Not Trained Yet, call model.train_cust(dataset, cfg)")
-        raise NotImplementedError("Subclass must implement this function")
+        x = np.multiply(self.w, x)
+        return x
 
     def reset(self):
         print("Linear model does not need to reset")
@@ -41,13 +43,16 @@ class LinearModel(DynamicsModel):
         X = dataset[0]
         U = dataset[1]
         dX = dataset[2]
+        # A = np.hstack((X, U))
+        # b = dX
+        inputs, outputs = self.preprocess(dataset)
 
-        A = np.hstacK((X,U))
-        b = dX
+        A = inputs
+        b = outputs
         # Generate the weights of the least squares problem
-        w = np.linalg.lstsq(A, b)
+        w, res, rank, s = np.linalg.lstsq(A, b)
         self.w = w
-        raise NotImplementedError("Subclass must implement this function")
+        return w, res, rank, s
 
     def predict(self, X, U):
         normX, normU = self.data_handler.forward(X, U)

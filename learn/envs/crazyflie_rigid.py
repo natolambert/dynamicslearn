@@ -147,6 +147,9 @@ class CrazyflieRigidEnv(gym.Env):
     def get_obs(self):
         return np.array(self.state[6:])
 
+    def set_state(self, x):
+        self.state = x
+
     def reset(self):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))

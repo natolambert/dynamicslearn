@@ -12,8 +12,8 @@ class ModelDataHandler:
     def __init__(self, **params):
         # needs to have three types of scikitlearn preprocessing objects in the
         self.scalarX = hydra.utils.instantiate(params['X']) #['X'].type(**params['X'].params)
-        self.scalarX = hydra.utils.instantiate(params['U']) #['X'].type(**params['X'].params)
-        self.scalarX = hydra.utils.instantiate(params['dX']) #['X'].type(**params['X'].params)
+        self.scalarU = hydra.utils.instantiate(params['U']) #['X'].type(**params['X'].params)
+        self.scalardX = hydra.utils.instantiate(params['dX']) #['X'].type(**params['X'].params)
         # self.scalarU = params['U'].type(**params['U'].params)
         # self.scalardX = params['dX'].type(**params['dX'].params)
 
@@ -55,8 +55,8 @@ class ModelDataHandler:
             normU = self.scalarU.transform(U)
             normdX = self.scalardX.transform(dX)
 
-            inputs = torch.Tensor(np.concatenate((normX, normU), axis=1))
-            outputs = torch.Tensor(normdX)
+            inputs = np.concatenate((normX, normU), axis=1)
+            outputs = normdX
 
             self.fit = True
             return inputs, outputs

@@ -10,10 +10,9 @@ model:
       hid_depth: 2
       probl: true
       activ: swish
-      extra:
-        dropout: 0
-        split: false
-        mode: delta
+      dropout: 0
+      split: false
+      mode: delta
       E: 5
       plot_loss: true
     optimizer:
@@ -30,13 +29,13 @@ model:
       params:
         X:
           class: sklearn.preprocessing.StandardScaler
-        #          params:
-        U:
-          class: sklearn.preprocessing.MinMaxScaler
-          params:
-            feature_range: (-1,1)
-        dX:
-          class: sklearn.preprocessing.MinMaxScaler
-          params:
-            feature_range: (-1,1)
-        sine_expand: []
+          #          params:
+          U:
+            class: sklearn.preprocessing.MinMaxScaler
+            params:
+              feature_range: [-1.,1.]
+          dX:
+            class: sklearn.preprocessing.MinMaxScaler
+            params:
+              feature_range: [-1.,1.]
+          sine_expand: []

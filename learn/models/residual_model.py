@@ -1,33 +1,38 @@
 import torch
 import numpy as np
 from .model import DynamicsModel
-
+import hydra
 
 class ResidualModel(DynamicsModel):
-    def __init__(self, cfg):
+    def __init__(self, env, sub_model):
         """
         Residual model takes the base environment for the actions then uses a linear or deep model to learn the disturbance
         s_t+1 = env(s,a) + model(s,a)
         """
-        super(ResidualModel, self).__init__(cfg)
+        super(ResidualModel, self).__init__()
+        self.env = env
+        self.model = hydra.utils.instantiate(sub_model)
 
     def forward(self, x):
-        raise NotImplementedError("Subclass must implement this function")
+        self.sub_model.forward(x)
 
     def reset(self):
-        raise NotImplementedError("Subclass must implement this function")
+        self.env.reset()
+        self.model.reset()
 
     def preprocess(self, dataset):
-        raise NotImplementedError("Subclass must implement this function")
+        self.sub_model.preprocess(dataset)
 
     def postprocess(self, dX):
-        raise NotImplementedError("Subclass must implement this function")
+        self.sub_model.postprocess(dX)
 
-    def train_cust(self, dataset, train_params, gradoff=False):
-        raise NotImplementedError("Subclass must implement this function")
+    def train_cust(self, dataset, **params):
+        self.sub_model.train_cust(dataset, **params)
 
     def predict(self, X, U):
-        raise NotImplementedError("Subclass must implement this function")
+        pred_model = self.sub_model.predict(X,U)
+        self.env.set_state(X)
+        pred_env = self.env.step(U)
+        y = pred_env+pred_model
+        return y
 
-    def save_model(self, filepath):
-        torch.save(self, filepath)

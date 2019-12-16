@@ -94,38 +94,40 @@ def train_model(X, U, dX, model_cfg):
     dt = np.shape(dX)[1]
 
     # if set dimensions, double check them here
-    if model_cfg.training.dx != -1:
-        assert model_cfg.training.dx == dx, "model dimensions in cfg do not match data given"
-    if model_cfg.training.du != -1:
-        assert model_cfg.training.dx == du, "model dimensions in cfg do not match data given"
-    if model_cfg.training.dt != -1:
-        assert model_cfg.training.dx == dt, "model dimensions in cfg do not match data given"
+    # if model_cfg.training.dx != -1:
+    #     assert model_cfg.training.dx == dx, "model dimensions in cfg do not match data given"
+    # if model_cfg.training.du != -1:
+    #     assert model_cfg.training.dx == du, "model dimensions in cfg do not match data given"
+    # if model_cfg.training.dt != -1:
+    #     assert model_cfg.training.dx == dt, "model dimensions in cfg do not match data given"
+
+    # train_log = dict()
+    # nn_params = {  # all should be pretty self-explanatory
+    #     'dx': dx,
+    #     'du': du,
+    #     'dt': dt,
+    #     'hid_width': model_cfg.training.hid_width,
+    #     'hid_depth': model_cfg.training.hid_depth,
+    #     'bayesian_flag': model_cfg.training.probl,
+    #     'activation': Swish(),  # TODO use hydra.utils.instantiate
+    #     'dropout': model_cfg.training.extra.dropout,
+    #     'split_flag': False,
+    #     'ensemble': model_cfg.ensemble
+    # }
+    #
+    # train_params = {
+    #     'epochs': model_cfg.optimizer.epochs,
+    #     'batch_size': model_cfg.optimizer.batch,
+    #     'optim': model_cfg.optimizer.name,
+    #     'split': model_cfg.optimizer.split,
+    #     'lr': model_cfg.optimizer.lr,  # bayesian .00175, mse:  .0001
+    #     'lr_schedule': model_cfg.optimizer.lr_schedule,
+    #     'test_loss_fnc': [],
+    #     'preprocess': model_cfg.optimizer.preprocess,
+    # }
     model = hydra.utils.instantiate(model_cfg)
+    model.train_cust((X, U, dX), {})
 
-    train_log = dict()
-    nn_params = {  # all should be pretty self-explanatory
-        'dx': dx,
-        'du': du,
-        'dt': dt,
-        'hid_width': model_cfg.training.hid_width,
-        'hid_depth': model_cfg.training.hid_depth,
-        'bayesian_flag': model_cfg.training.probl,
-        'activation': Swish(),  # TODO use hydra.utils.instantiate
-        'dropout': model_cfg.training.extra.dropout,
-        'split_flag': False,
-        'ensemble': model_cfg.ensemble
-    }
-
-    train_params = {
-        'epochs': model_cfg.optimizer.epochs,
-        'batch_size': model_cfg.optimizer.batch,
-        'optim': model_cfg.optimizer.name,
-        'split': model_cfg.optimizer.split,
-        'lr': model_cfg.optimizer.lr,  # bayesian .00175, mse:  .0001
-        'lr_schedule': model_cfg.optimizer.lr_schedule,
-        'test_loss_fnc': [],
-        'preprocess': model_cfg.optimizer.preprocess,
-    }
 
     train_log['nn_params'] = nn_params
     train_log['train_params'] = train_params

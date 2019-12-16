@@ -26,25 +26,25 @@ from collections import OrderedDict
 
 
 class GeneralNN(DynamicsModel, nn.Module):
-    def __init__(self, nn_params):
+    def __init__(self, **nn_params):
 
         super(GeneralNN, self).__init__()
         """
         Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed. Note that the data passed into this network is only that which is used.
         """
         # Store the parameters:
-        self.prob = nn_params['bayesian_flag']
-        self.hidden_w = nn_params['hid_width']
-        self.depth = nn_params['hid_depth']
+        self.prob = nn_params['training']['probl']
+        self.hidden_w = nn_params['training']['hid_width']
+        self.depth = nn_params['training']['hid_depth']
 
-        self.n_in_input = nn_params['du']
-        self.n_in_state = nn_params['dx']
+        self.n_in_input = nn_params['training']['du']
+        self.n_in_state = nn_params['training']['dx']
         self.n_in = self.n_in_input + self.n_in_state
-        self.n_out = nn_params['dt']
+        self.n_out = nn_params['training']['dt']
 
-        self.activation = nn_params['activation']
-        self.d = nn_params['dropout']
-        self.split_flag = nn_params['split_flag']
+        self.activation = nn_params['training']['activ']
+        self.d = nn_params['training']['dropout']
+        self.split_flag = nn_params['training']['split']
 
         self.E = 0  # clarify that these models are not ensembles
 

@@ -11,9 +11,9 @@ model:
         U:
           class: sklearn.preprocessing.MinMaxScaler
           params:
-            feature_range: (-1,1)
+            feature_range: [-1.,1.]
         dX:
           class: sklearn.preprocessing.MinMaxScaler
           params:
-            feature_range: (-1,1)
+            feature_range: [-1.,1.]
         sine_expand: []
