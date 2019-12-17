@@ -18,9 +18,10 @@ class ModelDataHandler:
         # self.scalardX = params['dX'].type(**params['dX'].params)
 
         self.sine_transform = params['sine_expand']
+        self.fit = False
 
     def forward(self, X, U):
-        if not self.Fit:
+        if not self.fit:
             raise ValueError("Fit the normalization before trying to use it")
         if len(np.shape(X)) > 1:
             l = np.shape(X)[0]

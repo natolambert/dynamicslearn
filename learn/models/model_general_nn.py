@@ -25,9 +25,8 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 
 
-class GeneralNN(DynamicsModel, nn.Module):
+class GeneralNN(nn.Module):
     def __init__(self, **nn_params):
-
         super(GeneralNN, self).__init__()
         """
         Simpler implementation of my other neural net class. After parameter tuning, now just keep the structure and change it if needed. Note that the data passed into this network is only that which is used.
@@ -42,7 +41,7 @@ class GeneralNN(DynamicsModel, nn.Module):
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['training']['dt']
 
-        self.activation = nn_params['training']['activ']
+        self.activation = Swish() #hydra.utils.instantiate(nn_params['training']['activ'])
         self.d = nn_params['training']['dropout']
         self.split_flag = nn_params['training']['split']
 
@@ -218,7 +217,7 @@ class GeneralNN(DynamicsModel, nn.Module):
         dX = self.scalardX.inverse_transform(dX.reshape(l, -1)).squeeze()
         return np.array(dX)
 
-    def train_cust(self, dataset, train_params, gradoff=False):
+    def train_cust(self, dataset, model_params, gradoff=False):
         """
         Train the neural network.
         if preprocess = False
@@ -237,9 +236,9 @@ class GeneralNN(DynamicsModel, nn.Module):
             if self.prob: self.init_loss_fnc(dataset[2], l_mean=1, l_cov=1)  # data for std,
         self.init_training = True
 
+        train_params = model_params.optimizer
         epochs = train_params['epochs']
-        batch_size = train_params['batch_size']
-        optim = train_params['optim']
+        batch_size = train_params['batch']
         split = train_params['split']
         lr = train_params['lr']
         lr_step_eps = train_params['lr_schedule'][0]
@@ -265,15 +264,9 @@ class GeneralNN(DynamicsModel, nn.Module):
         testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=batch_size)
 
         # Papers seem to say ADAM works better
-        if (optim == "Adam"):
-            optimizer = torch.optim.Adam(super(GeneralNN, self).parameters(), lr=lr)
-        elif (optim == "SGD"):
-            optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
-        else:
-            raise ValueError(optim + " is not a valid optimizer type")
-
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6,
-                                                    gamma=0.7)  # most results at .6 gamma, tried .33 when got NaN
+        optimizer = torch.optim.Adam(super(GeneralNN, self).parameters(), lr=lr)
+        optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6, gamma=0.7)  # most results at .6 gamma, tried .33 when got NaN
 
         testloss, trainloss = self._optimize(self.loss_fnc, optimizer, split, scheduler, epochs, batch_size,
                                              dataset)  # trainLoader, testLoader)
@@ -384,8 +377,8 @@ class GeneralNN(DynamicsModel, nn.Module):
 
             # print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
             #          "test_error={:.9f}".format(test_error))
-            if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]),
-                                       "test loss=", "{:.6f}".format(test_error.data[0]))
+            # if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]),
+            #                            "test loss=", "{:.6f}".format(test_error.data[0]))
             # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
             error_train.append(avg_loss.data[0].numpy())
             errors.append(test_error.data[0].numpy())

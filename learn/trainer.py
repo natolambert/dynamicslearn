@@ -115,7 +115,7 @@ def train_model(X, U, dX, model_cfg):
     # }
     train_log['model_params'] = model_cfg.params
     model = hydra.utils.instantiate(model_cfg)
-    acctest, acctrain = model.train_cust((X, U, dX), model_cfg.params.training)
+    acctest, acctrain = model.train_cust((X, U, dX), model_cfg.params)
 
     if model_cfg.params.training.ensemble:
         min_err = np.min(acctrain, 0)

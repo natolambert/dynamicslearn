@@ -24,7 +24,7 @@ class LinearModel(DynamicsModel):
     def forward(self, x):
         if self.w is None:
             raise ValueError("Model Not Trained Yet, call model.train_cust(dataset, cfg)")
-        x = np.multiply(self.w, x)
+        x = np.matmul(x, self.w)
         return x
 
     def reset(self):
@@ -55,8 +55,7 @@ class LinearModel(DynamicsModel):
         if ret_params:
             return w, (res, rank, s)
         else:
-            raise NotImplementedError("Implement Loss Estimate")
-            return acctest, acctrain
+            return res, res
 
     def predict(self, X, U):
         normX, normU = self.data_handler.forward(X, U)

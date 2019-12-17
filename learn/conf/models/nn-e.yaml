@@ -1,39 +1,40 @@
 model:
-  class: EnsembleNN
-  ensemble: true
-  training:
-    dx: -1
-    du: -1
-    dt: -1
-    hid_width: 250
-    hid_depth: 2
-    probl: true
-    activ: swish
-    extra:
+  class: learn.models.EnsembleNN
+  params:
+    training:
+      ensemble: true
+      dx: ${env.params.dx}
+      du: ${env.params.du}
+      dt: ${env.params.dt}
+      hid_width: 250
+      hid_depth: 2
+      probl: true
+      activ: learn.utils.nn.Swish
       dropout: 0
       split: false
       mode: delta
-    E: 5
-    plot_loss: true
-  optimizer:
-    epochs: 33
-    batch: 18
-    name: Adam
-    split: .8
-    lr: .0025
-    lr_schedule: [30,6]
-    preprocess: true
-    verbose: false
-  datahandler:
-    X:
-      type: sklearn.preprocessing.StandardScalar
+      E: 5
+      plot_loss: true
+    optimizer:
+      epochs: 33
+      batch: 18
+      split: .8
+      lr: .0025
+      lr_schedule: [30,6]
+      preprocess: true
+      verbose: false
+    datahandler:
+      class: learn.utils.nn.ModelDataHandler
       params:
-    U:
-      type: sklearn.preprocessing.MinMaxScalar
-      params:
-        feature_range: (-1,1)
-    dX:
-      type: sklearn.preprocessing.MinMaxScalar
-      params:
-        feature_range: (-1,1)
-    sine_expand: []
+        X:
+          class: sklearn.preprocessing.StandardScaler
+          #          params:
+          U:
+            class: sklearn.preprocessing.MinMaxScaler
+            params:
+              feature_range: [-1.,1.]
+          dX:
+            class: sklearn.preprocessing.MinMaxScaler
+            params:
+              feature_range: [-1.,1.]
+          sine_expand: []

@@ -11,6 +11,7 @@ from sklearn.model_selection import KFold  # for dataset
 
 # neural nets
 from learn.models.model_general_nn import GeneralNN
+import hydra
 
 
 class EnsembleNN(nn.Module):
@@ -19,23 +20,23 @@ class EnsembleNN(nn.Module):
       models will be used heavily for offline bootstrapping of policies and controllers.
     '''
 
-    def __init__(self, nn_params, E=8, forward_mode=''):
+    def __init__(self, **nn_params):
         super(EnsembleNN, self).__init__()
-        self.E = E  # number of networks to use in each ensemble
-        self.forward_mode = ''  # TODO: implement a weighted set of predictions based on confidence
-        self.prob = nn_params['bayesian_flag']
-
+        self.E = nn_params['training']['E']  # number of networks to use in each ensemble
+        self.prob = nn_params['training']['probl']
+        self.dx = nn_params['training']['dx']
         # create networks
         self.networks = []
-        for i in range(E):
-            self.networks.append(GeneralNN(nn_params))
+        for i in range(self.E):
+            # self.networks.append(hydra.utils.instantiate(nn_params))
+            self.networks.append(GeneralNN(**nn_params))
 
         # Can store with a helper function for when re-loading and figuring out what was trained on
         self.state_list = []
         self.input_list = []
         self.change_state_list = []
 
-    def train_cust(self, dataset, train_params, gradoff=False):
+    def train_cust(self, dataset, train_params):
         '''
         To train the enemble model simply train each subnetwork on the same data
         Will return the test and train accuracy in lists of 1d arrays
@@ -48,48 +49,27 @@ class EnsembleNN(nn.Module):
         kf = KFold(n_splits=self.E)
         kf.get_n_splits(dataset)
 
-        # cross_val_err_test = []
-        # cross_val_err_train = []
+        # iterate through the validation sets
+        for (i, net), (train_idx, test_idx) in zip(enumerate(self.networks), kf.split(dataset[0])):
+            # only train on training data to ensure diversity
+            X_cust = dataset[0][train_idx, :]
+            U_cust = dataset[1][train_idx, :]
+            dX_cust = dataset[2][train_idx, :]
 
-        if gradoff:
-            err = 0
-            for (i, net) in enumerate(self.networks):
-                train_params = {
-                    'epochs': 1,
-                    'batch_size': 32,
-                    'optim': 'Adam',
-                    'split': 0.99,
-                    'lr': .002,
-                    'lr_schedule': [30, .6],
-                    'test_loss_fnc': [],
-                    'preprocess': True,
-                    'noprint': True
-                }
-                acctest, acctrain = net.train_cust((dataset), train_params, gradoff=True)
-                err += min(acctrain) / self.E
-            return 0, err
-        else:
-            # iterate through the validation sets
-            for (i, net), (train_idx, test_idx) in zip(enumerate(self.networks), kf.split(dataset[0])):
-                # only train on training data to ensure diversity
-                X_cust = dataset[0][train_idx, :]
-                U_cust = dataset[1][train_idx, :]
-                dX_cust = dataset[2][train_idx, :]
+            # initializations that normally occur outside of loop
+            # net.init_weights_orth()
+            if self.prob: net.init_loss_fnc(dX_cust, l_mean=1, l_cov=1)  # data for std,
 
-                # initializations that normally occur outside of loop
-                # net.init_weights_orth()
-                if self.prob: net.init_loss_fnc(dX_cust, l_mean=1, l_cov=1)  # data for std,
-
-                # train
-                acctest, acctrain = net.train_cust((X_cust, U_cust, dX_cust), train_params)
-                acctest_l.append(acctest)
-                acctrain_l.append(acctrain)
+            # train
+            acctest, acctrain = net.train_cust((X_cust, U_cust, dX_cust), train_params)
+            acctest_l.append(acctest)
+            acctrain_l.append(acctrain)
 
         return np.transpose(np.array(acctest_l)), np.transpose(np.array(acctrain_l))
 
     def predict(self, X, U, ret_var=False):
-        prediction = np.zeros([9])
-        vars = np.zeros([9])
+        prediction = np.zeros(X.size())
+        # vars = torch.zeros(())
         for net in self.networks:
             if ret_var:
                 raise NotImplementedError("Need to handle Variance Returns")

@@ -28,33 +28,40 @@ def mpc(cfg):
     env = gym.make('CrazyflieRigid-v0')
     env.reset()
 
-    data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
-    X, dX, U = to_XUdX(data)
+    for s in range(cfg.experiment.seeds):
+        log.info(f"Random Seed: {s}")
+        data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
+        X, dX, U = to_XUdX(data)
 
-    # dx = np.shape(X)[1]
-    # du = np.shape(U)[1]
-    # dt = np.shape(dX)[1]
-    #
-    # # if set dimensions, double check them here
-    # if model_cfg.params.dx != -1:
-    #     assert model_cfg.params.dx == dx, "model dimensions in cfg do not match data given"
-    # if model_cfg.params.du != -1:
-    #     assert model_cfg.params.du == du, "model dimensions in cfg do not match data given"
-    # if model_cfg.params.dt != -1:
-    #     assert model_cfg.params.dt == dt, "model dimensions in cfg do not match data given"
-
-    model, train_log = train_model(X, U, dX, cfg.model)
-
-    for i in range(cfg.experiment.num_r):
-        controller = MPController(env, model, cfg.policy)
-        data_new = rollout(env, controller, cfg.experiment)
-
-        X, dX, U = combine_data(data_new, (X, dX, U))
-        msg = "Rollout completed of "
-        msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
-        msg += f"Flight length {len(np.stack(data_new[2]))}"
-        log.info(msg)
+        # dx = np.shape(X)[1]
+        # du = np.shape(U)[1]
+        # dt = np.shape(dX)[1]
+        #
+        # # if set dimensions, double check them here
+        # if model_cfg.params.dx != -1:
+        #     assert model_cfg.params.dx == dx, "model dimensions in cfg do not match data given"
+        # if model_cfg.params.du != -1:
+        #     assert model_cfg.params.du == du, "model dimensions in cfg do not match data given"
+        # if model_cfg.params.dt != -1:
+        #     assert model_cfg.params.dt == dt, "model dimensions in cfg do not match data given"
+        min_reward = -np.inf
         model, train_log = train_model(X, U, dX, cfg.model)
+
+        for i in range(cfg.experiment.num_r):
+            controller = MPController(env, model, cfg.policy)
+            data_new = rollout(env, controller, cfg.experiment)
+
+            X, dX, U = combine_data(data_new, (X, dX, U))
+            msg = "Rollout completed of "
+            msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
+            msg += f"Flight length {len(np.stack(data_new[2]))}"
+            log.info(msg)
+            model, train_log = train_model(X, U, dX, cfg.model)
+
+            if np.sum(np.stack(data_new[2])) > min_reward:
+                min_reward = np.sum(np.stack(data_new[2]))
+
+        log.info(f"Max Reward Achieved: {min_reward}")
 
 
 

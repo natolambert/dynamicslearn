@@ -1,18 +1,19 @@
 defaults:
   - robot: ???
-  - models: linear
+  - models: nn-e #linear
 
 dimension: all
 save: true
 
 experiment:
   num_r: 10
-  r_len: 250
+  r_len: 200
+  seeds: 1
 
 policy:
   mode: mpc
   params:
-    N: 500
+    N: 1000
     T: 5
     hold: false
 
