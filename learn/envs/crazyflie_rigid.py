@@ -174,7 +174,7 @@ class CrazyflieRigidEnv(gym.Env):
         assert next_ob.ndim == 2
         cost_pr = np.power(next_ob[:, 1], 2) + np.power(next_ob[:, 2], 2)
         cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
-        lambda_omega = .0001
+        lambda_omega = .0000
         cost = cost_pr + lambda_omega * cost_rates
         return -cost
 
@@ -190,7 +190,7 @@ class CrazyflieRigidEnv(gym.Env):
 
         cost_pr = next_ob[:, 1].pow(2) + next_ob[:, 2].pow(2)
         cost_rates = next_ob[:, 3].pow(2) + next_ob[:, 4].pow(2) + next_ob[:, 5].pow(2)
-        lambda_omega = .0001
+        lambda_omega = .0000
         cost = cost_pr + lambda_omega * cost_rates
         return -cost
 

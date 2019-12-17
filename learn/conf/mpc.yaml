@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - models: linear
+  - models: nn #linear
 
 dimension: all
 save: true
@@ -8,14 +8,14 @@ checkpoint_file: trial_{}.dat
 random_seed: 1
 
 experiment:
-  num_r: 10
-  r_len: 100
+  num_r: 20
+  r_len: 50
   seeds: 1
 
 policy:
   mode: mpc
   params:
-    N: 1000
+    N: 500
     T: 5
     hold: false
 

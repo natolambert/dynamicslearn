@@ -35,6 +35,7 @@ def mpc(cfg):
 
     env = gym.make('CrazyflieRigid-v0')
     env.reset()
+    trial_rewards = []
 
     # log.info(f"Random Seed: {s}")
     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
@@ -53,11 +54,14 @@ def mpc(cfg):
         msg += f"Flight length {len(np.stack(data_new[2]))}"
         log.info(msg)
 
+        reward = np.sum(rew)
+        trial_rewards.append(reward)
+
         trial_log = dict(
             env_name=cfg.env.params.name,
             seed=cfg.random_seed,
             trial_num=i,
-            rewards=rew,
+            rewards=trial_rewards,
             nll=train_log,
         )
         save_log(cfg, i, trial_log)
