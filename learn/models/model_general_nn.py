@@ -41,7 +41,7 @@ class GeneralNN(nn.Module):
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['training']['dt']
 
-        self.activation = Swish() #hydra.utils.instantiate(nn_params['training']['activ'])
+        self.activation = Swish()  # hydra.utils.instantiate(nn_params['training']['activ'])
         self.d = nn_params['training']['dropout']
         self.split_flag = nn_params['training']['split']
 
@@ -265,8 +265,9 @@ class GeneralNN(nn.Module):
 
         # Papers seem to say ADAM works better
         optimizer = torch.optim.Adam(super(GeneralNN, self).parameters(), lr=lr)
-        optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6, gamma=0.7)  # most results at .6 gamma, tried .33 when got NaN
+        # optimizer = torch.optim.SGD(super(GeneralNN, self).parameters(), lr=lr)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=6,
+                                                    gamma=0.7)  # most results at .6 gamma, tried .33 when got NaN
 
         testloss, trainloss = self._optimize(self.loss_fnc, optimizer, split, scheduler, epochs, batch_size,
                                              dataset)  # trainLoader, testLoader)
@@ -280,16 +281,12 @@ class GeneralNN(nn.Module):
             l = np.shape(X)[0]
         else:
             l = 1
-        # normalizing and converting to single sample
+
         normX = self.scalarX.transform(X.reshape(l, -1))
         normU = self.scalarU.transform(U.reshape(l, -1))
 
         input = torch.Tensor(np.concatenate((normX, normU), axis=1))
 
-        # if l > 1:
-        #     NNout = self.forward(input).data
-        # else:
-        #     NNout = self.forward(input).data[
         NNout = self.forward(input).data
 
         # If probablistic only takes the first half of the outputs for predictions
@@ -312,9 +309,9 @@ class GeneralNN(nn.Module):
         trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
-            scheduler.step()
+
             avg_loss = torch.zeros(1)
-            num_batches = len(trainLoader) / batch_size
+            # num_batches = len(trainLoader) / batch_size
             for i, (input, target) in enumerate(trainLoader):
                 # Add noise to the batch
                 if False:
@@ -333,21 +330,18 @@ class GeneralNN(nn.Module):
                     loss = loss_fn(output, target, self.max_logvar, self.min_logvar)  # compute the loss
                 else:
                     loss = loss_fn(output, target)
+
                 # add small loss term on the max and min logvariance if probablistic network
                 # note, adding this term will backprob the values properly
-                # lambda_logvar = torch.FloatTensor([.01])
                 lambda_logvar = .01
                 if self.prob:
-                    # print(loss)
-                    # print(lambda_logvar * torch.sum((self.max_logvar)))
                     loss += lambda_logvar * torch.sum((self.max_logvar)) - lambda_logvar * torch.sum((self.min_logvar))
 
                 if loss.data.numpy() == loss.data.numpy():
-                    # print(self.max_logvar, self.min_logvar)
                     if not gradoff:
                         loss.backward()  # backpropagate from the loss to fill the gradient buffers
                         optim.step()  # do a gradient descent step
-                    # print('tain: ', loss.item())
+
                 # if not loss.data.numpy() == loss.data.numpy(): # Some errors make the loss NaN. this is a problem.
                 else:
                     print("loss is NaN")  # This is helpful: it'll catch that when it happens,
@@ -358,33 +352,23 @@ class GeneralNN(nn.Module):
                 avg_loss += loss.item() / (
                         len(trainLoader) * batch_size)  # update the overall average loss with this batch's loss
 
-            # self.features.eval()
             test_error = torch.zeros(1)
             for i, (input, target) in enumerate(testLoader):
-
                 output = self.forward(input)
-                # means = output[:,:9]
                 if self.prob:
-                    # loss = self.test_loss_fnc(output[:,:int(self.n_out/2)], target)
-                    # loss = torch.nn.modules.loss.NLLLoss(output[:,:int(self.n_out/2)],target)
                     loss = loss_fn(output, target, self.max_logvar, self.min_logvar)  # compute the loss
                 else:
                     loss = loss_fn(output, target)
-                # print('test: ', loss.item())
+
                 test_error += loss.item() / (len(testLoader) * batch_size)
             test_error = test_error
-            # self.features.train()
-
-            # print("Epoch:", '%04d' % (epoch + 1), "loss=", "{:.9f}".format(avg_loss.data[0]),
-            #          "test_error={:.9f}".format(test_error))
             # if (epoch % 1 == 0): print("Epoch:", '%04d' % (epoch + 1), "train loss=", "{:.6f}".format(avg_loss.data[0]),
             #                            "test loss=", "{:.6f}".format(test_error.data[0]))
-            # if (epoch % 50 == 0) & self.prob: print(self.max_logvar, self.min_logvar)
             error_train.append(avg_loss.data[0].numpy())
             errors.append(test_error.data[0].numpy())
-        # loss_fn.print_mmlogvars()
+            scheduler.step()
+
         return errors, error_train
 
     def save_model(self, filepath):
-        torch.save(self, filepath)  # full model state
-        # For load, use torch.load()
+        torch.save(self, filepath)

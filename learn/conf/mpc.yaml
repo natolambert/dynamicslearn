@@ -1,13 +1,15 @@
 defaults:
   - robot: ???
-  - models: nn-e #linear
+  - models: linear
 
 dimension: all
 save: true
+checkpoint_file: trial_{}.dat
+random_seed: 1
 
 experiment:
   num_r: 10
-  r_len: 200
+  r_len: 100
   seeds: 1
 
 policy:
@@ -17,3 +19,9 @@ policy:
     T: 5
     hold: false
 
+hydra:
+#  run:
+#    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+#    dir: /checkpoint/${env:USER}/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

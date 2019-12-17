@@ -90,29 +90,7 @@ def params_to_training(data):
 def train_model(X, U, dX, model_cfg):
     log.info("Training Model")
     train_log = dict()
-    # nn_params = {  # all should be pretty self-explanatory
-    #     'dx': dx,
-    #     'du': du,
-    #     'dt': dt,
-    #     'hid_width': model_cfg.training.hid_width,
-    #     'hid_depth': model_cfg.training.hid_depth,
-    #     'bayesian_flag': model_cfg.training.probl,
-    #     'activation': Swish(),  # TODO use hydra.utils.instantiate
-    #     'dropout': model_cfg.training.extra.dropout,
-    #     'split_flag': False,
-    #     'ensemble': model_cfg.ensemble
-    # }
-    #s
-    # train_params = {
-    #     'epochs': model_cfg.optimizer.epochs,
-    #     'batch_size': model_cfg.optimizer.batch,
-    #     'optim': model_cfg.optimizer.name,
-    #     'split': model_cfg.optimizer.split,
-    #     'lr': model_cfg.optimizer.lr,  # bayesian .00175, mse:  .0001
-    #     'lr_schedule': model_cfg.optimizer.lr_schedule,
-    #     'test_loss_fnc': [],
-    #     'preprocess': model_cfg.optimizer.preprocess,
-    # }
+
     train_log['model_params'] = model_cfg.params
     model = hydra.utils.instantiate(model_cfg)
     acctest, acctrain = model.train_cust((X, U, dX), model_cfg.params)

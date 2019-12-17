@@ -2,7 +2,13 @@ defaults:
   - robot: ???
   - models: linear
 
-save: false
+save: true
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: /checkpoint/${env:USER}/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
 
 load:
   delta_state: true

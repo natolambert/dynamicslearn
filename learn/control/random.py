@@ -1,5 +1,5 @@
 from .controller import Controller
-
+import numpy as np
 
 class RandomController(Controller):
     def __init__(self, env, controller_cfg):
@@ -11,5 +11,5 @@ class RandomController(Controller):
         return
 
     def get_action(self, state):
-        action = self.env.action_space.sample()
+        action = self.env.action_space.sample().astype(float)
         return action
