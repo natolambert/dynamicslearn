@@ -46,7 +46,9 @@ class MPController(Controller):
             best = torch.argmax(cumulative_reward)
             actions_seq = action_candidates[best, :, :]
             best_action = actions_seq[0]
+
+            return best_action, True
         else:
             best_action = self.last_action
 
-        return best_action
+            return best_action, False

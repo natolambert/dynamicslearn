@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - models: nn #linear
+  - models: linear
 
 dimension: all
 save: true
@@ -9,15 +9,15 @@ random_seed: 1
 
 experiment:
   num_r: 20
-  r_len: 50
+  r_len: 1000
   seeds: 1
 
 policy:
   mode: mpc
   params:
-    N: 500
-    T: 5
-    hold: false
+    N: 1000
+    T: 2
+    hold: true #false
     period: 10
 
 hydra:

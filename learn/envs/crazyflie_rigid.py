@@ -153,7 +153,7 @@ class CrazyflieRigidEnv(gym.Env):
     def reset(self):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-        ypr0 = self.np_random.uniform(low=-0.1, high=0.1, size=(3,))
+        ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
@@ -197,7 +197,7 @@ class CrazyflieRigidEnv(gym.Env):
     def get_done(self, state):
         # Done is pitch or roll > 35 deg
         # pitch is state 7, roll is state 8
-        max_a = 35
+        max_a = 30
         d = (abs(state[1]) > max_a) or (abs(state[2]) > max_a)
         return d
 

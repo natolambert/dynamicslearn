@@ -56,7 +56,7 @@ def mpc(cfg):
         msg += f"Flight length {len(np.stack(data_new[2]))}"
         log.info(msg)
 
-        plot_rollout(data_new[0])
+        plot_rollout(data_new[0], data_new[1])
 
         reward = np.sum(rew)
         trial_rewards.append(reward)
@@ -98,33 +98,50 @@ def rollout(env, controller, exp_cfg):
     for t in range(exp_cfg.r_len):
         if done:
             break
-        action = controller.get_action(state)
-        states.append(state)
-        actions.append(action)
+        action, update = controller.get_action(state)
+        if update:
+            states.append(state)
+            actions.append(action)
 
         state, rew, done, _ = env.step(action)
-        rews.append(rew)
+        if update:
+            rews.append(rew)
 
     return states, actions, rews
 
 
-def plot_rollout(states):
+def plot_rollout(states, actions):
     import plotly.graph_objects as go
     import numpy as np
+    import plotly
     ar = np.stack(states)
     l = np.shape(ar)[0]
     xs = np.arange(l)
+
     yaw = ar[:,0]
     pitch = ar[:,1]
     roll = ar[:,2]
 
-    fig = go.Figure()
+    actions = np.stack(actions)
+
+    fig = plotly.subplots.make_subplots(rows=2, cols=1,
+                                        subplot_titles=("Euler Angles", "Actions"),
+                                        vertical_spacing=.15) #go.Figure()
     fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw',
-                             line=dict(color='firebrick', width=4)))
+                             line=dict(color='firebrick', width=4)), row=1, col=1)
     fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch',
-                             line=dict(color='royalblue', width=4)))
+                             line=dict(color='royalblue', width=4)), row=1, col=1)
     fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll',
-                             line=dict(color='green', width=4)))
+                             line=dict(color='green', width=4)), row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=xs, y=actions[:,0], name='M1',
+                             line=dict(color='firebrick', width=4)), row=2, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=actions[:,1], name='M2',
+                             line=dict(color='royalblue', width=4)), row=2, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=actions[:,2], name='M3',
+                             line=dict(color='green', width=4)), row=2, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=actions[:,3], name='M4',
+                             line=dict(color='orange', width=4)), row=2, col=1)
 
     fig.update_layout(title='Euler Angles from MPC Rollout',
                       xaxis_title='Timestep',
