@@ -5,6 +5,8 @@ Working directory for my work on model-based reinforcement learning for novel ro
 First paper website: [https://sites.google.com/berkeley.edu/mbrl-quadrotor/](https://sites.google.com/berkeley.edu/mbrl-quadrotor/)
 There is current future work using this library, such as attempting to control the Ionocraft with model-based RL.  [https://sites.google.com/berkeley.edu/mbrl-ionocraft/](https://sites.google.com/berkeley.edu/mbrl-ionocraft/)
 
+*Note that I have been very actively developing in this repo, please reach out if you have any questions of accuracy in the readme*.
+
 This directory is working towards an implementation of many simulated model-based approaches on real robots. For current state of the art in simulation, see this work from Prof Sergey Levine's group: [Deep Reinforcement Learning in a Handful of Trials using Probabilistic Dynamics Models](https://arxiv.org/abs/1805.12114).
 
 Future implementations work towards controlled flight of the ionocraft,
@@ -24,12 +26,14 @@ $ python learn/trainer.py robot=iono
 Main Scripts:
 ---------------
 - `learn/trainer.py`: is for training dynamics models (P,PE,D,DE) on experimental data. The training process uses [Hydra](https://github.com/facebookresearch/hydra) to allow easy configuration of which states are used and how the predictions are formatted. 
+- `learn/simulate_mpc.py`: a script that runs MBRL with a MPC on a simulated environment.
+- `learn/bo.py`: For generating PID parameters using a dynamics model as a simulation environment. This will eventually extend beyond PID control. See the controllers directory `learn/control`. I am working to integrate [opto](https://github.com/robertocalandra/opto).
 - `learn/plot.py`: a script for viewing different types of predictions, under improvement
 
 In Development:
 -------------
-- `learn/bo_pid.py`: For generating PID parameters using a dynamics model as a simulation environment. This will eventually extend beyond PID control. See the controllers directory `learn/control`. I am working to integrate [opto](https://github.com/robertocalandra/opto).
-- `learn/pipps_experiment.py`: A reimplementation of the paper ["PIPPS: Flexible Model-Based Policy Search Robust to the Curse of Chaos"](https://arxiv.org/abs/1902.01240). I wrote a blog post summarizing the main derivation behind this work [here](https://medium.com/me/stats/post/4546434c84b0).
+
+- `learn/pipps_experiment.py`: A reimplementation of the paper ["PIPPS: Flexible Model-Based Policy Search Robust to the Curse of Chaos"](https://arxiv.org/abs/1902.01240). I wrote a blog post summarizing the main derivation behind this work [here](https://medium.com/@natolambert/deep-rl-case-study-policy-based-vs-model-conditioned-gradients-in-rl-4546434c84b0).
 
 Related Code for Experiments:
 -----------------------------
