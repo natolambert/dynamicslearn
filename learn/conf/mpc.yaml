@@ -18,6 +18,7 @@ policy:
     N: 500
     T: 5
     hold: false
+    period: 10
 
 hydra:
 #  run:

@@ -162,6 +162,7 @@ def gen_pid_params(policy_cfg):
 
 class PidPolicy(Controller):
     def __init__(self, cfg):
+        super(PidPolicy, self).__init__(cfg)
         self.mode = cfg.mode
         self.pids = []
 
@@ -260,6 +261,7 @@ class PidPolicy(Controller):
         return np.array(output)
 
     def reset(self):
+        self.interal = 0
         [p.reset() for p in self.pids]
 
     def update(self, states):

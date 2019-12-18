@@ -38,7 +38,7 @@ class CrazyflieRigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.02, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
+    def __init__(self, dt=.01, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
