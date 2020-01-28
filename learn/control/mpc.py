@@ -47,8 +47,10 @@ class MPController(Controller):
             actions_seq = action_candidates[best, :, :]
             best_action = actions_seq[0]
 
+            self.last_action = best_action
+            self.internal += 1
             return best_action, True
         else:
+            self.internal += 1
             best_action = self.last_action
-
             return best_action, False

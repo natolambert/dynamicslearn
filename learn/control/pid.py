@@ -165,6 +165,9 @@ class PidPolicy(Controller):
         super(PidPolicy, self).__init__(cfg)
         self.mode = cfg.mode
         self.pids = []
+        self.cfg = cfg
+        self.update_period = cfg.params.period
+        self.interal = 0
 
         # assert len(cfg.params.min_pwm) == len(cfg.params.equil)
         # assert len(cfg.params.max_pwm) == len(cfg.params.equil)
@@ -212,53 +215,76 @@ class PidPolicy(Controller):
             pid.ki = set[1]
             pid.kd = set[2]
 
+    def reset_params(self):
+        parameters = gen_pid_params(self.cfg)
+        for i, set in enumerate(parameters):
+            """
+            def __init__(self, desired,
+                 kp, ki, kd,
+                 ilimit, dt, outlimit=np.inf,
+                 samplingRate=0, cutoffFreq=-1,
+                 enableDFilter=False):
+             """
+            pid = self.pids[i]
+            pid.kp = set[0]
+            pid.ki = set[1]
+            pid.kd = set[2]
+
     def get_action(self, state):
+        if self.internal % self.update_period == 0:
+            # PIDs must always come in order of states then
+            for i, pid in enumerate(self.pids):
+                pid.update(state[i])
 
-        # PIDs must always come in order of states then
-        for i, pid in enumerate(self.pids):
-            pid.update(state[i])
+            def limit_thrust(pwm):  # Limits the thrust
+                return np.clip(pwm, self.min_pwm, self.max_pwm)
 
-        def limit_thrust(pwm):  # Limits the thrust
-            return np.clip(pwm, self.min_pwm, self.max_pwm)
+            output = [0, 0, 0, 0]
+            # PWM structure: 0:front right  1:front left  2:back left   3:back right
+            '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
+            # TODO VERIFY THESE FOR IONOCRAFT
+            if self.mode == 'BASIC':
+                output[0] = limit_thrust(self.equil[0] + self.pids[0].out + self.pids[1].out)
+                output[1] = limit_thrust(self.equil[1] + self.pids[0].out - self.pids[1].out)
+                output[2] = limit_thrust(self.equil[2] - self.pids[0].out - self.pids[1].out)
+                output[3] = limit_thrust(self.equil[3] - self.pids[0].out + self.pids[1].out)
+            elif self.mode == 'EULER':
+                output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
+                output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
+                output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
+                output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
+            elif self.mode == 'HYBRID':
+                output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
+                output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
+                output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
+                output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
+            elif self.mode == 'RATE':  # update this with the signs above
+                output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
+                output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
+                output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
+                output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
+            elif self.mode == 'ALL':  # update this with the signs above
+                output[0][0] = limit_thrust(
+                    self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out - self.pids[
+                        4].out + self.pids[5].out)
+                output[0][1] = limit_thrust(
+                    self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out - self.pids[
+                        4].out - self.pids[5].out)
+                output[0][2] = limit_thrust(
+                    self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out + self.pids[
+                        4].out + self.pids[5].out)
+                output[0][3] = limit_thrust(
+                    self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out + self.pids[
+                        4].out - self.pids[5].out)
 
-        output = [0, 0, 0, 0]
-        # PWM structure: 0:front right  1:front left  2:back left   3:back right
-        '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
-        # TODO VERIFY THESE FOR IONOCRAFT
-        if self.mode == 'BASIC':
-            output[0] = limit_thrust(self.equil[0] + self.pids[0].out + self.pids[1].out)
-            output[1] = limit_thrust(self.equil[1] + self.pids[0].out - self.pids[1].out)
-            output[2] = limit_thrust(self.equil[2] - self.pids[0].out - self.pids[1].out)
-            output[3] = limit_thrust(self.equil[3] - self.pids[0].out + self.pids[1].out)
-        elif self.mode == 'EULER':
-            output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
-            output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
-            output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
-            output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
-        elif self.mode == 'HYBRID':
-            output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
-            output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
-            output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
-            output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
-        elif self.mode == 'RATE':  # update this with the signs above
-            output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
-            output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
-            output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
-            output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
-        elif self.mode == 'ALL':  # update this with the signs above
-            output[0][0] = limit_thrust(
-                self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out - self.pids[
-                    4].out + self.pids[5].out)
-            output[0][1] = limit_thrust(
-                self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out - self.pids[
-                    4].out - self.pids[5].out)
-            output[0][2] = limit_thrust(
-                self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out + self.pids[
-                    4].out + self.pids[5].out)
-            output[0][3] = limit_thrust(
-                self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out + self.pids[
-                    4].out - self.pids[5].out)
-        return np.array(output)
+            self.internal += 1
+            self.last_action = np.array(output)
+            return np.array(output), True
+        else:
+
+            self.internal += 1
+            best_action = self.last_action
+            return best_action, False
 
     def reset(self):
         self.interal = 0

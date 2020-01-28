@@ -17,7 +17,7 @@ from learn.trainer import train_model
 import gym
 import logging
 import hydra
-from learn.utils.plotly import plot_rewards_over_trials
+from learn.utils.plotly import plot_rewards_over_trials, plot_rollout
 
 log = logging.getLogger(__name__)
 
@@ -60,10 +60,10 @@ def mpc(cfg):
             msg += f"Flight length {len(np.stack(data_new[2]))}"
             log.info(msg)
 
-            # plot_rollout(data_new[0], data_new[1])
+            plot_rollout(data_new[0], data_new[1])
 
             reward = np.sum(rew)
-            reward = max(-10000, reward)
+            # reward = max(-10000, reward)
             trial_rewards.append(reward)
 
             trial_log = dict(
@@ -108,15 +108,15 @@ def rollout(env, controller, exp_cfg):
         if done:
             break
         action, update = controller.get_action(state)
-        if update:
-            states.append(state)
-            actions.append(action)
+        # if update:
+        states.append(state)
+        actions.append(action)
 
         state, rew, done, _ = env.step(action)
         sim_error = euler_numer(last_state, state)
         done = done or sim_error
-        if update:
-            rews.append(rew)
+        # if update:
+        rews.append(rew)
 
     return states, actions, rews
 
@@ -132,55 +132,6 @@ def euler_numer(last_state, state):
     if flag:
         print("Stopping - Large euler angle step detected, likely non-physical")
     return flag
-
-
-def plot_rollout(states, actions):
-    import plotly.graph_objects as go
-    import numpy as np
-    import plotly
-    ar = np.stack(states)
-    l = np.shape(ar)[0]
-    xs = np.arange(l)
-
-    yaw = ar[:, 0]
-    pitch = ar[:, 1]
-    roll = ar[:, 2]
-
-    actions = np.stack(actions)
-
-    fig = plotly.subplots.make_subplots(rows=2, cols=1,
-                                        subplot_titles=("Euler Angles", "Actions"),
-                                        vertical_spacing=.15)  # go.Figure()
-    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw',
-                             line=dict(color='firebrick', width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch',
-                             line=dict(color='royalblue', width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll',
-                             line=dict(color='green', width=4)), row=1, col=1)
-
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
-                             line=dict(color='firebrick', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
-                             line=dict(color='royalblue', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
-                             line=dict(color='green', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
-                             line=dict(color='orange', width=4)), row=2, col=1)
-
-    fig.update_layout(title='Euler Angles from MPC Rollout',
-                      xaxis_title='Timestep',
-                      yaxis_title='Angle (Degrees)',
-                      plot_bgcolor='white',
-                      xaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      yaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      )
-    fig.show()
 
 
 if __name__ == '__main__':

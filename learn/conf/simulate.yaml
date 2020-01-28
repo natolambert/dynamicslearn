@@ -13,6 +13,7 @@ policy:
     min_pwm: 0 #[0,0,0,0]
     max_pwm: 3000 #[3000, 3000, 3000, 3000]
     dt: .02
+    period: 1
   pid:
     params:
       min_values: [0, 0]

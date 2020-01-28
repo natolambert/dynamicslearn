@@ -9,7 +9,7 @@ random_seed: 1
 
 experiment:
   num_r: 15
-  r_len: 100
+  r_len: 250
   seeds: 10
 
 policy:
@@ -18,7 +18,24 @@ policy:
     N: 2000
     T: 5
     hold: true #false
-    period: 10
+    period: 2
+
+control:
+  mode: BASIC
+  params:
+    equil: [16383, 16383, 16383, 16383]
+    min_pwm: 0 #[0,0,0,0]
+    max_pwm: 65535 #[3000, 3000, 3000, 3000]
+    dt: .01
+    period: 2
+  pid:
+    params:
+      min_values: [0, 0]
+      max_values: [30000, 2500]
+
+bo:
+  iterations: 15
+
 
 hydra:
 #  run:
