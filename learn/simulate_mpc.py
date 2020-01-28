@@ -17,6 +17,7 @@ from learn.trainer import train_model
 import gym
 import logging
 import hydra
+from learn.utils.plotly import plot_rewards_over_trials
 
 log = logging.getLogger(__name__)
 
@@ -35,42 +36,49 @@ def mpc(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    env = gym.make('CrazyflieRigid-v0')
+    env_name = 'CrazyflieRigid-v0'
+    env = gym.make(env_name)
     env.reset()
-    trial_rewards = []
+    full_rewards = []
 
-    # log.info(f"Random Seed: {s}")
-    data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
-    X, dX, U = to_XUdX(data)
-
-    model, train_log = train_model(X, U, dX, cfg.model)
-
-    for i in range(cfg.experiment.num_r):
-        controller = MPController(env, model, cfg.policy)
-        data_new = rollout(env, controller, cfg.experiment)
-        rew = np.stack(data_new[2])
-
-        X, dX, U = combine_data(data_new, (X, dX, U))
-        msg = "Rollout completed of "
-        msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
-        msg += f"Flight length {len(np.stack(data_new[2]))}"
-        log.info(msg)
-
-        plot_rollout(data_new[0], data_new[1])
-
-        reward = np.sum(rew)
-        trial_rewards.append(reward)
-
-        trial_log = dict(
-            env_name=cfg.env.params.name,
-            seed=cfg.random_seed,
-            trial_num=i,
-            rewards=trial_rewards,
-            nll=train_log,
-        )
-        save_log(cfg, i, trial_log)
+    for s in range(cfg.experiment.seeds):
+        trial_rewards = []
+        log.info(f"Random Seed: {s}")
+        data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
+        X, dX, U = to_XUdX(data)
 
         model, train_log = train_model(X, U, dX, cfg.model)
+
+        for i in range(cfg.experiment.num_r):
+            controller = MPController(env, model, cfg.policy)
+            data_new = rollout(env, controller, cfg.experiment)
+            rew = np.stack(data_new[2])
+
+            X, dX, U = combine_data(data_new, (X, dX, U))
+            msg = "Rollout completed of "
+            msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
+            msg += f"Flight length {len(np.stack(data_new[2]))}"
+            log.info(msg)
+
+            # plot_rollout(data_new[0], data_new[1])
+
+            reward = np.sum(rew)
+            reward = max(-10000, reward)
+            trial_rewards.append(reward)
+
+            trial_log = dict(
+                env_name=cfg.env.params.name,
+                seed=cfg.random_seed,
+                trial_num=i,
+                rewards=trial_rewards,
+                nll=train_log,
+            )
+            save_log(cfg, i, trial_log)
+
+            model, train_log = train_model(X, U, dX, cfg.model)
+        full_rewards.append(trial_rewards)
+
+    plot_rewards_over_trials(full_rewards, env_name)
 
 
 def to_XUdX(data):
@@ -96,6 +104,7 @@ def rollout(env, controller, exp_cfg):
     rews = []
     state = env.reset()
     for t in range(exp_cfg.r_len):
+        last_state = state
         if done:
             break
         action, update = controller.get_action(state)
@@ -104,10 +113,25 @@ def rollout(env, controller, exp_cfg):
             actions.append(action)
 
         state, rew, done, _ = env.step(action)
+        sim_error = euler_numer(last_state, state)
+        done = done or sim_error
         if update:
             rews.append(rew)
 
     return states, actions, rews
+
+
+def euler_numer(last_state, state):
+    flag = False
+    if abs(state[3] - last_state[3]) > 5:
+        flag = True
+    elif abs(state[4] - last_state[4]) > 5:
+        flag = True
+    elif abs(state[5] - last_state[5]) > 5:
+        flag = True
+    if flag:
+        print("Stopping - Large euler angle step detected, likely non-physical")
+    return flag
 
 
 def plot_rollout(states, actions):
@@ -118,15 +142,15 @@ def plot_rollout(states, actions):
     l = np.shape(ar)[0]
     xs = np.arange(l)
 
-    yaw = ar[:,0]
-    pitch = ar[:,1]
-    roll = ar[:,2]
+    yaw = ar[:, 0]
+    pitch = ar[:, 1]
+    roll = ar[:, 2]
 
     actions = np.stack(actions)
 
     fig = plotly.subplots.make_subplots(rows=2, cols=1,
                                         subplot_titles=("Euler Angles", "Actions"),
-                                        vertical_spacing=.15) #go.Figure()
+                                        vertical_spacing=.15)  # go.Figure()
     fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw',
                              line=dict(color='firebrick', width=4)), row=1, col=1)
     fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch',
@@ -134,13 +158,13 @@ def plot_rollout(states, actions):
     fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll',
                              line=dict(color='green', width=4)), row=1, col=1)
 
-    fig.add_trace(go.Scatter(x=xs, y=actions[:,0], name='M1',
+    fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
                              line=dict(color='firebrick', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:,1], name='M2',
+    fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
                              line=dict(color='royalblue', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:,2], name='M3',
+    fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
                              line=dict(color='green', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:,3], name='M4',
+    fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
                              line=dict(color='orange', width=4)), row=2, col=1)
 
     fig.update_layout(title='Euler Angles from MPC Rollout',
@@ -150,11 +174,11 @@ def plot_rollout(states, actions):
                       xaxis=dict(
                           showline=True,
                           showgrid=False,
-                          showticklabels=True,),
+                          showticklabels=True, ),
                       yaxis=dict(
                           showline=True,
                           showgrid=False,
-                          showticklabels=True,),
+                          showticklabels=True, ),
                       )
     fig.show()
 

@@ -8,15 +8,15 @@ checkpoint_file: trial_{}.dat
 random_seed: 1
 
 experiment:
-  num_r: 20
-  r_len: 1000
-  seeds: 1
+  num_r: 15
+  r_len: 100
+  seeds: 10
 
 policy:
   mode: mpc
   params:
-    N: 1000
-    T: 2
+    N: 2000
+    T: 5
     hold: true #false
     period: 10
 

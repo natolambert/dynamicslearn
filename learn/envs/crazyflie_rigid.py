@@ -197,7 +197,7 @@ class CrazyflieRigidEnv(gym.Env):
     def get_done(self, state):
         # Done is pitch or roll > 35 deg
         # pitch is state 7, roll is state 8
-        max_a = 30
+        max_a = 45
         d = (abs(state[1]) > max_a) or (abs(state[2]) > max_a)
         return d
 

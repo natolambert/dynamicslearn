@@ -290,15 +290,17 @@ def plot_cost_itr(logs, cfg):
     itr = np.arange(0, logs.data.n_evals)
     costs = logs.data.fx
     best = logs.data.opt_fx
-    ax = plt.subplot(111)
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
     cum_min = np.minimum.accumulate(costs.squeeze()) - .02
-    plt.step(itr, costs.squeeze(), where='mid', label='Cost at Iteration')  # drawstyle="steps-post",
-    plt.step(itr, cum_min, where='mid', label='Best Cost')  # drawstyle="steps-post", l
-    plt.legend()
+    ax.step(itr, costs.squeeze(), where='mid', label='Cost at Iteration')  # drawstyle="steps-post",
+    ax.step(itr, cum_min, where='mid', label='Best Cost')  # drawstyle="steps-post", l
+    ax.legend()
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Weighted, Cumulative Attitude Cost")
     ax.set_ylim([0, 5])
-    plt.savefig("costs.pdf")
+    fig.savefig("costs.pdf")
+    ax.clear()
     return
 
 
@@ -313,17 +315,20 @@ def plot_parameters(logs, cfg):
     Kd2 = samples[:, 3]
 
     import matplotlib.pyplot as plt
-    ax1 = plt.subplot(111)
+    fig2 = plt.figure()
+    ax1 = fig2.add_subplot(1, 1, 1)
     ax1.scatter(Kp1, Kp2, label='sampled Kp')
     ax1.scatter(best[0], best[2], marker='*', s=130, label='Best Kp')
     ax1.set_ylim([0, cfg.policy.pid.params.max_values[0]])
     ax1.set_xlim([0, cfg.policy.pid.params.max_values[0]])
     ax1.set_xlabel("KP Pitch")
     ax1.set_ylabel("KP Roll")
-    plt.legend()
-    plt.savefig("KP.pdf")
+    ax1.legend()
+    fig2.savefig("KP.pdf")
+    ax1.clear()
 
-    ax2 = plt.subplot(111)
+    fig3 = plt.figure()
+    ax2 = fig3.add_subplot(1, 1, 1)
     ax2.scatter(Kd1, Kd2, label='sampled Kd')
     ax2.scatter(best[1], best[3], marker='*', s=130, label='Best Kd')
     ax2.set_ylim([0, cfg.policy.pid.params.max_values[1]])
@@ -331,7 +336,8 @@ def plot_parameters(logs, cfg):
     ax2.set_xlabel("KD Pitch")
     ax2.set_ylabel("KD Roll")
     ax2.legend()
-    plt.savefig("KD.pdf")
+    fig3.savefig("KD.pdf")
+    ax2.clear()
     return
 
 
