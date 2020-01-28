@@ -17,7 +17,7 @@ from collections import defaultdict
 sys.path.append(os.getcwd())
 log = logging.getLogger(__name__)
 
-from learn.utils.plotly import plot_rewards_over_trials
+from learn.utils.plotly import plot_rewards_over_trials, hv_characterization
 ######################################################################
 @hydra.main(config_path='conf/plotting.yaml')
 def plot(cfg):
@@ -25,6 +25,8 @@ def plot(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    hv_characterization()
+    quit()
     ######################################################################
     logs = defaultdict(list)
     configs = defaultdict(list)
