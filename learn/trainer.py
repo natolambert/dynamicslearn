@@ -8,7 +8,8 @@ sys.path.append(os.getcwd())
 # from utils_nn import *
 from learn.utils.data import *
 from learn.utils.nn import *
-
+import learn.utils.matplotlib as u_p
+from learn.utils.plotly import plot_test_train
 # neural nets
 from learn.models.model_general_nn import GeneralNN
 from learn.models.model_ensemble_nn import EnsembleNN
@@ -38,9 +39,9 @@ def save_file(object, filename):
 def create_model_params(df, model_cfg):
     # only take targets from robot.yaml
     target_keys = []
-    for typ in model_cfg.delta_state_targets:
+    for typ in model_cfg.params.delta_state_targets:
         target_keys.append(typ + '_0dx')
-    for typ in model_cfg.true_state_targets:
+    for typ in model_cfg.params.true_state_targets:
         target_keys.append(typ + '_1fx')
 
     # grab variables
@@ -48,15 +49,19 @@ def create_model_params(df, model_cfg):
     history_actions = df.filter(regex='tu')
 
     # add extra inputs like objective function
+    extra = False
     extra_inputs = []
-    if model_cfg.extra_inputs:
-        for extra in model_cfg.extra_inputs:
-            extra_inputs.append(extra)
+    if model_cfg.params.extra_inputs:
+        for extra in model_cfg.params.extra_inputs:
+            df_e = df.filter(regex=extra)
+            extra_inputs.append(df_e)
+        extra = True
+        extra_df = pd.concat(extra_inputs)
 
     # trim past states to be what we want
     history = int(history_states.columns[-1][-3])
-    if history > model_cfg.history:
-        for i in range(history, model_cfg.history, -1):
+    if history > model_cfg.params.history:
+        for i in range(history, model_cfg.params.history, -1):
             str_remove = str(i) + 't'
             for state in history_states.columns:
                 if str_remove in state:
@@ -66,7 +71,7 @@ def create_model_params(df, model_cfg):
                     history_actions.drop(columns=action, inplace=True)
 
     # ignore states not helpful to prediction
-    for ignore in model_cfg.ignore_in:
+    for ignore in model_cfg.params.ignore_in:
         for state in history_states.columns:
             if ignore in state:
                 history_states.drop(columns=state, inplace=True)
@@ -74,7 +79,10 @@ def create_model_params(df, model_cfg):
     params = dict()
     params['targets'] = df.loc[:, target_keys]
     params['states'] = history_states
-    params['inputs'] = history_actions
+    if extra:
+        params['inputs'] = pd.concat([history_actions, extra_df])
+    else:
+        params['inputs'] = history_actions
     # TODO add extra inputs to these parameters
 
     return params
@@ -148,6 +156,8 @@ def trainer(cfg):
     model.store_training_lists(list(data['states'].columns),
                                list(data['inputs'].columns),
                                list(data['targets'].columns))
+
+    plot_test_train(model, (X, U, dX), variances=True)
 
     msg = "Trained Model..."
     msg += "Prediction List" + str(list(data['targets'].columns)) + "\n"

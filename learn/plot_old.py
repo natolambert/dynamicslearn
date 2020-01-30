@@ -1,5 +1,5 @@
 
-import utils.plot as u_p
+import utils.matplotlib as u_p
 import utils.data as u_d
 import torch
 import numpy as np
@@ -7,6 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
+
+import os
+import sys
+
+# sys.path.append(os.getcwd())
 
 
 # load initial state or generate.
@@ -114,25 +119,25 @@ load_params = {
     'zero_yaw': True,
     'moving_avg': 2
 }
-model = "_models/temp/2019-05-02--09-43-01.5_temp_stack3_.pth"
-df = u_d.stack_dir_pd_iono('video-setup/', load_params)
+# model = "_models/temp/2019-05-02--09-43-01.5_temp_stack3_.pth"
+# df = u_d.stack_dir_pd_iono('video-setup/', load_params)
 
-
-nn = torch.load(
-    model)
-nn.eval()
-state_list, input_list, change_list = nn.get_training_lists()
-
-data_params = {'states': state_list, 'inputs': input_list,
-               'targets': change_list, 'battery': False}
-
-
-(X, U, dX) = u_d.df_to_training(df, data_params)
-# print(X)
-
-
-u_p.plot_test_train(nn, (X, U, dX), variances=False)
-quit()
+#
+# nn = torch.load(
+#     model)
+# nn.eval()
+# state_list, input_list, change_list = nn.get_training_lists()
+#
+# data_params = {'states': state_list, 'inputs': input_list,
+#                'targets': change_list, 'battery': False}
+#
+#
+# (X, U, dX) = u_d.df_to_training(df, data_params)
+# # print(X)
+#
+#
+# u_p.plot_test_train(nn, (X, U, dX), variances=False)
+# quit()
 
 # dir_list = ["_newquad1/fixed_samp/c100_samp300_rand/",
 #             "_newquad1/fixed_samp/c100_samp300_roll1/", 

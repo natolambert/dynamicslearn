@@ -10,146 +10,25 @@ import os
 import plotly
 import matplotlib.pyplot as plt
 
+from .sim import gather_predictions
 
-def plot_euler_preds(model, dataset):
-    """
-    returns a 3x1 plot of the Euler angle predictions for a given model and dataset
-    """
-
-    predictions_1 = gather_predictions(model, dataset)
-
-    X = dataset[0]
-    U = dataset[1]
-    dX = dataset[2]
-
-    dim = 3
-
-    shift = 0
-    # lx = int(n*.99)
-    # Grab correction dimension data # for training :int(.8*n)
-
-    if delta:
-        ground_dim_1 = dX[:, 3]
-        ground_dim_2 = dX[:, 4]
-        ground_dim_3 = dX[:, 5]
-
-    pred_dim_1 = predictions_1[:, 3]  # 3]
-    pred_dim_2 = predictions_1[:, 4]  # 4]
-    pred_dim_3 = predictions_1[:, 5]  # 5]
-    global_dim_1 = X[:, 0 + shift + dim]  # 3
-    global_dim_2 = X[:, 1 + shift + dim]  # 4
-    global_dim_3 = X[:, 2 + shift + dim]  # 5
-
-    # Sort with respect to ground truth
-    # data = zip(ground_dim,pred_dim_1, ground_dim_2, ground_dim_3)
-    # data = sorted(data, key=lambda tup: tup[0])
-    # ground_dim_sort, pred_dim_sort_1, ground_dim_sort_2, ground_dim_sort_3 = zip(*data)
-
-    # sorts all three dimenions for YPR
-    data = zip(ground_dim_1, pred_dim_1, global_dim_1)
-    data = sorted(data, key=lambda tup: tup[0])
-    ground_dim_sort_1, pred_dim_sort_1, global_dim_sort_1 = zip(*data)
-
-    data = zip(ground_dim_2, pred_dim_2, global_dim_2)
-    data = sorted(data, key=lambda tup: tup[0])
-    ground_dim_sort_2, pred_dim_sort_2, global_dim_sort_2 = zip(*data)
-
-    data = zip(ground_dim_3, pred_dim_3, global_dim_3)
-    data = sorted(data, key=lambda tup: tup[0])
-    ground_dim_sort_3, pred_dim_sort_3, global_dim_sort_3 = zip(*data)
-
-    font = {'size': 18}
-
-    matplotlib.rc('font', **font)
-    matplotlib.rc('lines', linewidth=2.5)
-
-    # plt.tight_layout()
-
-    with sns.axes_style("darkgrid"):
-        ax1 = plt.subplot(311)
-        ax2 = plt.subplot(312)
-        ax3 = plt.subplot(313)
-
-    my_dpi = 300
-    plt.figure(figsize=(1200 / my_dpi, 1200 / my_dpi), dpi=my_dpi)
-    ax1.axhline(0, linestyle=':', color='r', linewidth=1)
-    ax1.plot(ground_dim_sort_1, label='Ground Truth', color='k', linewidth=1.8)
-    ax1.plot(pred_dim_sort_1, ':', label='Model Prediction',
-             markersize=.9, linewidth=.8)  # , linestyle=':')
-    # ax1.set_xlabel('Sorted Datapoints')
-    ax1.set_ylabel('Pitch Step (Deg.)')
-    # ax1.set_ylim([-5,5])
-    # ax1.set_yticks(np.arange(-5,5.01,2.5))
-
-    # ax1.legend()
-    # plt.show()
-
-    # plt.title('One Step Dim+1')
-    ax2.axhline(0, linestyle=':', color='r', linewidth=1)
-    ax2.plot(ground_dim_sort_2, label='Ground Truth', color='k', linewidth=1.8)
-    ax2.plot(pred_dim_sort_2, ':', label='Model Prediction',
-             markersize=.9, linewidth=.8)  # , linestyle=':')
-
-    # ax2.set_xlabel('Sorted Datapoints')
-    ax2.set_ylabel('Roll Step (Deg.)')
-    # ax2.set_ylim([-5,5])
-    # ax2.set_yticks(np.arange(-5,5.01,2.5))
-    # ax2.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"])
-
-    # ax2.legend()
-    # plt.show()
-
-    # plt.title('One Step Dim+2')
-    ax3.axhline(0, linestyle=':', color='r', linewidth=1)
-    ax3.plot(ground_dim_sort_3, label='Ground Truth', color='k', linewidth=1.8)
-    ax3.plot(pred_dim_sort_3, ':', label='Model Prediction',
-             markersize=.9, linewidth=.8)  # , linestyle=':')
-
-    ax3.set_xlabel('Sorted Datapoints')
-    ax3.set_ylabel('Yaw Step (Deg.)')
-    ax3.set_ylim([-5, 5])
-    ax3.set_yticks(np.arange(-5, 5.01, 2.5))
-    leg3 = ax3.legend(loc=8, ncol=2)
-    for line in leg3.get_lines():
-        line.set_linewidth(2.5)
-    plt.show()
-
-
-def plot_test_train(model, dataset, variances=True):
+def plot_test_train(model, dataset, variances=False):
     """
     Takes a dynamics model and plots test vs train predictions on a dataset of the form (X,U,dX)
     - variances adds a highlight showing the variance of one step prediction estimates
     """
-    '''
-    Some Models:
-    model_pll = '_models/temp/2018-12-14--10-47-41.7_plot_pll_stack3_.pth'
-    model_mse = '_models/temp/2018-12-14--10-51-10.9_plot_mse_stack3_.pth'
-    model_pll_ens = '_models/temp/2018-12-14--10-53-42.9_plot_pll_ensemble_stack3_.pth'
-    model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
-    model_mse_ens = '_models/temp/2018-12-14--10-52-40.4_plot_mse_ensemble_stack3_.pth'
-
-    25Hz models for with variance
-    new ensemble: '_models/temp/2019-02-23--16-10-00.4_plot_temp__stack3_'
-    new single: '_models/temp/2019-02-23--17-03-22.0_plot_temp_single_stack3_'
-    '''
-    # for crazyflie plots
-    model_pll_ens_10 = '_models/temp/2018-12-14--11-49-21.6_plot_pll_ens_10_stack3_.pth'
-    model_testing = '_models/temp/2019-02-25--09-51-49.1_temp_single_debug_stack3_.pth'
-
-    # below for iono
-    model_testing = "_models/temp/2019-05-02--09-43-01.5_temp_stack3_.pth"
     if variances:
         predictions_means, predictions_vars = gather_predictions(
-            model_testing, dataset, variances=variances)
+            model, dataset, variances=variances)
     else:
         predictions_means = gather_predictions(
-            model_testing, dataset, variances=variances)
+            model, dataset, variances=variances)
 
     X = dataset[0]
     U = dataset[1]
     dX = dataset[2]
 
-    dim = 3
+    dim = 1
     # New plot
     font = {'size': 11}
 
@@ -317,10 +196,10 @@ def plot_rewards_over_trials(rewards, env_name):
 
 
 def hv_characterization():
-    d1 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/Characterization/data/DACinHVout.csv'
-    d2 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/Characterization/data/IVstepping.csv'
-    d3 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/Characterization/data/stepresponse.csv'
-    d4 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/Characterization/data/weirdHVrail.csv'
+    d1 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/data_setup/data/DACinHVout.csv'
+    d2 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/data_setup/data/IVstepping.csv'
+    d3 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/data_setup/data/stepresponse.csv'
+    d4 = '/Users/nato/Documents/Berkeley/Research/Ionocraft/data_setup/data/weirdHVrail.csv'
 
     import plotly.io as pio
     import plotly.graph_objects as go

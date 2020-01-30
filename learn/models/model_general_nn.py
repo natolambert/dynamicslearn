@@ -36,10 +36,11 @@ class GeneralNN(nn.Module):
         self.hidden_w = nn_params['training']['hid_width']
         self.depth = nn_params['training']['hid_depth']
 
-        self.n_in_input = nn_params['training']['du']
-        self.n_in_state = nn_params['training']['dx']
+        self.hist = nn_params['history']
+        self.n_in_input = nn_params['du']*self.hist
+        self.n_in_state = nn_params['dx']*self.hist
         self.n_in = self.n_in_input + self.n_in_state
-        self.n_out = nn_params['training']['dt']
+        self.n_out = nn_params['dt']
 
         self.activation = Swish()  # hydra.utils.instantiate(nn_params['training']['activ'])
         self.d = nn_params['training']['dropout']
@@ -180,8 +181,8 @@ class GeneralNN(nn.Module):
         self.scalarU.fit(U)
         self.scalardX.fit(dX)
 
-        # Stores the fit as tensors for PIPPS policy propogation through network
-        if False:
+        # Stores the fit as tensors for offline prediction, etc
+        if True:
             # U is a minmax scalar from -1 to 1
             # X is a standard scalar, mean 0, sigma 1
             self.scalarU_tensors_d_min = torch.FloatTensor(self.scalarU.data_max_)

@@ -9,29 +9,29 @@ random_seed: 1
 
 experiment:
   num_r: 15
-  r_len: 250
+  r_len: 2500
   seeds: 10
 
 policy:
   mode: mpc
   params:
-    N: 2000
+    N: 20000
     T: 5
     hold: true #false
-    period: 2
+    period: 10
 
 control:
-  mode: BASIC
+  mode: INTEG
   params:
     equil: [16383, 16383, 16383, 16383]
     min_pwm: 0 #[0,0,0,0]
     max_pwm: 65535 #[3000, 3000, 3000, 3000]
     dt: .01
-    period: 2
+    period: 10
   pid:
     params:
-      min_values: [0, 0]
-      max_values: [30000, 2500]
+      min_values: [0, 0, 0]
+      max_values: [10000, 1000, 1000]
 
 bo:
   iterations: 15

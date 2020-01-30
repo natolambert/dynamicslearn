@@ -57,8 +57,8 @@ class simple_bo():
         params_per_pid = int(params_per_pid)
 
         self.task = OptTask(f=opt_function, n_parameters=self.n_parameters, n_objectives=1,
-                            bounds=bounds(min=param_min * params_per_pid,
-                                          max=param_max * params_per_pid), task={'minimize'},
+                            bounds=bounds(min=param_min * self.n_pids,
+                                          max=param_max * self.n_pids), task={'minimize'},
                             vectorized=False)
         # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
         # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
@@ -126,8 +126,8 @@ def pid(cfg):
     def bo_rollout_wrapper(params):  # env, controller, exp_cfg):
         print(f"PID Params: {params}")
         params = np.asarray(params)[0,:]
-        pid_sets = [[params[0], 0, params[1]],
-                    [params[2], 0, params[3]]]
+        pid_sets = [[params[0], params[1], params[2]],
+                    [params[3], params[4], params[5]]]
         controller.set_params(pid_sets)
         states, actions, rews = rollout(env, controller, exp_cfg)
         cum_cost = -1 * np.sum(rews)  # for minimization
@@ -220,11 +220,11 @@ def rollout(env, controller, exp_cfg):
 
 def euler_numer(last_state, state):
     flag = False
-    if abs(state[3] - last_state[3]) > 5:
+    if abs(state[0] - last_state[0]) > 3:
         flag = True
-    elif abs(state[4] - last_state[4]) > 5:
+    elif abs(state[1] - last_state[1]) > 3:
         flag = True
-    elif abs(state[5] - last_state[5]) > 5:
+    elif abs(state[2] - last_state[2]) > 3:
         flag = True
     if flag:
         print("Stopping - Large euler angle step detected, likely non-physical")

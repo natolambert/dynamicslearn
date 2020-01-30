@@ -38,7 +38,7 @@ class CrazyflieRigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.005, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
+    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
@@ -153,7 +153,8 @@ class CrazyflieRigidEnv(gym.Env):
     def reset(self):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-        ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
+        # ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
+        ypr0 = self.np_random.uniform(low=-10., high=10., size=(3,))
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
@@ -226,7 +227,7 @@ class CrazyflieRigidEnv(gym.Env):
 
         l = 35.527e-3 / np.sqrt(2)  # length to motors / axis of rotation for xy
         lz = 46e-3  # axis for tauz
-        c = .05  # coupling coefficient for yaw torque
+        c = .025  # coupling coefficient for yaw torque
 
         # Torques are slightly more tricky
         # x = m2+m3-m1-m4

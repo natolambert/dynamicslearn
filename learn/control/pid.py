@@ -145,6 +145,15 @@ def gen_pid_params(policy_cfg):
             D = np.random.uniform([min_params[1]], [max_params[1]])
             parameters.append([P, I, D])
 
+    elif mode == 'INTEG':
+        # Pitch and Roll PD control
+        num_control = 2
+        for _ in range(num_control):
+            P = np.random.uniform([min_params[0]], [max_params[0]])
+            I = np.random.uniform([min_params[1]], [max_params[1]])
+            D = np.random.uniform([min_params[2]], [max_params[2]])
+            parameters.append([P, I, D])
+
     elif mode == 'EULER':
         # Pitch Roll and Yaw PID Control
         num_control = 3
@@ -182,6 +191,9 @@ class PidPolicy(Controller):
         if self.mode == 'BASIC':
             self.numpids = 2
             self.numParameters = 4
+        elif self.mode == 'INTEG':
+            self.numpids = 2
+            self.numParameters = 6
         elif self.mode == 'EULER':
             self.numpids = 3
             self.numParameters = 9
@@ -243,7 +255,7 @@ class PidPolicy(Controller):
             # PWM structure: 0:front right  1:front left  2:back left   3:back right
             '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
             # TODO VERIFY THESE FOR IONOCRAFT
-            if self.mode == 'BASIC':
+            if self.mode == 'BASIC' or self.mode == 'INTEG':
                 output[0] = limit_thrust(self.equil[0] + self.pids[0].out + self.pids[1].out)
                 output[1] = limit_thrust(self.equil[1] + self.pids[0].out - self.pids[1].out)
                 output[2] = limit_thrust(self.equil[2] - self.pids[0].out - self.pids[1].out)
