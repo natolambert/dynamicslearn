@@ -24,7 +24,18 @@ class EnsembleNN(nn.Module):
         super(EnsembleNN, self).__init__()
         self.E = nn_params['training']['E']  # number of networks to use in each ensemble
         self.prob = nn_params['training']['probl']
-        self.dx = nn_params['training']['dx']
+        self.dx = nn_params['dx']
+
+        self.hist = nn_params['history']
+        ex_in = len(nn_params['extra_inputs']) if nn_params['extra_inputs'] is not None else 0
+        self.n_in_input = nn_params['du'] * self.hist + ex_in
+        self.n_in_state = nn_params['dx'] * (self.hist + 1)
+        self.n_in = self.n_in_input + self.n_in_state
+        self.n_out = nn_params['dt']
+
+        if self.prob:
+            self.n_out *= 2
+
         # create networks
         self.networks = []
         for i in range(self.E):
@@ -86,15 +97,15 @@ class EnsembleNN(nn.Module):
         - Needs to scale the state and action distrubtions on the back end to match up.
         - Should be a combo of forward and pre/post processing
         """
-        dx = self.networks[0].n_in_state
+        dx = self.dx
         means = torch.zeros((dx, 1))
         var = torch.zeros((dx, 1))
         for net in self.networks:
             means_e, var_e = net.distribution(state, action)
-            means = means + means_e / self.E
-            var = var + var_e / self.E
+            means = means + means_e.reshape(-1, 1) / self.E
+            var = var + var_e.reshape(-1, 1) / self.E
 
-        return means, var
+        return means.squeeze(), var.squeeze()
 
     def getNormScalers(self):
         # all the data passed in is the same, so the scalers are identical
