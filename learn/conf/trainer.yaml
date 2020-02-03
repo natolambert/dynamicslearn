@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - models: nn
+  - models: nn-e
 
 save: true
 hydra:
@@ -18,7 +18,7 @@ load:
   trim_0_dX: True                  # if all the euler angles (floats) don't change, it is not realistic data
   find_move: True
   trime_large_dX: False             # if the states change by a large amount, not realistic
-  bound_inputs: [20000,65500]      # Anything out of here is erroneous anyways. Can be used to focus training
+  bound_inputs: [1,65500]      # Anything out of here is erroneous anyways. Can be used to focus training
   stack_states: 3                  # IMPORTANT ONE: stacks the past states and inputs to pass into network
   collision_flag: False            # looks for sharp changes to tthrow out items post collision
   shuffle_here: False              # shuffle pre training, makes it hard to plot trajectories

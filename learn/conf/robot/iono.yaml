@@ -2,7 +2,7 @@ robot: iono
 load:
   dir: false
   type: .csv
-  fname: /Users/nol/Documents/code-bases/data/iono/ex1.txt
+  fname: /Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/_logged_data_autonomous/iono/video-setup/data_video.txt #/Users/nol/Documents/code-bases/data/iono/ex1.txt
   data_labels:
     - pwm1
     - pwm2

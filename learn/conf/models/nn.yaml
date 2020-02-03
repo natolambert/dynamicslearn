@@ -15,7 +15,7 @@ model:
       mode: delta
       plot_loss: true
     optimizer:
-      epochs:  3
+      epochs:  17
       batch: 18
       split: .8
       lr: .0025

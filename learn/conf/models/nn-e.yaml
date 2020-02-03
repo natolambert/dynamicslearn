@@ -16,10 +16,10 @@ model:
       E: 5
       plot_loss: true
     optimizer:
-      epochs: 33
+      epochs: 25
       batch: 18
       split: .8
-      lr: .0025
+      lr: .0035
       lr_schedule: [30,6]
       preprocess: true
       verbose: false
