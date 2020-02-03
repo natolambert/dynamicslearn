@@ -11,6 +11,7 @@ import matplotlib
 import seaborn as sns
 import csv
 from scipy.signal import butter, lfilter, freqz
+from .madgwick import *
 
 def cwd_basedir():
     return os.getcwd()[:os.getcwd().rfind('outputs')]
@@ -30,6 +31,8 @@ def preprocess_cf(dir, load_params):
 
         for d in dirs:
             if d == '.DS_Store':
+                continue
+            if str(load_params.freq) not in d:
                 continue
             dir_files = os.listdir(load_params.fname+d)
             dir_files_full = [load_params.fname+d+"/"+di for di in dir_files]
@@ -126,7 +129,17 @@ def preprocess_cf(dir, load_params):
         state_idxs = np.arange(0, 9 * stack_states, 9)
         input_idxs = np.arange(0, 4 * stack_states, 4)
 
-        d = {'omegax_0dx': dX[:, 0],
+        d = {'omegax' + '_0tx': X[:, 0],
+             'omegay' + '_0tx': X[:, 1],
+             'omegaz' + '_0tx': X[:, 2],
+             'pitch' + '_0tx': X[:, 3],
+             'roll' + '_0tx': X[:, 4],
+             'yaw' + '_0tx': X[:, 5],
+             'linax' + '_0tx': X[:, 6],
+             'linay' + '_0tx': X[:, 7],
+             'linyz' + '_0tx': X[:, 8],
+
+             'omegax_0dx': dX[:, 0],
              'omegay_0dx': dX[:, 1],
              'omegaz_0dx': dX[:, 2],
              'pitch_0dx': dX[:, 3],
@@ -515,6 +528,14 @@ def trim_load_param(fname, load_params):
             X = X[np.all(dX[:, 3:6] != 0, axis=1)]
             U = U[np.all(dX[:, 3:6] != 0, axis=1)]
             dX = dX[np.all(dX[:, 3:6] != 0, axis=1)]
+
+            Objv = Objv[Ts != 0]
+            Time = Time[Ts != 0]
+            X = X[Ts != 0]
+            U = U[Ts != 0]
+            dX = dX[Ts != 0]
+            Ts = Ts[Ts != 0]
+
         ###########################################################################
 
         # We do this again when training.
@@ -699,7 +720,17 @@ def preprocess_iono(dir, load_params):
         state_idxs = np.arange(0, 9 * stack_states, 9)
         input_idxs = np.arange(0, 4 * stack_states, 4)
 
-        d = {'omegax_0dx': dX[:, 3],
+        d = {'omegax'+'_0tx': X[:, 3],
+             'omegay'+'_0tx': X[:, 4],
+             'omegaz'+'_0tx': X[:, 5],
+             'pitch'+'_0tx': X[:, 6],
+             'roll'+'_0tx': X[:, 7],
+             'yaw'+'_0tx': X[:, 8],
+             'linax'+'_0tx': X[:, 0],
+             'linay'+'_0tx': X[:, 1],
+             'linyz'+'_0tx': X[:, 2],
+
+             'omegax_0dx': dX[:, 3],
              'omegay_0dx': dX[:, 4],
              'omegaz_0dx': dX[:, 5],
              'pitch_0dx': dX[:, 6],
@@ -713,7 +744,6 @@ def preprocess_iono(dir, load_params):
         k = 1
         for i in state_idxs:
             st = str(k)
-            k += 1
             d['omegax_' + st + 'tx'] = X[:, 3 + i]
             d['omegay_' + st + 'tx'] = X[:, 4 + i]
             d['omegaz_' + st + 'tx'] = X[:, 5 + i]
@@ -723,6 +753,7 @@ def preprocess_iono(dir, load_params):
             d['linax_' + st + 'tx'] = X[:, 0 + i]
             d['linay_' + st + 'tx'] = X[:, 1 + i]
             d['linaz_' + st + 'tx'] = X[:, 2 + i]
+            k += 1
 
         k = 1
         for j in input_idxs:

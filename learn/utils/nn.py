@@ -11,9 +11,9 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Qu
 class ModelDataHandler:
     def __init__(self, **params):
         # needs to have three types of scikitlearn preprocessing objects in the
-        self.scalarX = hydra.utils.instantiate(params['X']) #['X'].type(**params['X'].params)
-        self.scalarU = hydra.utils.instantiate(params['U']) #['X'].type(**params['X'].params)
-        self.scalardX = hydra.utils.instantiate(params['dX']) #['X'].type(**params['X'].params)
+        self.scalarX = hydra.utils.instantiate(params['X'])  # ['X'].type(**params['X'].params)
+        self.scalarU = hydra.utils.instantiate(params['U'])  # ['X'].type(**params['X'].params)
+        self.scalardX = hydra.utils.instantiate(params['dX'])  # ['X'].type(**params['X'].params)
         # self.scalarU = params['U'].type(**params['U'].params)
         # self.scalardX = params['dX'].type(**params['dX'].params)
 
@@ -156,13 +156,18 @@ class PNNLoss_Gaussian(torch.nn.Module):
 
         eps = 0  # Add to variance to avoid 1/0
 
-        A = mean - target.expand_as(mean)
-        A.mul_(self.scalers)
-        B = torch.div(mean - target.expand_as(mean), var.add(eps))
-        # B.mul_(self.scalers)
-        loss = torch.sum(self.lambda_mean * torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,
-                                                                                                      1) + self.lambda_cov * torch.log(
-            torch.abs(torch.prod(var.add(eps), 1)).reshape(-1, 1)))
+        # A = mean - target.expand_as(mean)
+        # A.mul_(self.scalers)
+        # B = torch.div(mean - target.expand_as(mean), var.add(eps))
+        # # B.mul_(self.scalers)
+        # loss = torch.sum(self.lambda_mean * torch.bmm(A.view(b_s, 1, -1), B.view(b_s, -1, 1)).reshape(-1,1) + self.lambda_cov * torch.log(torch.abs(torch.prod(var.add(eps), 1)).reshape(-1, 1)))
+
+        A = self.lambda_mean * torch.sum(((mean - target.expand_as(mean)) ** 2) / var, 1)
+
+        B = self.lambda_cov * torch.log(torch.abs(torch.prod(var.add(eps), 1)))
+
+        loss = torch.sum(A + B)
+
         return loss
 
 

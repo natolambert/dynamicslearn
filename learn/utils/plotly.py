@@ -12,6 +12,46 @@ import matplotlib.pyplot as plt
 
 from .sim import gather_predictions
 
+def plot_dist(df,x,y,z):
+    import plotly.express as px
+    from scipy import stats
+
+    fig = px.scatter_3d(df, x=x, y=y, z=z, opacity=0.7)#, color='timesteps')
+    fig.update_layout(
+        margin=dict(l=0, r=0, b=0, t=0),
+        title=f"Training Data Distribution",
+        # xaxis={'title': 'Trial Num'},
+        # yaxis={'title': 'Cum. Reward'},
+        font=dict(family='Times New Roman', size=18, color='#7f7f7f'),
+        height=1200,
+        width=1200,
+        plot_bgcolor='white',
+        scene_aspectmode='cube',
+        scene=dict(
+            xaxis=dict(nticks=8, # range=[-100, 100],
+                    showline=True,
+                    showgrid=False,
+                    showticklabels=True, ),
+            yaxis=dict(nticks=8,# range=[-50, 100],
+                       showline=True,
+                       showgrid=False,
+                       showticklabels=True,
+                       ),
+            zaxis=dict(nticks=8, #range=[-100, 100],
+                       showline=True,
+                       showgrid=False,
+                       showticklabels=True,
+                       ), ),
+                  # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
+    )
+    fig.write_image(os.getcwd() + "/distribution.pdf")
+    # fig.show()
+
+
+def plot_eulers_action(df):
+
+    raise NotImplementedError()
+
 def plot_test_train(model, dataset, variances=False):
     """
     Takes a dynamics model and plots test vs train predictions on a dataset of the form (X,U,dX)
@@ -28,7 +68,7 @@ def plot_test_train(model, dataset, variances=False):
     U = dataset[1]
     dX = dataset[2]
 
-    dim = 1
+    dim = 0
     # New plot
     font = {'size': 11}
 
@@ -94,26 +134,26 @@ def plot_test_train(model, dataset, variances=False):
         plt.tick_params(axis='both', which='minor', labelsize=7)
 
         gt_train = np.linspace(0, 1, len(gt_sort_train))
-        ax1.plot(gt_train, gt_sort_train, label='Ground Truth',
-                 color='k', linewidth=1.8)
-        ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
-                 markersize=.9, linewidth=.7, alpha=.8)  # , linestyle=':')
         ax1.plot(gt_train, np.array(pred_sort_pll_train) + np.array(pred_vars_train),
                  '-', color='r', label='Variance of Predictions', linewidth=.4, alpha=.4)
         ax1.plot(gt_train, np.array(pred_sort_pll_train) - np.array(pred_vars_train), '-', color='r', linewidth=.4,
                  alpha=.4)
+        ax1.plot(gt_train, gt_sort_train, label='Ground Truth',
+                 color='k', linewidth=1.8)
+        ax1.plot(gt_train, pred_sort_pll_train, '-', label='Probablistic Model Prediction',
+                 markersize=.9, linewidth=.7, alpha=.8)  # , linestyle=':')
         ax1.set_title("Training Data Predictions")
         ax1.legend(prop={'size': 7})
 
         gt_test = np.linspace(0, 1, len(gt_sort_test))
-        ax2.plot(gt_test, gt_sort_test, label='Ground Truth',
-                 color='k', linewidth=1.8)
-        ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
-                 markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
         ax2.plot(gt_test, np.array(pred_sort_pll_test) + np.array(pred_vars_test),
                  '-', color='r', label='Variance of Predictions', linewidth=.4, alpha=.4)
         ax2.plot(gt_test, np.array(pred_sort_pll_test) - np.array(pred_vars_test), '-', color='r', linewidth=.4,
                  alpha=.4)
+        ax2.plot(gt_test, gt_sort_test, label='Ground Truth',
+                 color='k', linewidth=1.8)
+        ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
+                 markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
         ax2.set_title("Test Data Predictions")
 
     fontProperties = {'family': 'Times New Roman'}
@@ -144,7 +184,7 @@ def plot_test_train(model, dataset, variances=False):
         # else:
         #     loc = matplotlib.ticker.MultipleLocator(
         #         base=int((np.shape(dX)[0]-lx)/10))
-        ax.set_ylim([-6.0, 6.0])
+        ax.set_ylim([-9.0, 9.0])
         ax.set_xlim([0, 1])
 
     fig.set_size_inches(5, 3.5)

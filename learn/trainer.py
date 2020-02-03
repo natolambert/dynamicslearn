@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 from learn.utils.data import *
 from learn.utils.nn import *
 import learn.utils.matplotlib as u_p
-from learn.utils.plotly import plot_test_train
+from learn.utils.plotly import plot_test_train, plot_dist
 # neural nets
 from learn.models.model_general_nn import GeneralNN
 from learn.models.model_ensemble_nn import EnsembleNN
@@ -39,24 +39,16 @@ def save_file(object, filename):
 def create_model_params(df, model_cfg):
     # only take targets from robot.yaml
     target_keys = []
-    for typ in model_cfg.params.delta_state_targets:
-        target_keys.append(typ + '_0dx')
-    for typ in model_cfg.params.true_state_targets:
-        target_keys.append(typ + '_1fx')
+    if not model_cfg.params.delta_state_targets == False:
+        for typ in model_cfg.params.delta_state_targets:
+            target_keys.append(typ + '_0dx')
+    if not model_cfg.params.true_state_targets == False:
+        for typ in model_cfg.params.true_state_targets:
+            target_keys.append(typ + '_1fx')
 
     # grab variables
     history_states = df.filter(regex='tx')
     history_actions = df.filter(regex='tu')
-
-    # add extra inputs like objective function
-    extra = False
-    extra_inputs = []
-    if model_cfg.params.extra_inputs:
-        for extra in model_cfg.params.extra_inputs:
-            df_e = df.filter(regex=extra)
-            extra_inputs.append(df_e)
-        extra = True
-        extra_df = pd.concat(extra_inputs)
 
     # trim past states to be what we want
     history = int(history_states.columns[-1][-3])
@@ -70,6 +62,14 @@ def create_model_params(df, model_cfg):
                 if str_remove in action:
                     history_actions.drop(columns=action, inplace=True)
 
+    # add extra inputs like objective function
+    extra_inputs = []
+    if model_cfg.params.extra_inputs:
+        for extra in model_cfg.params.extra_inputs:
+            df_e = df.filter(regex=extra)
+            extra_inputs.append(df_e)
+            history_actions[extra] = df_e.values
+
     # ignore states not helpful to prediction
     for ignore in model_cfg.params.ignore_in:
         for state in history_states.columns:
@@ -79,11 +79,7 @@ def create_model_params(df, model_cfg):
     params = dict()
     params['targets'] = df.loc[:, target_keys]
     params['states'] = history_states
-    if extra:
-        params['inputs'] = pd.concat([history_actions, extra_df])
-    else:
-        params['inputs'] = history_actions
-    # TODO add extra inputs to these parameters
+    params['inputs'] = history_actions
 
     return params
 
@@ -128,7 +124,7 @@ def trainer(cfg):
     ######################################################################
     log.info('Training a new model')
 
-    data_dir = cfg.load.base_dir
+    data_dir = cfg.load.fname #base_dir
 
     avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
     if os.path.isfile(avail_data):
@@ -148,6 +144,11 @@ def trainer(cfg):
             msg += f", datapoints={log_load['datapoints']}"
         log.info(msg)
 
+    from scipy import stats
+    # remove data 4 standard deviations away
+    df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
+    plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
+
     data = create_model_params(df, cfg.model)
 
     X, U, dX = params_to_training(data)
@@ -166,7 +167,8 @@ def trainer(cfg):
     msg += "Min train error: " + str(train_log['min_trainerror']) + "\n"
     log.info(msg)
 
-    if cfg.model.training.plot_loss:
+    if cfg.model.params.training.plot_loss:
+        plt.figure(2)
         ax1 = plt.subplot(211)
         ax1.plot(train_log['testerror'], label='Test Loss')
         plt.title('Test Loss')
@@ -185,7 +187,7 @@ def trainer(cfg):
         save_file((normX, normU, normdX), cfg.model.name + "_normparams.pkl")
 
         # Saves data file
-        save_file(data, cfg.model.name + "_data.pkl")
+        save_file(data, cfg.model.params.name + "_data.pkl")
 
     log.info(f"Saved to directory {os.getcwd()}")
 
