@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - models: nn-e
+  - models: nn
 
 save: true
 hydra:

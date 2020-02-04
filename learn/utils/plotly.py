@@ -12,11 +12,12 @@ import matplotlib.pyplot as plt
 
 from .sim import gather_predictions
 
-def plot_dist(df,x,y,z):
+
+def plot_dist(df, x, y, z):
     import plotly.express as px
     from scipy import stats
 
-    fig = px.scatter_3d(df, x=x, y=y, z=z, opacity=0.7)#, color='timesteps')
+    fig = px.scatter_3d(df, x=x, y=y, z=z, opacity=0.7)  # , color='timesteps')
     fig.update_layout(
         margin=dict(l=0, r=0, b=0, t=0),
         title=f"Training Data Distribution",
@@ -28,29 +29,29 @@ def plot_dist(df,x,y,z):
         plot_bgcolor='white',
         scene_aspectmode='cube',
         scene=dict(
-            xaxis=dict(nticks=8, # range=[-100, 100],
-                    showline=True,
-                    showgrid=False,
-                    showticklabels=True, ),
-            yaxis=dict(nticks=8,# range=[-50, 100],
+            xaxis=dict(nticks=8,  # range=[-100, 100],
+                       showline=True,
+                       showgrid=False,
+                       showticklabels=True, ),
+            yaxis=dict(nticks=8,  # range=[-50, 100],
                        showline=True,
                        showgrid=False,
                        showticklabels=True,
                        ),
-            zaxis=dict(nticks=8, #range=[-100, 100],
+            zaxis=dict(nticks=8,  # range=[-100, 100],
                        showline=True,
                        showgrid=False,
                        showticklabels=True,
                        ), ),
-                  # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
+        # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
     )
     fig.write_image(os.getcwd() + "/distribution.pdf")
     # fig.show()
 
 
 def plot_eulers_action(df):
-
     raise NotImplementedError()
+
 
 def plot_test_train(model, dataset, variances=False):
     """
@@ -438,7 +439,7 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     return err_traces, xs, ys
 
 
-def plot_rollout(states, actions):
+def plot_rollout(states, actions, pry=[1, 2, 0]):
     import plotly.graph_objects as go
     import numpy as np
     import plotly
@@ -446,9 +447,9 @@ def plot_rollout(states, actions):
     l = np.shape(ar)[0]
     xs = np.arange(l)
 
-    yaw = ar[:, 0]
-    pitch = ar[:, 1]
-    roll = ar[:, 2]
+    yaw = ar[:, pry[2]]
+    pitch = ar[:, pry[0]]
+    roll = ar[:, pry[1]]
 
     actions = np.stack(actions)
 

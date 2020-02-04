@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - model: linear
+  - models: nn
 
 #model_path: ???
 dimension: all
@@ -21,8 +21,8 @@ policy:
 
 
 bo:
-  iterations: 15
+  iterations: 10
   sim: true
-  rollouts: 250
+  rollouts: 500
   variable_length: false
-  max_length: 15
+  max_length: 25

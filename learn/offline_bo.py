@@ -18,6 +18,8 @@ import math
 from learn.control.pid import PID
 from learn.control.pid import PidPolicy
 from learn.utils.data import cwd_basedir
+from learn.utils.plotly import plot_rollout, generate_errorbar_traces
+
 import logging
 import hydra
 
@@ -86,10 +88,17 @@ class BOPID():
 
         return log
 
-    def basic_rollout(self, s0, i_model):
-        # todo need to accound for history automatically
+    def basic_rollout(self, s0, i_model, plot=False):
+        # log.info(f"Running rollout from Euler angles Y:{s0[2]}, P:{s0[0]}, R:{s0[1]}, ")
+        state_log = []
+        action_log = []
+
         max_len = self.b_cfg.max_length
-        cur_action = self.policy.get_action(s0)
+        cur_action, update = self.policy.get_action(s0)
+
+        state_log.append(s0)
+        action_log.append(cur_action)
+
         next_state, logvars = smart_model_step(i_model, s0, cur_action)
         state = push_history(next_state, s0)
         cost = 0
@@ -97,15 +106,25 @@ class BOPID():
             # print(f"Itr {k}")
             # print(f"Action {cur_action.tolist()}")
             # print(f"State {next_state.tolist()}")
-            cur_action = self.policy.get_action(next_state)
+            cur_action, update = self.policy.get_action(next_state)
+
+            state_log.append(state)
+            action_log.append(cur_action)
+
             next_state, logvars = smart_model_step(i_model, state, cur_action)
             state = push_history(next_state, state)
             # print(f"logvars {logvars}")
             # weight = 0 if k < 5 else 1
-            weight = .9 ** (max_len - k)
+            if k == (max_len - 1):
+                weight = 1.
+            else:
+                weight = 1/max_len
             cost += weight * get_reward_iono(next_state, cur_action)
 
-        return cost / max_len  # cost
+        if plot:
+            plot_rollout(state_log, np.stack(action_log).squeeze(), pry=[0, 1, 2])
+
+        return cost, [state_log, action_log]  # / max_len  # cost
 
 
 def get_reward_iono(next_ob, action):
@@ -205,7 +224,7 @@ def smart_model_step(model, state, action):
     if len(action) < len(actions_in):
         if len(actions_in) % len(action) == 0:
             hist = int(len(actions_in) / len(action))
-            action = np.array([action] * hist).flatten()
+            action = np.repeat(action, hist).flatten()  # np.array([action] * hist).flatten()
     output, logvars = model.predict(state, action, ret_var=True)
     next_state = convert_predictions(output, state, targets)
 
@@ -227,6 +246,9 @@ def optimizer(cfg):
 
     global model
     global sim
+    global num_r
+
+    num_r = cfg.bo.rollouts
 
     model = torch.load(cwd_basedir() + 'ex_data/models/iono.dat')
     trained_data = pd.read_csv(cwd_basedir() + 'ex_data/SAS/iono.csv')
@@ -252,22 +274,58 @@ def optimizer(cfg):
     s0 = initial_states[val]
 
     def rollout_opttask(params):
+        print(f"Optimizing Parameters {params}")
         cum_cost = 0
-        # for r in range(cfg.bo.rollouts):
-        #     val = np.random.randint(0, len(initial_states))
-        #     s0 = initial_states[val]
         p = np.array(params)
         pid_params = [[p[0, 0], 0.0, p[0, 1]], [p[0, 2], 0.0, p[0, 3]]]
         sim.policy.set_params(pid_params)
         sim.policy.reset()
-        for s0 in initial_states:
-            cost = sim.basic_rollout(s0, model)
+        np.random.shuffle(initial_states)
+        states_r = []
+        for r, s0 in enumerate(initial_states):
+            if r > num_r:
+                continue
+            cost, [state_log, action_log] = sim.basic_rollout(s0, model)
             cum_cost += cost
+
+            states_r.append(np.stack(state_log))
+
+        if True:
+            import matplotlib.pyplot as plt
+            colors = plt.get_cmap('tab10').colors
+
+
+            xs = np.arange(np.shape(state_log)[0])
+            ys = np.stack(states_r)
+            traces = []
+            for idx in [0, 1, 2]:
+                cs_str = 'rgb' + str(colors[idx])
+                ys_sub = ys[:, :, idx]
+                err_traces, xs_p, ys_p = generate_errorbar_traces(ys_sub, xs=None, percentiles='66+95', color=cs_str,
+                                                              name=f"Dim {idx}")
+                for t in err_traces:
+                    traces.append(t)
+
+            layout = dict(title=f"cost {cum_cost}, pa {np.round(params,2)}",
+                          xaxis={'title': 'Timestep'},
+                          yaxis={'title': 'Euler Angles', 'range':[-45,45]},
+                          font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
+                          height=1000,
+                          width=1500,
+                          legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'})
+
+            fig = {
+                'data': traces,
+                'layout': layout
+            }
+
+            import plotly.io as pio
+            pio.show(fig)
 
         return np.sum(cum_cost).reshape(1, 1)
 
     sim = BOPID(cfg.bo, cfg.policy, rollout_opttask)
-    traj = sim.basic_rollout(s0, model)
+    # traj = sim.basic_rollout(s0, model)
 
     msg = "Initialized BO Objective of PID Control"
     # msg +=
@@ -291,7 +349,7 @@ def plot_cost_itr(logs, cfg):
     costs = logs.data.fx
     best = logs.data.opt_fx
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot(1, 1, 1)
     cum_min = np.minimum.accumulate(costs.squeeze()) - .02
     ax.step(itr, costs.squeeze(), where='mid', label='Cost at Iteration')  # drawstyle="steps-post",
     ax.step(itr, cum_min, where='mid', label='Best Cost')  # drawstyle="steps-post", l

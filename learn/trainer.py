@@ -181,10 +181,10 @@ def trainer(cfg):
 
     # Saves NN params
     if cfg.save:
-        save_file(model, cfg.model.name + '.pth')
+        save_file(model, cfg.model.params.name + '.pth')
 
         normX, normU, normdX = model.getNormScalers()
-        save_file((normX, normU, normdX), cfg.model.name + "_normparams.pkl")
+        save_file((normX, normU, normdX), cfg.model.params.name + "_normparams.pkl")
 
         # Saves data file
         save_file(data, cfg.model.params.name + "_data.pkl")
