@@ -15,6 +15,9 @@ import numpy as np
 import torch
 import math
 
+# add cwd to path to allow running directly from the repo top level directory
+sys.path.append(os.getcwd())
+
 from learn.control.pid import PID
 from learn.control.pid import PidPolicy
 from learn.utils.data import cwd_basedir
@@ -48,8 +51,8 @@ class BOPID():
         self.PIDMODE = policy_cfg.mode
         self.policy = PidPolicy(policy_cfg)
         evals = bo_cfg.iterations
-        param_min = list(policy_cfg.pid.params.min_values)
-        param_max = list(policy_cfg.pid.params.max_values)
+        param_min = [0]*len(list(policy_cfg.pid.params.min_values))
+        param_max = [1]*len(list(policy_cfg.pid.params.max_values))
         self.n_parameters = self.policy.numParameters
         self.n_pids = self.policy.numpids
         params_per_pid = self.n_parameters / self.n_pids
@@ -57,8 +60,8 @@ class BOPID():
         params_per_pid = int(params_per_pid)
 
         self.task = OptTask(f=opt_function, n_parameters=self.n_parameters, n_objectives=1,
-                            bounds=bounds(min=param_min * params_per_pid,
-                                          max=param_max * params_per_pid), task={'minimize'},
+                            bounds=bounds(min=param_min * self.n_pids,
+                                          max=param_max * self.n_pids), task={'minimize'},
                             vectorized=False)
         # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
         # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
@@ -73,6 +76,7 @@ class BOPID():
         p.model = regression.GP
         self.opt = opto.BO(parameters=p, task=self.task, stopCriteria=self.Stop)
         self.opt.optimize()
+        # return self.opt.get_logs()
 
     def getParameters(self):
         log = self.opt.get_logs()
@@ -234,6 +238,28 @@ def smart_model_step(model, state, action):
     #     next_state = np.concatenate(next_state, state[len(targets):])
 
 
+from sklearn.preprocessing import MinMaxScaler
+
+class PID_scalar():
+    def __init__(self, policy_cfg):
+        self.scalar_p = MinMaxScaler()
+        self.scalar_i = MinMaxScaler()
+        self.scalar_d = MinMaxScaler()
+
+        self.scalar_p.fit([[policy_cfg.pid.params.min_values[0]], [policy_cfg.pid.params.max_values[0]]])
+        self.scalar_i.fit([[policy_cfg.pid.params.min_values[1]], [policy_cfg.pid.params.max_values[1]]])
+        self.scalar_d.fit([[policy_cfg.pid.params.min_values[2]], [policy_cfg.pid.params.max_values[2]]])
+
+    def transform(self, PID):
+        return np.squeeze([self.scalar_p.inverse_transform(PID[0]), self.scalar_i.inverse_transform(PID[1]), self.scalar_d.inverse_transform(PID[0])])
+
+    # def tranform_group(self,PIDs):
+    #     return [self.transform(PIDs[0,:3*i]) for i in range(len)]
+
+# def param_to_vals(params, cfg):
+#     policy_cfg.pid.params.min_values
+#     raise NotImplementedError
+
 global cfg
 
 
@@ -243,6 +269,9 @@ def optimizer(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
+
+    global pid_s
+    pid_s = PID_scalar(cfg.policy)
 
     global model
     global sim
@@ -274,10 +303,13 @@ def optimizer(cfg):
     s0 = initial_states[val]
 
     def rollout_opttask(params):
-        print(f"Optimizing Parameters {params}")
+        pid_1 = pid_s.transform(np.array(params)[0, :3])
+        pid_2 = pid_s.transform(np.array(params)[0, 3:])
+        print(f"Optimizing Parameters {np.round(pid_1,3)},{np.round(pid_2,3)}")
         cum_cost = 0
-        p = np.array(params)
-        pid_params = [[p[0, 0], 0.0, p[0, 1]], [p[0, 2], 0.0, p[0, 3]]]
+        # p = np.array(params)
+        # pid_params = [[p[0, 0], p[0, 1], p[0, 2]], [p[0, 3], p[0, 4], p[0, 5]]]
+        pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_1[0], pid_2[1], pid_2[2]]]
         sim.policy.set_params(pid_params)
         sim.policy.reset()
         np.random.shuffle(initial_states)
@@ -290,7 +322,8 @@ def optimizer(cfg):
 
             states_r.append(np.stack(state_log))
 
-        if True:
+        print(f" - Cumulative cost {cum_cost}")
+        if False:
             import matplotlib.pyplot as plt
             colors = plt.get_cmap('tab10').colors
 
@@ -356,7 +389,7 @@ def plot_cost_itr(logs, cfg):
     ax.legend()
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Weighted, Cumulative Attitude Cost")
-    ax.set_ylim([0, 5])
+    # ax.set_ylim([0, 5])
     fig.savefig("costs.pdf")
     ax.clear()
     return
@@ -368,11 +401,14 @@ def plot_parameters(logs, cfg):
     best = np.array(logs.data.opt_x).squeeze()
     samples = np.array(logs.data.x).T
     Kp1 = samples[:, 0]
-    Kp2 = samples[:, 2]
-    Kd1 = samples[:, 1]
-    Kd2 = samples[:, 3]
+    Kp2 = samples[:, 3]
+    Kd1 = samples[:, 2]
+    Kd2 = samples[:, 5]
+    Ki1 = samples[:, 1]
+    Ki2 = samples[:, 4]
 
     import matplotlib.pyplot as plt
+
     fig2 = plt.figure()
     ax1 = fig2.add_subplot(1, 1, 1)
     ax1.scatter(Kp1, Kp2, label='sampled Kp')
@@ -396,6 +432,19 @@ def plot_parameters(logs, cfg):
     ax2.legend()
     fig3.savefig("KD.pdf")
     ax2.clear()
+
+    fig4 = plt.figure()
+    ax3 = fig4.add_subplot(1, 1, 1)
+    ax3.scatter(Ki1, Ki2, label='sampled Ki')
+    ax3.scatter(best[1], best[3], marker='*', s=130, label='Best Ki')
+    ax3.set_ylim([0, cfg.policy.pid.params.max_values[1]])
+    ax3.set_xlim([0, cfg.policy.pid.params.max_values[1]])
+    ax3.set_xlabel("KI Pitch")
+    ax3.set_ylabel("KI Roll")
+    ax3.legend()
+    fig4.savefig("KI.pdf")
+    ax3.clear()
+
     return
 
 

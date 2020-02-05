@@ -7,7 +7,7 @@ dimension: all
 save: true
 
 policy:
-  mode: BASIC
+  mode: INTEG
   params:
     equil: [1500, 1500, 1500, 1500]
     min_pwm: 0 #[0,0,0,0]
@@ -16,8 +16,8 @@ policy:
     period: 1
   pid:
     params:
-      min_values: [0, 0]
-      max_values: [300, 25]
+      min_values: [1, .01, .1]
+      max_values: [500, 10, 50]
 
 
 bo:
