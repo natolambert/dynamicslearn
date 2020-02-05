@@ -17,11 +17,13 @@ policy:
   pid:
     params:
       min_values: [1, .01, .1]
-      max_values: [500, 10, 50]
+      max_values: [500, 25, 50]
+      terminal_cost: 1
+      living_cost: .01
 
 
 bo:
-  iterations: 10
+  iterations: 50
   sim: true
   rollouts: 500
   variable_length: false

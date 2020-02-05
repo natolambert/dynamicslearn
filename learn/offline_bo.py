@@ -48,11 +48,16 @@ class BOPID():
         self.b_cfg = bo_cfg
         self.p_cfg = policy_cfg
 
+        self.t_c = policy_cfg.pid.params.terminal_cost
+        self.l_c = policy_cfg.pid.params.living_cost
+
+        self.norm_cost = 1
+
         self.PIDMODE = policy_cfg.mode
         self.policy = PidPolicy(policy_cfg)
         evals = bo_cfg.iterations
-        param_min = [0]*len(list(policy_cfg.pid.params.min_values))
-        param_max = [1]*len(list(policy_cfg.pid.params.max_values))
+        param_min = [0] * len(list(policy_cfg.pid.params.min_values))
+        param_max = [1] * len(list(policy_cfg.pid.params.max_values))
         self.n_parameters = self.policy.numParameters
         self.n_pids = self.policy.numpids
         params_per_pid = self.n_parameters / self.n_pids
@@ -87,8 +92,8 @@ class BOPID():
         best = [matrix.tolist() for matrix in best]  # can be a buggy line
 
         print("Best PID parameters found with loss of: ", np.amin(bestLoss), " in ", nEvals, " evaluations.")
-        print("Pitch:   Prop: ", best[0], " Int: ", 0, " Deriv: ", best[1])
-        print("Roll:    Prop: ", best[2], " Int: ", 0, " Deriv: ", best[3])
+        print("Pitch:   Prop: ", best[0], " Int: ", best[1], " Deriv: ", best[2])
+        print("Roll:    Prop: ", best[3], " Int: ", best[4], " Deriv: ", best[5])
 
         return log
 
@@ -120,15 +125,15 @@ class BOPID():
             # print(f"logvars {logvars}")
             # weight = 0 if k < 5 else 1
             if k == (max_len - 1):
-                weight = 1.
+                weight = self.t_c
             else:
-                weight = 1/max_len
+                weight = self.l_c / max_len
             cost += weight * get_reward_iono(next_state, cur_action)
 
         if plot:
             plot_rollout(state_log, np.stack(action_log).squeeze(), pry=[0, 1, 2])
 
-        return cost, [state_log, action_log]  # / max_len  # cost
+        return cost/self.norm_cost, [state_log, action_log]  # / max_len  # cost
 
 
 def get_reward_iono(next_ob, action):
@@ -240,6 +245,7 @@ def smart_model_step(model, state, action):
 
 from sklearn.preprocessing import MinMaxScaler
 
+
 class PID_scalar():
     def __init__(self, policy_cfg):
         self.scalar_p = MinMaxScaler()
@@ -251,10 +257,15 @@ class PID_scalar():
         self.scalar_d.fit([[policy_cfg.pid.params.min_values[2]], [policy_cfg.pid.params.max_values[2]]])
 
     def transform(self, PID):
-        return np.squeeze([self.scalar_p.inverse_transform(PID[0]), self.scalar_i.inverse_transform(PID[1]), self.scalar_d.inverse_transform(PID[0])])
+        if len(PID) == 6:
+            return np.concatenate((self.transform(PID[:3]), self.transform(PID[3:])))
+        else:
+            return np.squeeze([self.scalar_p.inverse_transform(PID[0]), self.scalar_i.inverse_transform(PID[1]),
+                               self.scalar_d.inverse_transform(PID[2])])
 
     # def tranform_group(self,PIDs):
     #     return [self.transform(PIDs[0,:3*i]) for i in range(len)]
+
 
 # def param_to_vals(params, cfg):
 #     policy_cfg.pid.params.min_values
@@ -305,7 +316,7 @@ def optimizer(cfg):
     def rollout_opttask(params):
         pid_1 = pid_s.transform(np.array(params)[0, :3])
         pid_2 = pid_s.transform(np.array(params)[0, 3:])
-        print(f"Optimizing Parameters {np.round(pid_1,3)},{np.round(pid_2,3)}")
+        print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
         cum_cost = 0
         # p = np.array(params)
         # pid_params = [[p[0, 0], p[0, 1], p[0, 2]], [p[0, 3], p[0, 4], p[0, 5]]]
@@ -327,7 +338,6 @@ def optimizer(cfg):
             import matplotlib.pyplot as plt
             colors = plt.get_cmap('tab10').colors
 
-
             xs = np.arange(np.shape(state_log)[0])
             ys = np.stack(states_r)
             traces = []
@@ -335,13 +345,13 @@ def optimizer(cfg):
                 cs_str = 'rgb' + str(colors[idx])
                 ys_sub = ys[:, :, idx]
                 err_traces, xs_p, ys_p = generate_errorbar_traces(ys_sub, xs=None, percentiles='66+95', color=cs_str,
-                                                              name=f"Dim {idx}")
+                                                                  name=f"Dim {idx}")
                 for t in err_traces:
                     traces.append(t)
 
-            layout = dict(title=f"cost {cum_cost}, pa {np.round(params,2)}",
+            layout = dict(title=f"cost {cum_cost}, pa {np.round(params, 2)}",
                           xaxis={'title': 'Timestep'},
-                          yaxis={'title': 'Euler Angles', 'range':[-45,45]},
+                          yaxis={'title': 'Euler Angles', 'range': [-45, 45]},
                           font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
                           height=1000,
                           width=1500,
@@ -357,8 +367,29 @@ def optimizer(cfg):
 
         return np.sum(cum_cost).reshape(1, 1)
 
+
+
     sim = BOPID(cfg.bo, cfg.policy, rollout_opttask)
     # traj = sim.basic_rollout(s0, model)
+
+    global random_cost
+    # Get random controller values
+    sim.policy.random = True
+    random_cost = 0
+    np.random.shuffle(initial_states)
+    states_r = []
+    for r, s0 in enumerate(initial_states):
+        if r > num_r:
+            continue
+        cost, [state_log, action_log] = sim.basic_rollout(s0, model)
+        random_cost += cost
+
+        states_r.append(np.stack(state_log))
+
+    sim.policy.random = False
+    log.info(f"Random Control Cumulative Cost {random_cost}, task normalized by this")
+    sim.norm_cost = random_cost
+
 
     msg = "Initialized BO Objective of PID Control"
     # msg +=
@@ -372,7 +403,9 @@ def optimizer(cfg):
     # paretoFront(logs.data.fx)
     print("\n Other items tried")
     for vals, fx in zip(np.array(logs.data.x.T), np.array(logs.data.fx.T)):
-        print(f"Cost - {fx}: Pp: ", vals[0], " Dp: ", vals[1], "Pr: ", vals[2], " Dr: ", vals[3])
+        vals = np.round(pid_s.transform(vals), 1)
+        print(f"Cost - {np.round(fx,3)}: Pp: ", vals[0], " Ip: ", vals[1], " Dp: ", vals[2], "| Pr: ", vals[3], " Ir: ", vals[4],
+              " Dr: ", vals[5])
 
 
 def plot_cost_itr(logs, cfg):
@@ -383,12 +416,18 @@ def plot_cost_itr(logs, cfg):
     best = logs.data.opt_fx
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
-    cum_min = np.minimum.accumulate(costs.squeeze()) - .02
+    cum_min = np.minimum.accumulate(costs.squeeze()) #- .02
     ax.step(itr, costs.squeeze(), where='mid', label='Cost at Iteration')  # drawstyle="steps-post",
     ax.step(itr, cum_min, where='mid', label='Best Cost')  # drawstyle="steps-post", l
-    ax.legend()
     ax.set_xlabel("Iteration")
-    ax.set_ylabel("Weighted, Cumulative Attitude Cost")
+    ax.set_ylabel("Normalized Cumulative Attitude Cost")
+
+    import matplotlib.lines as mlines
+    low, up = ax.get_ylim()
+    l = mlines.Line2D([0, 15], [1.05*low, 1.05*low], color='red', label='Random Samples')
+    ax.add_line(l)
+    ax.legend()
+
     # ax.set_ylim([0, 5])
     fig.savefig("costs.pdf")
     ax.clear()
@@ -398,8 +437,8 @@ def plot_cost_itr(logs, cfg):
 def plot_parameters(logs, cfg):
     # Returns a plot of the different PID parameters tested,
     # with the P and D plotted separately
-    best = np.array(logs.data.opt_x).squeeze()
-    samples = np.array(logs.data.x).T
+    best = pid_s.transform(np.array(logs.data.opt_x).squeeze())
+    samples = np.stack([pid_s.transform(s) for s in np.array(logs.data.x).T])  # np.array(logs.data.x).T
     Kp1 = samples[:, 0]
     Kp2 = samples[:, 3]
     Kd1 = samples[:, 2]
@@ -412,7 +451,7 @@ def plot_parameters(logs, cfg):
     fig2 = plt.figure()
     ax1 = fig2.add_subplot(1, 1, 1)
     ax1.scatter(Kp1, Kp2, label='sampled Kp')
-    ax1.scatter(best[0], best[2], marker='*', s=130, label='Best Kp')
+    ax1.scatter(best[0], best[3], marker='*', s=130, label='Best Kp')
     ax1.set_ylim([0, cfg.policy.pid.params.max_values[0]])
     ax1.set_xlim([0, cfg.policy.pid.params.max_values[0]])
     ax1.set_xlabel("KP Pitch")
@@ -424,9 +463,9 @@ def plot_parameters(logs, cfg):
     fig3 = plt.figure()
     ax2 = fig3.add_subplot(1, 1, 1)
     ax2.scatter(Kd1, Kd2, label='sampled Kd')
-    ax2.scatter(best[1], best[3], marker='*', s=130, label='Best Kd')
-    ax2.set_ylim([0, cfg.policy.pid.params.max_values[1]])
-    ax2.set_xlim([0, cfg.policy.pid.params.max_values[1]])
+    ax2.scatter(best[2], best[5], marker='*', s=130, label='Best Kd')
+    ax2.set_ylim([0, cfg.policy.pid.params.max_values[2]])
+    ax2.set_xlim([0, cfg.policy.pid.params.max_values[2]])
     ax2.set_xlabel("KD Pitch")
     ax2.set_ylabel("KD Roll")
     ax2.legend()
@@ -436,7 +475,7 @@ def plot_parameters(logs, cfg):
     fig4 = plt.figure()
     ax3 = fig4.add_subplot(1, 1, 1)
     ax3.scatter(Ki1, Ki2, label='sampled Ki')
-    ax3.scatter(best[1], best[3], marker='*', s=130, label='Best Ki')
+    ax3.scatter(best[1], best[4], marker='*', s=130, label='Best Ki')
     ax3.set_ylim([0, cfg.policy.pid.params.max_values[1]])
     ax3.set_xlim([0, cfg.policy.pid.params.max_values[1]])
     ax3.set_xlabel("KI Pitch")

@@ -178,6 +178,7 @@ class PidPolicy(Controller):
         self.update_period = cfg.params.period
         self.interal = 0
 
+        self.random = False
         # assert len(cfg.params.min_pwm) == len(cfg.params.equil)
         # assert len(cfg.params.max_pwm) == len(cfg.params.equil)
 
@@ -243,6 +244,8 @@ class PidPolicy(Controller):
             pid.kd = set[2]
 
     def get_action(self, state):
+        if self.random:
+            return np.random.uniform(low=self.min_pwm, high=self.max_pwm, size=(4,)), True
         if self.internal % self.update_period == 0:
             # PIDs must always come in order of states then
             for i, pid in enumerate(self.pids):
