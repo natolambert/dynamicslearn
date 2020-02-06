@@ -127,12 +127,13 @@ Pitch Attitude: [6.0, 3.0, 0.0, 20.0]
 Roll Attitude: [6.0, 3.0, 0.0, 20.0]
 Yaw Attitude: [6.0, 1.0, 0.35, 360.0]
 
-"the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation feeds in to the rate PID which produces motor setpoints"
+"the angle PID runs on the fused IMU data to generate a desired rate of rotation. This rate of rotation 
+    feeds in to the rate PID which produces motor setpoints"
 '''
 
 
 def gen_pid_params(policy_cfg):
-    mode = policy_cfg.mode
+    mode = policy_cfg.pid.params.mode
     parameters = []
     min_params = policy_cfg.pid.params.min_values
     max_params = policy_cfg.pid.params.max_values
@@ -170,23 +171,32 @@ def gen_pid_params(policy_cfg):
 
 
 class PidPolicy(Controller):
+    """
+    Setup to run with a PID operating on pitch, then roll, then yaw.
+    """
     def __init__(self, cfg):
         super(PidPolicy, self).__init__(cfg)
-        self.mode = cfg.mode
         self.pids = []
-        self.cfg = cfg
-        self.update_period = cfg.params.period
+        self.cfg = cfg.pid
+        self.mode = self.cfg.params.mode
         self.interal = 0
 
         self.random = False
         # assert len(cfg.params.min_pwm) == len(cfg.params.equil)
         # assert len(cfg.params.max_pwm) == len(cfg.params.equil)
 
-        self.min_pwm = cfg.params.min_pwm
-        self.max_pwm = cfg.params.max_pwm
-        self.equil = cfg.params.equil
-        self.dt = cfg.params.dt
+        # bounds of values
+        self.min_pwm = self.cfg.params.min_pwm
+        self.max_pwm = self.cfg.params.max_pwm
+        self.equil = self.cfg.params.equil
+
+        # how actions translate to Euler angles
+        self.p_m = self.cfg.params.pitch_mult
+        self.r_m = self.cfg.params.roll_mult
+
+        self.dt = self.cfg.params.dt
         self.numParameters = 0
+
         parameters = gen_pid_params(cfg)
         # order: pitch, roll, yaw, pitchrate, rollrate, yawRate or pitch roll yaw yawrate for hybrid or pitch roll yaw for euler
         if self.mode == 'BASIC':
@@ -257,12 +267,11 @@ class PidPolicy(Controller):
             output = [0, 0, 0, 0]
             # PWM structure: 0:front right  1:front left  2:back left   3:back right
             '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
-            # TODO VERIFY THESE FOR IONOCRAFT
             if self.mode == 'BASIC' or self.mode == 'INTEG':
-                output[0] = limit_thrust(self.equil[0] + self.pids[0].out + self.pids[1].out)
-                output[1] = limit_thrust(self.equil[1] + self.pids[0].out - self.pids[1].out)
-                output[2] = limit_thrust(self.equil[2] - self.pids[0].out - self.pids[1].out)
-                output[3] = limit_thrust(self.equil[3] - self.pids[0].out + self.pids[1].out)
+                output[0] = limit_thrust(self.equil[0] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
+                output[1] = limit_thrust(self.equil[1] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
+                output[2] = limit_thrust(self.equil[2] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
+                output[3] = limit_thrust(self.equil[3] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
             elif self.mode == 'EULER':
                 output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
                 output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
@@ -280,16 +289,20 @@ class PidPolicy(Controller):
                 output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
             elif self.mode == 'ALL':  # update this with the signs above
                 output[0][0] = limit_thrust(
-                    self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out - self.pids[
+                    self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out -
+                    self.pids[
                         4].out + self.pids[5].out)
                 output[0][1] = limit_thrust(
-                    self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out - self.pids[
+                    self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out -
+                    self.pids[
                         4].out - self.pids[5].out)
                 output[0][2] = limit_thrust(
-                    self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out + self.pids[
+                    self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out +
+                    self.pids[
                         4].out + self.pids[5].out)
                 output[0][3] = limit_thrust(
-                    self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out + self.pids[
+                    self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out +
+                    self.pids[
                         4].out - self.pids[5].out)
 
             self.internal += 1

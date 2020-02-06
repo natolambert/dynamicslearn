@@ -5,9 +5,10 @@ import math
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
+from .rigidbody import RigidEnv
 
 
-class CrazyflieRigidEnv(gym.Env):
+class CrazyflieRigidEnv(RigidEnv):
     """
     Description:
        A flying robot with 4 thrusters moves through space
@@ -39,15 +40,7 @@ class CrazyflieRigidEnv(gym.Env):
     """
 
     def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
-        self.x_dim = 12
-        self.u_dim = 4
-        self.dt = dt
-
-        # Setup the state indices
-        self.idx_xyz = [0, 1, 2]
-        self.idx_xyz_dot = [3, 4, 5]
-        self.idx_ptp = [6, 7, 8]
-        self.idx_ptp_dot = [9, 10, 11]
+        super(CrazyflieRigidEnv, self).__init__(dt=dt)
 
         # Setup the parameters
         self.m = m
@@ -70,96 +63,22 @@ class CrazyflieRigidEnv(gym.Env):
                                        high=np.array([65535, 65535, 65535, 65535]),
                                        dtype=np.int32)
 
-        self.seed()
-        self.viewer = None
-        self.state = None
-        self.steps_beyond_done = None
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def step(self, pwm):
-        # assert self.action_space.contains(u), "%r (%s) invalid" % (u, type(u))
-        u = self.pwm_thrust_torque(pwm)
-        state = self.state
-
-        # TODO: Fill in dynamics for rigid quadrotor dynamics
-        dt = self.dt
-        u0 = u
-        x0 = state
-        idx_xyz = self.idx_xyz
-        idx_xyz_dot = self.idx_xyz_dot
-        idx_ptp = self.idx_ptp
-        idx_ptp_dot = self.idx_ptp_dot
-
-        m = self.m
-        L = self.L
-        Ixx = self.Ixx
-        Iyy = self.Iyy
-        Izz = self.Izz
-        g = self.g
-
-        Tx = np.array([Iyy / Ixx - Izz / Ixx, L / Ixx])
-        Ty = np.array([Izz / Iyy - Ixx / Iyy, L / Iyy])
-        Tz = np.array([Ixx / Izz - Iyy / Izz, 1. / Izz])
-
-        # # Add noise to input
-        # u_noise_vec = np.random.normal(
-        #     loc=0, scale=self.u_noise, size=(self.u_dim))
-        # u = u+u_noise_vec
-
-        # Array containing the forces
-        Fxyz = np.zeros(3)
-        Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(
-            x0[idx_ptp[2]]) + math.sin(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(
-            x0[idx_ptp[2]]) - math.sin(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[2] = g - 1 * (math.cos(x0[idx_ptp[0]]) *
-                           math.cos(x0[idx_ptp[1]])) * u0[0] / m
-
-        # Compute the torques
-        t0 = np.array([x0[idx_ptp_dot[1]] * x0[idx_ptp_dot[2]], u0[1]])
-        t1 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[2]], u0[2]])
-        t2 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[1]], u0[3]])
-        Txyz = np.array([Tx.dot(t0), Ty.dot(t1), Tz.dot(t2)])
-
-        x1 = np.zeros(12)
-        x1[idx_xyz_dot] = x0[idx_xyz_dot] + dt * Fxyz
-        x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
-        x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
-        x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
-
-        # Add noise component
-        # x_noise_vec = np.random.normal(
-        #     loc=0, scale=self.x_noise, size=(self.x_dim))
-
-        # makes states less than 1e-12 = 0
-        x1[abs(x1) < 1e-12] = 0
-        self.state = x1
-
-        obs = self.get_obs()
-        reward = self.get_reward(obs, u)
-        done = self.get_done(obs)
-
-        return obs, reward, done, {}
-
     def get_obs(self):
         return np.array(self.state[6:])
 
     def set_state(self, x):
         self.state = x
 
-    def reset(self):
-        x0 = np.array([0, 0, 0])
-        v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-        # ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
-        ypr0 = self.np_random.uniform(low=-10., high=10., size=(3,))
-        w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-
-        self.state = np.concatenate([x0, v0, ypr0, w0])
-        self.steps_beyond_done = None
-        return self.get_obs()
+    # def reset(self):
+    #     x0 = np.array([0, 0, 0])
+    #     v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+    #     # ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
+    #     ypr0 = self.np_random.uniform(low=-10., high=10., size=(3,))
+    #     w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+    #
+    #     self.state = np.concatenate([x0, v0, ypr0, w0])
+    #     self.steps_beyond_done = None
+    #     return self.get_obs()
 
     def get_reward(self, next_ob, action):
         # Going to make the reward -c(x) where x is the attitude based cost
@@ -195,22 +114,12 @@ class CrazyflieRigidEnv(gym.Env):
         cost = cost_pr + lambda_omega * cost_rates
         return -cost
 
-    def get_done(self, state):
-        # Done is pitch or roll > 35 deg
-        # pitch is state 7, roll is state 8
-        max_a = 45
-        d = (abs(state[1]) > max_a) or (abs(state[2]) > max_a)
-        return d
-
-    def pqr2rpy(self, x0, pqr):
-        rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-                                [0., math.cos(x0[0]), -math.sin(x0[0])],
-                                [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-        return rotn_matrix.dot(pqr)
-
     def pwm_thrust_torque(self, PWM):
         # Takes in the a 4 dimensional PWM vector and returns a vector of
         # [Thrust, Taux, Tauy, Tauz] which is used for simulating rigid body dynam
+        # u1 u2 u3 u4
+        # u1 is the thrust along the zaxis in B, and u2, u3 and u4 are rolling, pitching and
+        # yawing moments respectively
         # Sources of the fit: https://wiki.bitcraze.io/misc:investigations:thrust,
         #   http://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8905295&fileOId=8905299
 
@@ -229,21 +138,14 @@ class CrazyflieRigidEnv(gym.Env):
         lz = 46e-3  # axis for tauz
         c = .025  # coupling coefficient for yaw torque
 
-        # Torques are slightly more tricky
-        # x = m2+m3-m1-m4
-        # y =m1+m2-m3-m4
-
         # Estimates forces
         m1 = pwm_to_thrust(PWM[0])
         m2 = pwm_to_thrust(PWM[1])
         m3 = pwm_to_thrust(PWM[2])
         m4 = pwm_to_thrust(PWM[3])
 
-        Thrust = (m1 + m2 + m3 + m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
-        # taux = -l * (m2 + m3 - m4 - m1)
-        # tauy = -l * (m1 + m2 - m3 - m4)
-        # tauz = -lz * c * (m1 + m3 - m2 - m4)
-        taux = l * (m1 + m3 - m4 - m2)
-        tauy = l * (m2 + m3 - m4 - m1)
-        tauz = lz * c * (m2 + m4 - m1 - m3)
-        return -np.array([Thrust, taux, tauy, tauz])
+        Thrust = (-m1 - m2 - m3 - m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
+        taux = l * (-m1 - m2 + m3 + m4)
+        tauy = l * (m1 - m2 - m3 + m4)
+        tauz = -lz * c * (-m1 + m2 - m3 + m4)
+        return np.array([Thrust, taux, tauy, tauz])

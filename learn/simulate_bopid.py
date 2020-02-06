@@ -121,11 +121,21 @@ def pid(cfg):
     env.reset()
     full_rewards = []
     exp_cfg = cfg.experiment
-    controller = PidPolicy(cfg.control)
+    controller = PidPolicy(cfg.policy)
+
+    action = [0, 60000+0, 60000+0, 0]
+
+    def investigate_env_orientation(env, action, k):
+        for i in range(k):
+            state, rew, done, _ = env.step(action)
+            state = np.round(state, 2)
+            if i % 5 == 0: print(f" Euler Angles Pitch {state[1]}, Roll {state[0]}, Yaw {state[2]}")
+
+    investigate_env_orientation(env, action, 50)
 
     def bo_rollout_wrapper(params):  # env, controller, exp_cfg):
         print(f"PID Params: {params}")
-        params = np.asarray(params)[0,:]
+        params = np.asarray(params)[0, :]
         pid_sets = [[params[0], params[1], params[2]],
                     [params[3], params[4], params[5]]]
         controller.set_params(pid_sets)
@@ -217,6 +227,7 @@ def rollout(env, controller, exp_cfg):
         rews.append(rew)
 
     return states, actions, rews
+
 
 def euler_numer(last_state, state):
     flag = False

@@ -32,7 +32,7 @@ class EnsembleNN(nn.Module):
         self.n_in_state = nn_params['dx'] * (self.hist + 1)
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['dt']
-
+        self.p_out = nn_params['dt']
         if self.prob:
             self.n_out *= 2
 
@@ -79,16 +79,16 @@ class EnsembleNN(nn.Module):
         return np.transpose(np.array(acctest_l)), np.transpose(np.array(acctrain_l))
 
     def predict(self, X, U, ret_var=False):
-        prediction = np.zeros(X.size())
+        prediction = np.zeros(int(self.n_out/2)) if self.prob else np.zeros(self.n_out)
         # vars = torch.zeros(())
         for net in self.networks:
             if ret_var:
-                raise NotImplementedError("Need to handle Variance Returns")
+                # raise NotImplementedError("Need to handle Variance Returns")
                 prediction += (1 / self.E) * net.predict(X, U)
             else:
                 prediction += (1 / self.E) * net.predict(X, U)
 
-        return prediction
+        return prediction, torch.Tensor(1)
 
     def distribution(self, state, action):
         """
