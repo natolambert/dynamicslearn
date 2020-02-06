@@ -19,11 +19,11 @@ policy:
       min_values: [1, .01, .1]
       max_values: [500, 25, 50]
       terminal_cost: 1
-      living_cost: .01
+      living_cost: .1
 
 
 bo:
-  iterations: 50
+  iterations: 150
   sim: true
   rollouts: 500
   variable_length: false

@@ -19,6 +19,32 @@ load:
     - roll
     - yaw
 
+policy:
+  mode: pid
+  params:
+    period: 1
+  pid:
+    params:
+      mode: INTEG
+      equil: [40000, 40000, 40000, 40000]
+      min_pwm: 0
+      max_pwm: 65535
+      dt: .02
+      min_values: [.1, .001, .001]
+      max_values: [500, 25, 50]
+      terminal_cost: 1
+      living_cost: .1
+      pitch_mult: [-1, 1, 1, -1]
+      roll_mult: [1, 1, -1, -1]
+      pry: [0,1,2]
+  mpc:
+    params:
+      mode: random
+      N: 20000
+      T: 5
+      hold: true
+    #      period: 10
+
 model:
   params:
     dx: 9
@@ -28,17 +54,17 @@ model:
     flight_mode: basic
     history: 3
     delta_state_targets:
-    - pitch
-    - roll
-    - yaw
+      - pitch
+      - roll
+      - yaw
     true_state_targets:
-    - linax
-    - linay
-    - linaz
-    - omegax
-    - omegay
-    - omegaz
+      - linax
+      - linay
+      - linaz
+      - omegax
+      - omegay
+      - omegaz
     ignore_in:  # can be non axis specific
-    - vbat
+      - vbat
     extra_inputs:
 #    - timesteps
