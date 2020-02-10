@@ -10,10 +10,13 @@ random_seed: 1
 experiment:
   num_r: 15
   r_len: 2500
-  seeds: 10
+  seeds: 1
+  repeat: 10
+
 
 bo:
-  iterations: 15
+  iterations: 100
+  sim: false
 
 
 hydra:

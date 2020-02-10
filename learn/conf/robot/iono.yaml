@@ -28,6 +28,7 @@ policy:
       equil: [1500, 1500, 1500, 1500]
       min_pwm: 0
       max_pwm: 3000
+      int_max: 1000
       dt: .02
       min_values: [1, .01, .1]
       max_values: [500, 25, 50]

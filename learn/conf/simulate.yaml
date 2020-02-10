@@ -23,8 +23,8 @@ policy:
 
 
 bo:
-  iterations: 150
+  iterations: 2
   sim: true
-  rollouts: 500
+  rollouts: 5
   variable_length: false
-  max_length: 25
+  max_length: 2

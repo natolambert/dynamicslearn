@@ -3,16 +3,17 @@ robot: cf
 policy:
   mode: pid
   params:
-    period: 1
+    period: 10
   pid:
     params:
       mode: INTEG
       equil: [16383, 16383, 16383, 16383]
       min_pwm: 0
       max_pwm: 65535
-      dt: .02
-      min_values: [.1, .001, .001]
-      max_values: [500, 25, 50]
+      int_max: 10000
+      dt: .01
+      min_values: [10, 1, 1]
+      max_values: [50000, 50000, 50000]
       terminal_cost: 1
       living_cost: .1
       pitch_mult: [1, -1, -1, +1]
