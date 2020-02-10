@@ -12,6 +12,7 @@ import seaborn as sns
 import csv
 from scipy.signal import butter, lfilter, freqz
 from .madgwick import *
+import torch
 
 def cwd_basedir():
     return os.getcwd()[:os.getcwd().rfind('outputs')]
@@ -138,6 +139,11 @@ def preprocess_cf(dir, load_params):
              'linax' + '_0tx': X[:, 6],
              'linay' + '_0tx': X[:, 7],
              'linyz' + '_0tx': X[:, 8],
+
+             'm1pwm' + '_0tu': U[:, 0],
+             'm2pwm' + '_0tu': U[:, 1],
+             'm3pwm' + '_0tu': U[:, 2],
+             'm4pwm' + '_0tu': U[:, 3],
 
              'omegax_0dx': dX[:, 0],
              'omegay_0dx': dX[:, 1],
@@ -730,6 +736,11 @@ def preprocess_iono(dir, load_params):
              'linay'+'_0tx': X[:, 1],
              'linyz'+'_0tx': X[:, 2],
 
+             'm1pwm' + '_0tu': U[:, 0],
+             'm2pwm' + '_0tu': U[:, 1],
+             'm3pwm' + '_0tu': U[:, 2],
+             'm4pwm' + '_0tu': U[:, 3],
+
              'omegax_0dx': dX[:, 3],
              'omegay_0dx': dX[:, 4],
              'omegaz_0dx': dX[:, 5],
@@ -1099,3 +1110,63 @@ def load_iono_txt(fname, load_params):
             # this is repeated three times for some anomolous serial data
 
         return X, U, dX
+
+def cluster(vectorized, ncentroids):
+    import faiss
+    x = vectorized
+    niter = 20
+    verbose = True
+    d = x.shape[1]
+    kmeans = faiss.Kmeans(d, ncentroids, niter=niter, verbose=verbose)
+    kmeans.train(x)
+
+    # for i, v in enumerate(kmeans.centroids):
+    #     print(i)
+
+    index = faiss.IndexFlatL2(d)
+    index.add(x)
+    D, I = index.search(kmeans.centroids, 1)
+    x_reduced = x[I, :].squeeze()
+    return x_reduced
+
+
+def to_matrix(X, U, dX):
+    """
+    Takes in a dataset of SAS and returns a 2-D tensor for clustering
+    :param dataset: SASDataset object
+    :return: 2-D tensor for clustering (in original order)
+    """
+    l, nx = np.shape(X)
+    _, nu = np.shape(U)
+    _, nt = np.shape(dX)
+
+    vectorized = torch.empty((l, nx+nu+nt))
+    X = torch.Tensor(X)
+    U = torch.Tensor(U)
+    dX = torch.Tensor(dX)
+    for i, (x, y, d) in enumerate(zip(X, U, dX)):
+        vectorized[i, :] = torch.cat((x, y, d), dim=0)
+
+    return vectorized.numpy()
+
+
+def to_Dataset(dataset, dims):
+    """
+    For a cartpole dataset compiled with clustering, returns a SAS dataset
+    :param dataset: 2D array
+    :param dims: list of (d_state, d_action)
+    :return: SASDataset
+    """
+    dims = [int(d) for d in dims]
+    X = []
+    U = []
+    dX = []
+    for vec in dataset:
+        X.append(vec[:dims[0]])
+        U.append(vec[dims[0]:dims[0]+dims[1]])
+        dX.append(vec[dims[0]+dims[1]:])
+        #
+        # row = SAS(torch.tensor(vec[:dims[0]]), torch.tensor(vec[dims[0]:dims[0] + dims[1]]),
+        #           torch.tensor(vec[dims[0] + dims[1]:]))
+        # output.add(row)
+    return np.stack(X), np.stack(U), np.stack(dX)

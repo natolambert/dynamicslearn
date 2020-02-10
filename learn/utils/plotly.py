@@ -129,8 +129,6 @@ def plot_test_train(model, dataset, variances=False):
         data_test = sorted(data_test, key=lambda tup: tup[0])
         gt_sort_test, pred_sort_pll_test, pred_vars_test = zip(*data_test)
 
-        print(np.shape(pred_sort_pll_train))
-        print(np.shape(pred_vars_train))
         # plt.tick_params(axis='both', which='major', labelsize=10)
         plt.tick_params(axis='both', which='minor', labelsize=7)
 
@@ -156,6 +154,8 @@ def plot_test_train(model, dataset, variances=False):
         ax2.plot(gt_test, pred_sort_pll_test, '-', label='Bayesian Model Validation DataPrediction',
                  markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
         ax2.set_title("Test Data Predictions")
+
+    print(f"Mean sq error across test set: {np.mean((np.array(pred_sort_pll_test)-gt_sort_test)**2)}")
 
     fontProperties = {'family': 'Times New Roman'}
 

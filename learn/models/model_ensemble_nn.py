@@ -28,7 +28,7 @@ class EnsembleNN(nn.Module):
 
         self.hist = nn_params['history']
         ex_in = len(nn_params['extra_inputs']) if nn_params['extra_inputs'] is not None else 0
-        self.n_in_input = nn_params['du'] * self.hist + ex_in
+        self.n_in_input = nn_params['du'] * (self.hist + 1) + ex_in
         self.n_in_state = nn_params['dx'] * (self.hist + 1)
         self.n_in = self.n_in_input + self.n_in_state
         self.n_out = nn_params['dt']

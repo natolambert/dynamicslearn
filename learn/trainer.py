@@ -97,7 +97,18 @@ def train_model(X, U, dX, model_cfg):
 
     train_log['model_params'] = model_cfg.params
     model = hydra.utils.instantiate(model_cfg)
-    acctest, acctrain = model.train_cust((X, U, dX), model_cfg.params)
+
+    if model_cfg.params.training.cluster > 0:
+        h = model_cfg.params.history
+        mat = to_matrix(X, U, dX)
+        mat_r = cluster(mat, model_cfg.params.training.cluster)
+        X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx*(h+1), model_cfg.params.du*(h+1), model_cfg.params.dt])
+    else:
+        X_t = X
+        U_t = U
+        dX_t = dX
+
+    acctest, acctrain = model.train_cust((X_t, U_t, dX_t), model_cfg.params)
 
     if model_cfg.params.training.ensemble:
         min_err = np.min(acctrain, 0)
@@ -124,10 +135,10 @@ def trainer(cfg):
     ######################################################################
     log.info('Training a new model')
 
-    data_dir = cfg.load.fname #base_dir
+    data_dir = cfg.load.fname  # base_dir
 
     avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
-    if os.path.isfile(avail_data):
+    if False: #os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
@@ -147,7 +158,7 @@ def trainer(cfg):
     from scipy import stats
     # remove data 4 standard deviations away
     df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
-    plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
+    # plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
 
     data = create_model_params(df, cfg.model)
 
