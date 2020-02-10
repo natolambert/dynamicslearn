@@ -1114,7 +1114,7 @@ def load_iono_txt(fname, load_params):
 def cluster(vectorized, ncentroids):
     import faiss
     x = vectorized
-    niter = 20
+    niter = 50
     verbose = True
     d = x.shape[1]
     kmeans = faiss.Kmeans(d, ncentroids, niter=niter, verbose=verbose)
@@ -1130,7 +1130,7 @@ def cluster(vectorized, ncentroids):
     return x_reduced
 
 
-def to_matrix(X, U, dX):
+def to_matrix(X, U, dX, cfg):
     """
     Takes in a dataset of SAS and returns a 2-D tensor for clustering
     :param dataset: SASDataset object

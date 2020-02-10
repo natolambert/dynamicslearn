@@ -21,6 +21,12 @@ policy:
       terminal_cost: 1
       living_cost: .1
 
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
 
 bo:
   iterations: 2

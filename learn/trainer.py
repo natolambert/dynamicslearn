@@ -100,9 +100,10 @@ def train_model(X, U, dX, model_cfg):
 
     if model_cfg.params.training.cluster > 0:
         h = model_cfg.params.history
-        mat = to_matrix(X, U, dX)
+        mat = to_matrix(X, U, dX, model_cfg)
         mat_r = cluster(mat, model_cfg.params.training.cluster)
-        X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx*(h+1), model_cfg.params.du*(h+1), model_cfg.params.dt])
+        X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx * (h + 1), model_cfg.params.du * (h + 1),
+                                                 model_cfg.params.dt])
     else:
         X_t = X
         U_t = U
@@ -138,7 +139,7 @@ def trainer(cfg):
     data_dir = cfg.load.fname  # base_dir
 
     avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
-    if False: #os.path.isfile(avail_data):
+    if False:  # os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
@@ -169,8 +170,10 @@ def trainer(cfg):
                                list(data['inputs'].columns),
                                list(data['targets'].columns))
 
-    plot_test_train(model, (X, U, dX), variances=True)
+    mse = plot_test_train(model, (X, U, dX), variances=True)
+    torch.save((mse, cfg.model.params.training.cluster), 'cluster.dat')
 
+    log.info(f"MSE of test set predictions {mse}")
     msg = "Trained Model..."
     msg += "Prediction List" + str(list(data['targets'].columns)) + "\n"
     msg += "Min test error: " + str(train_log['min_testerror']) + "\n"

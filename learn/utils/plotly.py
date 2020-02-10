@@ -155,7 +155,8 @@ def plot_test_train(model, dataset, variances=False):
                  markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
         ax2.set_title("Test Data Predictions")
 
-    print(f"Mean sq error across test set: {np.mean((np.array(pred_sort_pll_test)-gt_sort_test)**2)}")
+    mse = np.mean((np.array(pred_sort_pll_test)-gt_sort_test)**2)
+    print(f"Mean sq error across test set: {mse}")
 
     fontProperties = {'family': 'Times New Roman'}
 
@@ -195,6 +196,7 @@ def plot_test_train(model, dataset, variances=False):
     plt.savefig('testrain.pdf', format='pdf', dpi=300)
 
     # plt.show()
+    return mse
 
 
 def plot_rewards_over_trials(rewards, env_name):
@@ -386,10 +388,10 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     xs = [x[:minX] for x in xs]
     ys = [y[:minX] for y in ys]
 
-    assert all([(len(y) == len(ys[0])) for y in ys]), \
+    assert np.all([(len(y) == len(ys[0])) for y in ys]), \
         'Y should be the same size for all traces'
 
-    assert all([(x == xs[0]) for x in xs]), \
+    assert np.all([(x == xs[0]) for x in xs]), \
         'X should be the same for all traces'
 
     y = np.array(ys)
@@ -424,7 +426,8 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
         low = out[1][2 * i + 1, :]
 
         err_traces.append(dict(
-            x=xs[0] + xs[0][::-1], type='scatter',
+            x=xs[0] + xs[0][::-1],
+            type='scatter',
             y=(high).tolist() + (low).tolist()[::-1],
             fill='toself',
             fillcolor=(color[:-1] + str(f", {intensity})")).replace('rgb', 'rgba')
