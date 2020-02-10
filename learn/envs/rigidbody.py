@@ -40,10 +40,11 @@ class RigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.001):
+    def __init__(self, dt=.001, x_noise=.0001, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
+        self.x_noise = x_noise
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
@@ -114,9 +115,10 @@ class RigidEnv(gym.Env):
         x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
         # Add noise component
-        # x_noise_vec = np.random.normal(
-        #     loc=0, scale=self.x_noise, size=(self.x_dim))
+        x_noise_vec = np.random.normal(
+            loc=0, scale=self.x_noise, size=(self.x_dim))
 
+        x1 += x_noise_vec
         # makes states less than 1e-12 = 0
         x1[abs(x1) < 1e-12] = 0
         self.state = x1
@@ -136,8 +138,8 @@ class RigidEnv(gym.Env):
     def reset(self):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-        ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        # ypr0 = self.np_random.uniform(low=-1., high=1., size=(3,))
+        # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
+        ypr0 = self.np_random.uniform(low=-10., high=10., size=(3,))
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])

@@ -189,10 +189,12 @@ class PidPolicy(Controller):
         self.min_pwm = self.cfg.params.min_pwm
         self.max_pwm = self.cfg.params.max_pwm
         self.equil = self.cfg.params.equil
+        self.max_int = self.cfg.params.int_max
 
         # how actions translate to Euler angles
         self.p_m = self.cfg.params.pitch_mult
         self.r_m = self.cfg.params.roll_mult
+        self.pry = self.cfg.params.pry
 
         self.dt = self.cfg.params.dt
         self.numParameters = 0
@@ -222,7 +224,7 @@ class PidPolicy(Controller):
             P = set[0]
             I = set[1]
             D = set[2]
-            self.pids += [PID(0, P, I, D, 1000, self.dt)]
+            self.pids += [PID(0, P, I, D, self.max_int, self.dt)]
 
     def set_params(self, parameters):
         for i, set in enumerate(parameters):
@@ -254,12 +256,16 @@ class PidPolicy(Controller):
             pid.kd = set[2]
 
     def get_action(self, state):
-        if self.random:
-            return np.random.uniform(low=self.min_pwm, high=self.max_pwm, size=(4,)), True
         if self.internal % self.update_period == 0:
+            if self.random:
+                self.internal += 1
+                output = np.squeeze(np.random.uniform(low=self.min_pwm, high=self.max_pwm, size=(4,)))
+                self.last_action = np.array(output)
+                return output, True
+
             # PIDs must always come in order of states then
             for i, pid in enumerate(self.pids):
-                pid.update(state[i])
+                pid.update(state[self.pry[i]])
 
             def limit_thrust(pwm):  # Limits the thrust
                 return np.clip(pwm, self.min_pwm, self.max_pwm)
@@ -268,42 +274,44 @@ class PidPolicy(Controller):
             # PWM structure: 0:front right  1:front left  2:back left   3:back right
             '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
             if self.mode == 'BASIC' or self.mode == 'INTEG':
-                output[0] = limit_thrust(self.equil[0] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
-                output[1] = limit_thrust(self.equil[1] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
-                output[2] = limit_thrust(self.equil[2] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
-                output[3] = limit_thrust(self.equil[3] + self.p_m * self.pids[0].out + self.r_m * self.pids[1].out)
-            elif self.mode == 'EULER':
-                output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
-                output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
-                output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
-                output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
-            elif self.mode == 'HYBRID':
-                output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
-                output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
-                output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
-                output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
-            elif self.mode == 'RATE':  # update this with the signs above
-                output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
-                output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
-                output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
-                output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
-            elif self.mode == 'ALL':  # update this with the signs above
-                output[0][0] = limit_thrust(
-                    self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out -
-                    self.pids[
-                        4].out + self.pids[5].out)
-                output[0][1] = limit_thrust(
-                    self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out -
-                    self.pids[
-                        4].out - self.pids[5].out)
-                output[0][2] = limit_thrust(
-                    self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out +
-                    self.pids[
-                        4].out + self.pids[5].out)
-                output[0][3] = limit_thrust(
-                    self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out +
-                    self.pids[
-                        4].out - self.pids[5].out)
+                output[0] = limit_thrust(self.equil[0] + self.p_m[0] * self.pids[0].out + self.r_m[0] * self.pids[1].out)
+                output[1] = limit_thrust(self.equil[1] + self.p_m[1] * self.pids[0].out + self.r_m[1] * self.pids[1].out)
+                output[2] = limit_thrust(self.equil[2] + self.p_m[2] * self.pids[0].out + self.r_m[2] * self.pids[1].out)
+                output[3] = limit_thrust(self.equil[3] + self.p_m[3] * self.pids[0].out + self.r_m[3] * self.pids[1].out)
+            else:
+                raise NotImplementedError("Other PID Modes not updated")
+            # elif self.mode == 'EULER':
+            #     output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
+            #     output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
+            #     output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
+            #     output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
+            # elif self.mode == 'HYBRID':
+            #     output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
+            #     output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
+            #     output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
+            #     output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
+            # elif self.mode == 'RATE':  # update this with the signs above
+            #     output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
+            #     output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
+            #     output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
+            #     output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
+            # elif self.mode == 'ALL':  # update this with the signs above
+            #     output[0][0] = limit_thrust(
+            #         self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out -
+            #         self.pids[
+            #             4].out + self.pids[5].out)
+            #     output[0][1] = limit_thrust(
+            #         self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out -
+            #         self.pids[
+            #             4].out - self.pids[5].out)
+            #     output[0][2] = limit_thrust(
+            #         self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out +
+            #         self.pids[
+            #             4].out + self.pids[5].out)
+            #     output[0][3] = limit_thrust(
+            #         self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out +
+            #         self.pids[
+            #             4].out - self.pids[5].out)
 
             self.internal += 1
             self.last_action = np.array(output)

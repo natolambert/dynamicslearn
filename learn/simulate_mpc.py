@@ -30,7 +30,7 @@ def save_log(cfg, trial_num, trial_log):
 
 
 ######################################################################
-@hydra.main(config_path='conf/mpc.yaml')
+@hydra.main(config_path='conf/learn.yaml')
 def mpc(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
@@ -51,6 +51,17 @@ def mpc(cfg):
 
         for i in range(cfg.experiment.num_r):
             controller = MPController(env, model, cfg.policy)
+
+            raise NotImplementedError("")
+            while r < cfg.experiment.repeat:
+                states, actions, rews, sim_error = rollout(env, controller, cfg.experiment)
+                if sim_error:
+                    print("Repeating strange simulation")
+                    continue
+                cum_cost.append(-1 * np.sum(rews) / len(rews))  # for minimization
+                r += 1
+
+
             data_new = rollout(env, controller, cfg.experiment)
             rew = np.stack(data_new[2])
 

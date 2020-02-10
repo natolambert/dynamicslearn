@@ -8,38 +8,8 @@ from gym.utils import seeding
 from .rigidbody import RigidEnv
 
 
-class CrazyflieRigidEnv(RigidEnv):
-    """
-    Description:
-       A flying robot with 4 thrusters moves through space
-    Source:
-        This file is created by Nathan Lambert, adapted from a model from Somil Bansal
-    Observation: 
-        Type: Box(12)
-        Num	Observation                 Min         Max
-        0	x-pos                       -10         10      (meters)
-        1	y-pos                       -10         10      (meters)
-        2	z-pos                       -10         10      (meters)
-        3	x-vel                       -Inf        Inf     (meters/sec)
-        4   y-vel                       -Inf        Inf     (meters/sec)
-        5   z-vel                       -Inf        Inf     (meters/sec)
-        6   yaw                         -180        180     (degrees)
-        7   pitch                       -90         90      (degrees)
-        8   roll                        -180        180     (degrees)
-        9   omega_x                     -Inf        Inf     (rad/s^2)
-        10  omega_y                     -Inf        Inf     (rad/s^2)
-        11  omega_z                     -Inf        Inf     (rad/s^2)
-        
-    Actions:
-        # BELOW NOT UPDATED TODO
-        Type: box([-1,1])
-        Num	Action 
-        -1	Push cart to the left max force
-        1	Push cart to the right max force
-
-    """
-
-    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5):
+class IonocraftRigidEnv(RigidEnv):
+    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5, x_noise=.0001, u_noise=0):
         super(CrazyflieRigidEnv, self).__init__(dt=dt)
 
         # Setup the parameters
@@ -69,17 +39,6 @@ class CrazyflieRigidEnv(RigidEnv):
     def set_state(self, x):
         self.state = x
 
-    # def reset(self):
-    #     x0 = np.array([0, 0, 0])
-    #     v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-    #     # ypr0 = self.np_random.uniform(low=-0.25, high=0.25, size=(3,))
-    #     ypr0 = self.np_random.uniform(low=-10., high=10., size=(3,))
-    #     w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
-    #
-    #     self.state = np.concatenate([x0, v0, ypr0, w0])
-    #     self.steps_beyond_done = None
-    #     return self.get_obs()
-
     def get_reward(self, next_ob, action):
         # Going to make the reward -c(x) where x is the attitude based cost
         assert isinstance(next_ob, np.ndarray)
@@ -92,11 +51,9 @@ class CrazyflieRigidEnv(RigidEnv):
             action = np.expand_dims(action, 0)
 
         assert next_ob.ndim == 2
-        pitch = np.divide(next_ob[:, 0], 180)
-        roll = np.divide(next_ob[:, 1], 180)
-        cost_pr = np.power(pitch, 2) + np.power(roll, 2)
+        cost_pr = np.power(next_ob[:, 0], 2) + np.power(next_ob[:, 1], 2)
         cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
-        lambda_omega = .0001
+        lambda_omega = .0000
         cost = cost_pr + lambda_omega * cost_rates
         return -cost
 
@@ -110,9 +67,9 @@ class CrazyflieRigidEnv(RigidEnv):
             next_ob = next_ob.unsqueeze(0)
             action = action.unsqueeze(0)
 
-        cost_pr = next_ob[:, 0].pow(2) + next_ob[:, 1].pow(2)
+        cost_pr = next_ob[:, 1].pow(2) + next_ob[:, 2].pow(2)
         cost_rates = next_ob[:, 3].pow(2) + next_ob[:, 4].pow(2) + next_ob[:, 5].pow(2)
-        lambda_omega = .0001
+        lambda_omega = .0000
         cost = cost_pr + lambda_omega * cost_rates
         return -cost
 
@@ -122,13 +79,8 @@ class CrazyflieRigidEnv(RigidEnv):
         # u1 u2 u3 u4
         # u1 is the thrust along the zaxis in B, and u2, u3 and u4 are rolling, pitching and
         # yawing moments respectively
-        # Sources of the fit: https://wiki.bitcraze.io/misc:investigations:thrust,
-        #   http://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8905295&fileOId=8905299
 
-        # The quadrotor is 92x92x29 mm (motor to motor, square along with the built in prongs). The the distance from the centerline,
-
-        # Thrust T = .35*d + .26*d^2 kg m/s^2 (d = PWM/65535 - normalized PWM)
-        # T = (.409e-3*pwm^2 + 140.5e-3*pwm - .099)*9.81/1000 (pwm in 0,255)
+        raise NotImplementedError("TODO for ionocraft")
 
         def pwm_to_thrust(PWM):
             # returns thrust from PWM
