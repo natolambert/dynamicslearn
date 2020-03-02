@@ -15,6 +15,10 @@ class RandomController(Controller):
     def get_action(self, state):
         action = self.env.action_space.sample().astype(float)
         if self.internal % self.update_period == 0:
+            self.last_action = action
+            self.internal += 1
             return action, True
         else:
+            self.internal += 1
+            action = self.last_action
             return action, False

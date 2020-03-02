@@ -6,7 +6,7 @@ import hydra
 
 
 class LinearModel(DynamicsModel):
-    def __init__(self, datahandler, solver=None, training=None, optimizer=None):
+    def __init__(self, **nn_params): #datahandler, solver=None, training=None, optimizer=None):
         """
         Model for a simple linear prediction of the change in state. Consider the following optimization problem:
             (s_t+1 - s_t) = As_t + Bu_t
@@ -16,9 +16,9 @@ class LinearModel(DynamicsModel):
         - Or something like logistic regression which is less aggressive to outliers (which we definitely have)
         """
         super(LinearModel, self).__init__()
-        self.data_handler = hydra.utils.instantiate(datahandler)  # ModelDataHandler(cfg)
+        self.data_handler = hydra.utils.instantiate(nn_params['datahandler'])  # ModelDataHandler(cfg)
         self.w = None
-        self.solver = solver
+        self.solver = nn_params['training'].solver
         self.ensemble = False  # TODO try ensembling these
 
     def forward(self, x):
@@ -49,9 +49,11 @@ class LinearModel(DynamicsModel):
 
         A = inputs
         b = outputs
+
         # Generate the weights of the least squares problem
         w, res, rank, s = np.linalg.lstsq(A, b, rcond=None)
         self.w = w
+        res = np.mean((b-np.dot(A,w)**2))
         if ret_params:
             return w, (res, rank, s)
         else:

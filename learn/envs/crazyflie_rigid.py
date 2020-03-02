@@ -23,9 +23,9 @@ class CrazyflieRigidEnv(RigidEnv):
         3	x-vel                       -Inf        Inf     (meters/sec)
         4   y-vel                       -Inf        Inf     (meters/sec)
         5   z-vel                       -Inf        Inf     (meters/sec)
-        6   yaw                         -180        180     (degrees)
-        7   pitch                       -90         90      (degrees)
-        8   roll                        -180        180     (degrees)
+  wrong-6   yaw                         -180        180     (degrees)
+  wrong-7   pitch                       -90         90      (degrees)
+  wrong-8   roll                        -180        180     (degrees)
         9   omega_x                     -Inf        Inf     (rad/s^2)
         10  omega_y                     -Inf        Inf     (rad/s^2)
         11  omega_z                     -Inf        Inf     (rad/s^2)
@@ -39,7 +39,7 @@ class CrazyflieRigidEnv(RigidEnv):
 
     """
 
-    def __init__(self, dt=.001, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5):
+    def __init__(self, dt=.0025, m=.035, L=.065, Ixx=2.3951e-5, Iyy=2.3951e-5, Izz=3.2347e-5):
         super(CrazyflieRigidEnv, self).__init__(dt=dt)
 
         # Setup the parameters
@@ -95,18 +95,33 @@ class CrazyflieRigidEnv(RigidEnv):
 
         assert next_ob.ndim == 2
 
-        pitch = np.divide(next_ob[:, 0], 180)
-        roll = np.divide(next_ob[:, 1], 180)
         if not self.inv_huber:
-            cost_pr = np.power(pitch, 2) + np.power(roll, 2)
-            cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
-            lambda_omega = .0001
-            cost = cost_pr + lambda_omega * cost_rates
+            pitch = next_ob[:, 0]
+            roll = next_ob[:, 1]
+            # cost_pr = np.power(pitch, 2) + np.power(roll, 2)
+            # cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
+            # lambda_omega = .0001
+            # cost = cost_pr + lambda_omega * cost_rates
+            flag1 = np.abs(pitch) < 5
+            flag2 = np.abs(roll) < 5
+            rew = int(flag1) + int(flag2)
+            return rew
         else:
-            def invhuber(vec):
-                flag = abs(vec) > 5
-                sqr = np.power(vec, 2)
-                cost = vec[np.logical_not(flag)] + sqr[flag]
+            pitch = np.divide(next_ob[:, 0], 180)
+            roll = np.divide(next_ob[:, 1], 180)
+
+            def invhuber(input):
+                input = np.abs(input)
+                if input.ndim == 1:
+                    if np.abs(input) > 5:
+                        return input ** 2
+                    else:
+                        return input
+                else:
+                    flag = np.abs(input) > 5
+                    sqr = np.power(input, 2)
+                    cost = input[np.logical_not(flag)] + sqr[flag]
+                    return cost
 
             p = invhuber(pitch)
             r = invhuber(roll)
@@ -123,10 +138,33 @@ class CrazyflieRigidEnv(RigidEnv):
             next_ob = next_ob.unsqueeze(0)
             action = action.unsqueeze(0)
 
-        cost_pr = next_ob[:, 0].pow(2) + next_ob[:, 1].pow(2)
-        cost_rates = next_ob[:, 3].pow(2) + next_ob[:, 4].pow(2) + next_ob[:, 5].pow(2)
-        lambda_omega = .0001
-        cost = cost_pr + lambda_omega * cost_rates
+        if not self.inv_huber:
+            # cost_pr = next_ob[:, 0].pow(2) + next_ob[:, 1].pow(2)
+            # cost_rates = next_ob[:, 3].pow(2) + next_ob[:, 4].pow(2) + next_ob[:, 5].pow(2)
+            # lambda_omega = .0001
+            # cost = cost_pr + lambda_omega * cost_rates
+            flag1 = torch.abs(next_ob[:, 0]) < 5
+            flag2 = torch.abs(next_ob[:, 1]) < 5
+            rew = (flag1).double() + (flag2).double()
+            return rew
+        else:
+            def invhuber(input):
+                input = torch.abs(input)
+                if len(input) == 1:
+                    if torch.abs(input) > 5:
+                        return input.pow(2)
+                    else:
+                        return input
+                else:
+                    flag = torch.abs(input) > 5
+                    sqr = input.pow(2)
+                    cost = (~flag).double() * input + flag.double() * sqr
+                    return cost
+
+            p = invhuber(next_ob[:, 0])
+            r = invhuber(next_ob[:, 1])
+            cost = p + r
+
         return -cost
 
     def pwm_thrust_torque(self, PWM):

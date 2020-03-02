@@ -26,16 +26,36 @@ def plot(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    # dir=2020-02-10/15-39-36
     files = glob.glob(hydra.utils.get_original_cwd() + '/outputs/' + cfg.dir + '/*/**.dat')
     ms = []
     cl = []
     for g in files:
         mse, clust = torch.load(g)
+        if clust < 500:
+            continue
         ms.append(mse)
         cl.append(clust)
 
     # ms = np.array(ms)
     # cl = np.array(cl)
+
+    # Non clustered data
+    full_size = [4000]
+    base = [0.6844194601919266,
+            0.6426670856359498,
+            0.6760970001662061,
+            0.7867345088097977,
+            0.6402819700817463,
+            0.6432612884414582,
+            0.614643476721318,
+            0.673518857099874,
+            0.5565854257191823,
+            0.9437187183401807]
+    #
+    # for b in base:
+    #     ms.append(b)
+    #     cl.append(full_size[0])
 
     cl, ms = zip(*sorted(zip(cl, ms)))
     ids = np.unique(cl)
@@ -44,37 +64,57 @@ def plot(cfg):
     ms_arr = np.stack(ms).reshape((len(ids), -1))
 
     import matplotlib.pyplot as plt
+    import plotly.graph_objects as go
 
     colors = plt.get_cmap('tab10').colors
     traces = []
     i = 1
     cs_str = 'rgb' + str(colors[i])
 
-    err_traces, xs, ys = generate_errorbar_traces(ms_arr.T, xs=cl_arr.T.tolist(), color=cs_str, name=f"simulation")
+    err_traces, xs, ys = generate_errorbar_traces(ms_arr.T, xs=cl_arr.T.tolist(), color=cs_str,
+                                                  name=f"Clustered Training")
     for t in err_traces:
         traces.append(t)
 
-    layout = dict(title=f"Test Set Prediction Error",  # (Env: {env_name})",
-                  xaxis={'title': 'Cluster Size',
-                         # 'tickmode' : 'array',
-                         # 'tickvals' : [np.arange(len(ids))+1],
-                         # 'ticktext' : [str(i) for i in ids],
+    layout = dict( #title=f"Test Set Prediction Error",  # (Env: {env_name})",
+                  xaxis={'title': 'Cluster Size (Log Scale)',
+                         'autorange': 'reversed',
+                         'range':[3.7, 2.6]
                          },
-                  yaxis={'title': 'Mean Squared Error Prediction'},
-                  font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
+                  yaxis={'title': 'Prediction Mean Squared Error',
+                         'range':[.3,1]},
+                  font=dict(family='Times New Roman', size=33, color='#7f7f7f'),
                   xaxis_type="log",
-                  yaxis_type="log",
-                  height=1000,
-                  width=1500,
-                  legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'})
+                  # yaxis_type="log",
+                  height=600,
+                  width=1300,
+                  margin=dict(l=0, r=0, b=0, t=0),
+                  plot_bgcolor='white',
+                  legend={'x': .6, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'})
 
-    fig = {
-        'data': traces,
-        'layout': layout
-    }
+
+    fig = go.Figure(
+        data=traces,
+        layout=layout,
+    )
+
+    fig.add_trace(
+        # Line Horizontal
+        go.Scatter(
+            mode="lines",
+            x=[max(ids), min(ids)],
+            y=[np.mean(base), np.mean(base)],
+            line=dict(
+                color="gray",
+                width=4,
+                dash="dashdot",
+            ),
+            name='Default Training (4000 Datapoints)'
+        ))
 
     import plotly.io as pio
     pio.show(fig)
+    fig.write_image('clustering_thin.pdf')
     quit()
     hv_characterization()
 

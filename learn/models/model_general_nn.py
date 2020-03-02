@@ -180,7 +180,7 @@ class GeneralNN(nn.Module):
 
         self.scalarX.fit(X)
         self.scalarU.fit(U)
-        self.scalardX.fit(dX)
+        self.scalardX.fit(dX)    # Note crashes with simulation when clustering.
 
         # Stores the fit as tensors for offline prediction, etc
         if True:

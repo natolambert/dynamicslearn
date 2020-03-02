@@ -442,7 +442,7 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     return err_traces, xs, ys
 
 
-def plot_rollout(states, actions, pry=[1, 2, 0]):
+def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
     import plotly.graph_objects as go
     import numpy as np
     import plotly
@@ -488,4 +488,7 @@ def plot_rollout(states, actions, pry=[1, 2, 0]):
                           showgrid=False,
                           showticklabels=True, ),
                       )
-    fig.show()
+    if save:
+        fig.write_image(os.getcwd()+loc+"_rollout.png")
+    else:
+        fig.show()

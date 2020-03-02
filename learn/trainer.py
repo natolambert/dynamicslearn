@@ -24,6 +24,8 @@ import hydra
 
 # Plotting
 import matplotlib.pyplot as plt
+import time
+
 
 import logging
 
@@ -92,7 +94,8 @@ def params_to_training(data):
 
 
 def train_model(X, U, dX, model_cfg):
-    log.info("Training Model")
+    log.info(f"Training Model on {np.shape(X)[0]} pts")
+    start = time.time()
     train_log = dict()
 
     train_log['model_params'] = model_cfg.params
@@ -101,8 +104,15 @@ def train_model(X, U, dX, model_cfg):
     if model_cfg.params.training.cluster > 0:
         h = model_cfg.params.history
         mat = to_matrix(X, U, dX, model_cfg)
-        mat_r = cluster(mat, model_cfg.params.training.cluster)
-        X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx * (h + 1), model_cfg.params.du * (h + 1),
+        num_pts = np.shape(mat)[0]
+        if num_pts < model_cfg.params.training.cluster:
+            log.info(f"Not enough points to cluster to {model_cfg.params.training.cluster} yet.")
+            X_t = X
+            U_t = U
+            dX_t = dX
+        else:
+            mat_r = cluster(mat, model_cfg.params.training.cluster)
+            X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx * (h + 1), model_cfg.params.du * (h + 1),
                                                  model_cfg.params.dt])
     else:
         X_t = X
@@ -123,6 +133,8 @@ def train_model(X, U, dX, model_cfg):
     train_log['min_trainerror'] = min_err
     train_log['min_testerror'] = min_err_test
 
+    end = time.time()
+    log.info(f"Trained Model in {end-start} s")
     return model, train_log
 
 
@@ -139,7 +151,7 @@ def trainer(cfg):
     data_dir = cfg.load.fname  # base_dir
 
     avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
-    if False:  # os.path.isfile(avail_data):
+    if os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
@@ -160,6 +172,35 @@ def trainer(cfg):
     # remove data 4 standard deviations away
     df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
     # plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
+    data = create_model_params(df, cfg.model)
+    X = data['states'].values
+    U = data['inputs'].values
+    dX = data['targets'].values
+
+    # x = torch.Tensor(np.hstack((X,U,dX))).numpy()
+    # import faiss
+    # # x = vectorized
+    # niter = 50
+    # ncentroids = 500
+    # verbose = True
+    # d = x.shape[1]
+    # kmeans = faiss.Kmeans(d, ncentroids, niter=niter, verbose=verbose)
+    # kmeans.train(x)
+    #
+    # # for i, v in enumerate(kmeans.centroids):
+    # #     print(i)
+    #
+    # index = faiss.IndexFlatL2(d)
+    # index.add(x)
+    # D, I = index.search(kmeans.centroids, 1)
+    # x_reduced = x[I, :].squeeze()
+    # df.iloc[I.squeeze()]
+    # plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
+    #
+    # quit()
+
+
+
 
     data = create_model_params(df, cfg.model)
 

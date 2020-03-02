@@ -117,7 +117,7 @@ class simple_bo():
 
 
 ######################################################################
-@hydra.main(config_path='conf/learn.yaml')
+@hydra.main(config_path='conf/mpc.yaml')
 def pid(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
@@ -137,6 +137,10 @@ def pid(cfg):
             state = np.round(state, 2)
             if i % 5 == 0: print(f" Euler Angles Pitch {state[1]}, Roll {state[0]}, Yaw {state[2]}")
 
+    # global max_cost
+    # max_cost = 0.
+
+
     def bo_rollout_wrapper(params):  # env, controller, exp_cfg):
         pid_1 = pid_s.transform(np.array(params)[0, :3])
         pid_2 = pid_s.transform(np.array(params)[0, 3:])
@@ -153,39 +157,43 @@ def pid(cfg):
             if sim_error:
                 print("Repeating strange simulation")
                 continue
-            rollout_cost = 0  # -1 * np.sum(rews) / len(rews)
-            rollout_cost += get_reward_euler(states[-1], actions[-1])
+            rollout_cost = -1 * np.sum(rews) / len(rews)
+            # if rollout_cost > max_cost:
+            #      max_cost = rollout_cost
+            # rollout_cost += get_reward_euler(states[-1], actions[-1])
             cum_cost.append(rollout_cost)
             r += 1
 
         cum_cost = np.mean(cum_cost)
-        print(f"Cum. Cost {cum_cost / random_cost}")
+        # print(f"Cum. Cost {cum_cost / max_cost}")
+        print(f"Cum. Cost {cum_cost}")
 
-        return cum_cost.reshape(1, 1) / random_cost
+        return cum_cost.reshape(1, 1)
 
     sim = simple_bo(cfg.bo, cfg.policy, bo_rollout_wrapper)
 
     log.info(f"Running random rollout for cost baseline")
-    sim.policy.random = True
-    sim.policy.update_period =  sim.policy.update_period * 10
-    random_cost = []
-    r = 0
-    while r < cfg.experiment.repeat:
-        states, actions, rews, sim_error = rollout(env, sim.policy, exp_cfg)
-        # plot_rollout(states, actions, pry=[1, 0, 2])
-        if sim_error:
-            print("Repeating strange simulation")
-            continue
-        rollout_reward = 0 #-1 * np.sum(rews) / len(rews)
-        rollout_reward += get_reward_euler(states[-1], actions[-1])
-        random_cost.append(rollout_reward)
-        r += 1
 
-    random_cost = np.mean(random_cost)
-    sim.policy.random = False
-    sim.policy.update_period =  int(sim.policy.update_period / 10)
+    # sim.policy.random = True
+    # sim.policy.update_period = sim.policy.update_period * 10
+    # random_cost = []
+    # r = 0
+    # while r < cfg.experiment.repeat:
+    #     states, actions, rews, sim_error = rollout(env, sim.policy, exp_cfg)
+    #     plot_rollout(states, actions, pry=[1, 0, 2])
+    #     if sim_error:
+    #         print("Repeating strange simulation")
+    #         continue
+    #     rollout_reward = 0  # -1 * np.sum(rews) / len(rews)
+    #     rollout_reward += get_reward_euler(states[-1], actions[-1])
+    #     random_cost.append(rollout_reward)
+    #     r += 1
+    #
+    # random_cost = np.mean(random_cost)
+    # sim.policy.random = False
+    # sim.policy.update_period = int(sim.policy.update_period / 10)
 
-    log.info(f"Random Control Cumulative Cost {random_cost}, task normalized by this")
+    # log.info(f"Random Control Cumulative Cost {random_cost}, task normalized by this")
 
     msg = "Initialized BO Objective of PID Control"
     log.info(msg)
@@ -276,6 +284,9 @@ def rollout(env, controller, exp_cfg):
         done = done or sim_error
         # if update:
         rews.append(rew)
+
+    # large terminal cost
+    rews[-1] = rews[-1] * exp_cfg.r_len
 
     return states, actions, rews, sim_error
 
