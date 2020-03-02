@@ -50,6 +50,8 @@ class CrazyflieRigidEnv(RigidEnv):
         self.Izz = Izz
         self.g = 9.81
 
+        self.inv_huber = False
+
         # Define equilibrium input for quadrotor around hover
         # This is not the case for PWM inputs
         self.u_e = np.array([m * self.g, 0, 0, 0])
@@ -92,12 +94,23 @@ class CrazyflieRigidEnv(RigidEnv):
             action = np.expand_dims(action, 0)
 
         assert next_ob.ndim == 2
+
         pitch = np.divide(next_ob[:, 0], 180)
         roll = np.divide(next_ob[:, 1], 180)
-        cost_pr = np.power(pitch, 2) + np.power(roll, 2)
-        cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
-        lambda_omega = .0001
-        cost = cost_pr + lambda_omega * cost_rates
+        if not self.inv_huber:
+            cost_pr = np.power(pitch, 2) + np.power(roll, 2)
+            cost_rates = np.power(next_ob[:, 3], 2) + np.power(next_ob[:, 4], 2) + np.power(next_ob[:, 5], 2)
+            lambda_omega = .0001
+            cost = cost_pr + lambda_omega * cost_rates
+        else:
+            def invhuber(vec):
+                flag = abs(vec) > 5
+                sqr = np.power(vec, 2)
+                cost = vec[np.logical_not(flag)] + sqr[flag]
+
+            p = invhuber(pitch)
+            r = invhuber(roll)
+            cost = p + r
         return -cost
 
     def get_reward_torch(self, next_ob, action):

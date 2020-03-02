@@ -5,6 +5,7 @@ import torch
 class MPController(Controller):
     def __init__(self, env, model, controller_cfg):
         super(MPController, self).__init__(controller_cfg)
+        controller_cfg = controller_cfg[controller_cfg.policy.mode]
         self.env = env
         self.model = model
         self.cfg = controller_cfg
