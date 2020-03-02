@@ -7,11 +7,21 @@ save: true
 checkpoint_file: trial_{}.dat
 random_seed: 1
 
+
+
 experiment:
-  num_r: 15
-  r_len: 2500
+  num_r: 10
+  r_len: 2000
   seeds: 1
-  repeat: 1
+  repeat: 5
+
+mpc:
+  params:
+    mode: random
+    N: 5000
+    T: 5
+    hold: true
+    #      period: 10
 
 
 bo:

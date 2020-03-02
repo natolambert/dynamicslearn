@@ -21,23 +21,18 @@ pid:
     roll_mult: [-1, -1, +1, +1]
     pry: [1, 0, 2]
 
-mpc:
+env:
   params:
-    mode: random
-    N: 20000
-    T: 5
-    hold: true
-    #      period: 10
+    name: cf_sim
+    flight_mode: basic
+    inv_huber: true
 
 model:
   params:
     dx: 6
     du: 4
     dt: 6
-    name: cf_sim
-    flight_mode: basic
     history: 0
-    inv_huber: true
     delta_state_targets:
       - pitch
       - roll

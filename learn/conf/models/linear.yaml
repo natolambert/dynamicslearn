@@ -4,6 +4,7 @@ model:
     training:
       solver: None
       ensemble: false
+      cluster: 2000
     optimizer: None
     datahandler:
       class: learn.utils.nn.ModelDataHandler

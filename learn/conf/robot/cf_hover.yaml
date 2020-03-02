@@ -39,21 +39,9 @@ pid:
     roll_mult: [1, 1, -1, -1]
     pry: [0,1,2]
 
-mpc:
-  params:
-    mode: random
-    N: 5000
-    T: 5
-    hold: true
-    #      period: 10
 
 model:
   params:
-    dx: 9
-    du: 4
-    dt: 9
-    name: cf_hover
-    flight_mode: basic
     history: 3
     delta_state_targets:
       - pitch
@@ -69,4 +57,13 @@ model:
     ignore_in:  # can be non axis specific
       - vbat
     extra_inputs:
-#    - timesteps
+      -
+
+env:
+  params:
+    dx: 9
+    du: 4
+    dt: 9
+    name: cf_hover
+    flight_mode: basic
+
