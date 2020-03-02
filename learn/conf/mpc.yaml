@@ -1,6 +1,6 @@
 defaults:
   - robot: ???
-  - models: linear
+  - models: nn
 
 dimension: all
 save: true
@@ -11,11 +11,11 @@ experiment:
   num_r: 15
   r_len: 2500
   seeds: 1
-  repeat: 10
+  repeat: 1
 
 
 bo:
-  iterations: 100
+  iterations: 50
   sim: false
 
 

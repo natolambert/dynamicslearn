@@ -20,29 +20,31 @@ load:
     - yaw
 
 policy:
-  mode: pid
+  mode: mpc
   params:
     period: 1
-  pid:
-    params:
-      mode: INTEG
-      equil: [40000, 40000, 40000, 40000]
-      min_pwm: 0
-      max_pwm: 65535
-      dt: .02
-      min_values: [.1, .001, .001]
-      max_values: [500, 25, 50]
-      terminal_cost: 1
-      living_cost: .1
-      pitch_mult: [-1, 1, 1, -1]
-      roll_mult: [1, 1, -1, -1]
-      pry: [0,1,2]
-  mpc:
-    params:
-      mode: random
-      N: 20000
-      T: 5
-      hold: true
+
+pid:
+  params:
+    mode: INTEG
+    equil: [40000, 40000, 40000, 40000]
+    min_pwm: 0
+    max_pwm: 65535
+    dt: .02
+    min_values: [.1, .001, .001]
+    max_values: [500, 25, 50]
+    terminal_cost: 1
+    living_cost: .1
+    pitch_mult: [-1, 1, 1, -1]
+    roll_mult: [1, 1, -1, -1]
+    pry: [0,1,2]
+
+mpc:
+  params:
+    mode: random
+    N: 5000
+    T: 5
+    hold: true
     #      period: 10
 
 model:

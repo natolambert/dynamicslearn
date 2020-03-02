@@ -7,17 +7,10 @@ dimension: all
 save: true
 
 policy:
-  mode: INTEG
-  params:
-    equil: [1500, 1500, 1500, 1500]
-    min_pwm: 0 #[0,0,0,0]
-    max_pwm: 3000 #[3000, 3000, 3000, 3000]
-    dt: .02
-    period: 1
   pid:
     params:
-      min_values: [1, .01, .1]
-      max_values: [500, 25, 50]
+#      min_values: [1, .01, .1]
+#      max_values: [500, 25, 50]
       terminal_cost: 1
       living_cost: .1
 

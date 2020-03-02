@@ -1,40 +1,43 @@
 robot: cf
 
 policy:
-  mode: pid
+  mode: mpc
   params:
-    period: 10
-  pid:
-    params:
-      mode: INTEG
-      equil: [16383, 16383, 16383, 16383]
-      min_pwm: 0
-      max_pwm: 65535
-      int_max: 10000
-      dt: .01
-      min_values: [10, 1, 1]
-      max_values: [50000, 50000, 50000]
-      terminal_cost: 1
-      living_cost: .1
-      pitch_mult: [1, -1, -1, +1]
-      roll_mult: [-1, -1, +1, +1]
-      pry: [1, 0, 2]
-  mpc:
-    params:
-      mode: random
-      N: 20000
-      T: 5
-      hold: true
+    period: 20
+
+pid:
+  params:
+    mode: INTEG
+    equil: [16383, 16383, 16383, 16383]
+    min_pwm: 0
+    max_pwm: 65535
+    int_max: 50000
+    dt: .02
+    min_values: [.1, .1, .1]
+    max_values: [50000, 1, 50000]
+    terminal_cost: 1
+    living_cost: .1
+    pitch_mult: [1, -1, -1, +1]
+    roll_mult: [-1, -1, +1, +1]
+    pry: [1, 0, 2]
+
+mpc:
+  params:
+    mode: random
+    N: 20000
+    T: 5
+    hold: true
     #      period: 10
 
-env:
+model:
   params:
     dx: 6
     du: 4
     dt: 6
     name: cf_sim
     flight_mode: basic
-    history: 1
+    history: 0
+    inv_huber: true
     delta_state_targets:
       - pitch
       - roll
