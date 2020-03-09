@@ -7,9 +7,6 @@ import os
 import copy
 import numpy as np
 
-# Plotting
-import matplotlib.pyplot as plt
-import matplotlib
 
 
 # basic PID class to perform arithmetic around the setpoint

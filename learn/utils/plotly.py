@@ -3,7 +3,6 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
 import os
 
@@ -81,6 +80,7 @@ def plot_test_train(model, dataset, variances=False):
 
     # plot for test train compare
     fig = plt.figure()
+    import seaborn as sns
     with sns.axes_style("whitegrid"):
         plt.rcParams["font.family"] = "Times New Roman"
         plt.rcParams["axes.edgecolor"] = "0.15"

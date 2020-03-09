@@ -13,8 +13,8 @@ pid:
     max_pwm: 3000
     int_max: 1000
     dt: .02
-    min_values: [50, .01, .01]
-    max_values: [500, 25, 500]
+    min_values: [0, 0, 0]
+    max_values: [500, 500, 500]
     terminal_cost: 1
     living_cost: .1
     pitch_mult: [1, -1, -1, +1]
