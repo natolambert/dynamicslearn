@@ -14,7 +14,7 @@ model:
       split: false
       mode: delta
       plot_loss: true
-      cluster: 0
+      cluster: 5000
     optimizer:
       epochs:  17
       batch: 18

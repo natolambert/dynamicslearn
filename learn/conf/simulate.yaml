@@ -6,11 +6,11 @@ defaults:
 dimension: all
 save: true
 
+
 policy:
+  mode: pid
   pid:
     params:
-#      min_values: [1, .01, .1]
-#      max_values: [500, 25, 50]
       terminal_cost: 1
       living_cost: .1
 
@@ -22,8 +22,8 @@ hydra:
     subdir: ${hydra.job.num}
 
 bo:
-  iterations: 2
+  iterations: 100
   sim: true
-  rollouts: 5
+  rollouts: 500
   variable_length: false
-  max_length: 2
+  max_length: 20

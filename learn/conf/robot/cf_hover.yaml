@@ -20,7 +20,6 @@ load:
     - yaw
 
 policy:
-  mode: mpc
   params:
     period: 1
 
@@ -30,18 +29,22 @@ pid:
     equil: [40000, 40000, 40000, 40000]
     min_pwm: 0
     max_pwm: 65535
+    int_max: 10000
     dt: .02
     min_values: [.1, .001, .001]
-    max_values: [500, 25, 50]
+    max_values: [50000, 10000, 50000]
     terminal_cost: 1
     living_cost: .1
     pitch_mult: [-1, 1, 1, -1]
     roll_mult: [1, 1, -1, -1]
-    pry: [0,1,2]
+    pry: [3,4,5]
 
 
 model:
   params:
+    dx: 9
+    du: 4
+    dt: 9
     history: 3
     delta_state_targets:
       - pitch
@@ -57,13 +60,12 @@ model:
     ignore_in:  # can be non axis specific
       - vbat
     extra_inputs:
-      -
 
 env:
   params:
     dx: 9
     du: 4
     dt: 9
-    name: cf_hover
+    name: cf
     flight_mode: basic
 

@@ -1,20 +1,20 @@
 robot: cf
-
+name:
 policy:
-  mode: mpc
+  mode: pid
   params:
     period: 20
 
 pid:
   params:
     mode: INTEG
-    equil: [16383, 16383, 16383, 16383]
+    equil: [1500, 1500, 1500, 1500]
     min_pwm: 0
-    max_pwm: 65535
-    int_max: 50000
+    max_pwm: 3000
+    int_max: 1000
     dt: .02
-    min_values: [.1, .1, .1]
-    max_values: [50000, 1, 50000]
+    min_values: [1, .01, .1]
+    max_values: [500, 25, 50]
     terminal_cost: 1
     living_cost: .1
     pitch_mult: [1, -1, -1, +1]
@@ -23,7 +23,7 @@ pid:
 
 env:
   params:
-    name: CrazyflieRigid-v0
+    name: IonoRigid-v0
     flight_mode: basic
     inv_huber: true
 
