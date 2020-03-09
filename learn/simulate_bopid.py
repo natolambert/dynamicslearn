@@ -146,7 +146,7 @@ def pid(cfg):
         pid_1 = pid_s.transform(np.array(params)[0, :3])
         pid_2 = pid_s.transform(np.array(params)[0, 3:])
         print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
-        pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_1[0], pid_2[1], pid_2[2]]]
+        pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
         sim.policy.set_params(pid_params)
 
         cum_cost = []
@@ -158,7 +158,7 @@ def pid(cfg):
             # if sim_error:
             #     print("Repeating strange simulation")
             #     continue
-            rollout_cost = -1 * np.sum(rews) #/ len(rews)
+            rollout_cost = -1 * np.sum(rews) / cfg.experiment.repeat #/ len(rews)
             # if rollout_cost > max_cost:
             #      max_cost = rollout_cost
             # rollout_cost += get_reward_euler(states[-1], actions[-1])
@@ -228,22 +228,22 @@ def rollout(env, controller, exp_cfg):
         rews.append(rew)
 
     # large terminal cost
-    rews[-1] = rews[-1] * exp_cfg.r_len
+    # rews[-1] = rews[-1] * exp_cfg.r_len
 
     return states, actions, rews, sim_error
 
 
-def euler_numer(last_state, state):
+def euler_numer(last_state, state, mag=10):
     flag = False
-    if abs(state[0] - last_state[0]) > 3:
+    if abs(state[0] - last_state[0]) > mag:
         flag = True
-    elif abs(state[1] - last_state[1]) > 3:
+    elif abs(state[1] - last_state[1]) > mag:
         flag = True
-    elif abs(state[2] - last_state[2]) > 3:
+    elif abs(state[2] - last_state[2]) > mag:
         flag = True
-    if flag:
-        print("Stopping - Large euler angle step detected, likely non-physical")
-    return flag
+    # if flag:
+        # print("Stopping - Large euler angle step detected, likely non-physical")
+    return False #flag
 
 
 if __name__ == '__main__':

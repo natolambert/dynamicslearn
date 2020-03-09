@@ -286,7 +286,7 @@ def optimizer(cfg):
         cum_cost = 0
         # p = np.array(params)
         # pid_params = [[p[0, 0], p[0, 1], p[0, 2]], [p[0, 3], p[0, 4], p[0, 5]]]
-        pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_1[0], pid_2[1], pid_2[2]]]
+        pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
         sim.policy.set_params(pid_params)
         sim.policy.reset()
         np.random.shuffle(initial_states)

@@ -17,9 +17,9 @@ policy:
 
 experiment:
   num_r: 10
-  r_len: 5000
+  r_len: 2500 #5000
   seeds: 1
-  repeat: 5
+  repeat: 100
 
 mpc:
   params:
@@ -31,7 +31,7 @@ mpc:
 
 
 bo:
-  iterations: 50
+  iterations: 10
   sim: false
 
 
