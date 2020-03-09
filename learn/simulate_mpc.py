@@ -114,7 +114,7 @@ def mpc(cfg):
             model, train_log = train_model(X, U, dX, cfg.model)
             full_rewards.append(cum_costs)
 
-        plot_rewards_over_trials(np.transpose(np.stack(full_rewards)), env_name)
+         plot_rewards_over_trials(np.transpose(np.stack(full_rewards)), env_name)
 
 
 def to_XUdX(data):

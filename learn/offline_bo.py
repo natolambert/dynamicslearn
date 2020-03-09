@@ -44,21 +44,21 @@ log = logging.getLogger(__name__)
 
 
 class BOPID():
-    def __init__(self, bo_cfg, policy_cfg, opt_function):
+    def __init__(self, cfg, opt_function):
         # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
-        self.b_cfg = bo_cfg
-        self.p_cfg = policy_cfg
+        self.b_cfg = cfg.bo
+        self.p_cfg = cfg.policy
+        self.cfg = cfg
 
-        self.t_c = policy_cfg.pid.params.terminal_cost
-        self.l_c = policy_cfg.pid.params.living_cost
+        self.t_c = self.p_cfg.pid.params.terminal_cost
+        self.l_c = self.p_cfg.pid.params.living_cost
 
         self.norm_cost = 1
 
-        self.PIDMODE = policy_cfg.mode
-        self.policy = PidPolicy(policy_cfg)
-        evals = bo_cfg.iterations
-        param_min = [0] * len(list(policy_cfg.pid.params.min_values))
-        param_max = [1] * len(list(policy_cfg.pid.params.max_values))
+        self.policy = PidPolicy(cfg)
+        evals = cfg.bo.iterations
+        param_min = [0] * len(list(cfg.pid.params.min_values))
+        param_max = [1] * len(list(cfg.pid.params.max_values))
         self.n_parameters = self.policy.numParameters
         self.n_pids = self.policy.numpids
         params_per_pid = self.n_parameters / self.n_pids
@@ -72,7 +72,7 @@ class BOPID():
         # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
         # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
         self.Stop = StopCriteria(maxEvals=evals)
-        self.sim = bo_cfg.sim
+        self.sim = cfg.bo.sim
 
     def optimize(self):
         p = DotMap()
@@ -129,13 +129,13 @@ class BOPID():
                 weight = self.t_c
             else:
                 weight = self.l_c / max_len
-            cost += weight * get_reward_euler(next_state, cur_action)
+            # cost += weight * get_reward_euler(next_state, cur_action)
+            cost += get_reward_euler(next_state, cur_action, pry=self.cfg.pid.params.pry)
 
         if plot:
-            plot_rollout(state_log, np.stack(action_log).squeeze(), pry=[0, 1, 2])
+            plot_rollout(state_log, np.stack(action_log).squeeze(), pry=[self.cfg.pid.params.pry])
 
         return cost / self.norm_cost, [state_log, action_log]  # / max_len  # cost
-
 
 
 def push_history(new, orig):
@@ -198,14 +198,21 @@ def smart_model_step(model, state, action):
     len_in = len(states_in)
     len_out = len(targets)
 
-    def convert_predictions(prediction, state_in, targets_list):
+    def convert_predictions(prediction, state_in, states_list, targets_list):
         output = np.copy(state_in[:len(targets_list)])
-        for i, (p, s, t_l) in enumerate(zip(prediction, state_in, targets_list)):
+        # print(states_list)
+        for i, (p, s, s_l, t_l) in enumerate(zip(prediction, state_in, states_list, targets_list)):
+            find = t_l[:t_l.rfind('_')+1]
+            if find == 'linaz_':
+                find = 'linyz_' #TYPO FIX
+            index = [idx for idx, s in enumerate(states_list) if find in s][0]
             # if delta, add change
+            # print(find)
+            # print(index)
             if t_l[-2:] == 'dx':
-                output[i] = s + p
+                output[index] = state_in[index] + p
             else:
-                output[i] = p
+                output[index] = p
         return output
 
     if len_out > len_in:
@@ -216,12 +223,23 @@ def smart_model_step(model, state, action):
             hist = int(len(actions_in) / len(action))
             action = np.repeat(action, hist).flatten()  # np.array([action] * hist).flatten()
     output, logvars = model.predict(state, action, ret_var=True)
-    next_state = convert_predictions(output, state, targets)
+    next_state = convert_predictions(output, state, states_in, targets)
 
     return next_state, torch.exp(logvars)
 
 
 global cfg
+
+
+def get_reward_euler(next_state, cur_action, pry=[0, 1, 2]):
+    pitch = next_state[pry[0]]
+    roll = next_state[pry[1]]
+    flag1 = np.abs(pitch) < 5
+    flag2 = np.abs(roll) < 5
+    rew = int(flag1) + int(flag2)
+    return -rew
+
+
 ######################################################################
 @hydra.main(config_path='conf/simulate.yaml')
 def optimizer(cfg):
@@ -230,7 +248,7 @@ def optimizer(cfg):
     log.info("=========================================")
 
     global pid_s
-    pid_s = PID_scalar(cfg.policy)
+    pid_s = PID_scalar(cfg)
 
     global model
     global sim
@@ -238,8 +256,8 @@ def optimizer(cfg):
 
     num_r = cfg.bo.rollouts
 
-    model = torch.load(cwd_basedir() + 'ex_data/models/iono.dat')
-    trained_data = pd.read_csv(cwd_basedir() + 'ex_data/SAS/iono.csv')
+    model = torch.load(cwd_basedir() + 'ex_data/models/' + cfg.env.params.name + '.dat')
+    trained_data = pd.read_csv(cwd_basedir() + 'ex_data/SAS/' + cfg.env.params.name + '.csv')
 
     states_in = model.state_list
     actions_in = model.input_list
@@ -249,22 +267,22 @@ def optimizer(cfg):
     a = trained_data[actions_in].values
     t = trained_data[targets].values
 
-    def get_permissible_states(states):
+    def get_permissible_states(states, pry=[0, 1, 2]):
         # for a dataframe and a model, get some permissible data for initial states for model rollouts
 
         # Look for data with low pitch and roll
-        flag = (abs(states[:, 0]) < 10) & (abs(states[:, 1]) < 10)
+        flag = (abs(states[:, pry[0]]) < 10) & (abs(states[:, pry[1]]) < 10)
         reasonable = states[flag, :]
         return reasonable
 
-    initial_states = get_permissible_states(s)
+    initial_states = get_permissible_states(s, pry=cfg.pid.params.pry)
     val = np.random.randint(0, len(initial_states))
     s0 = initial_states[val]
 
     def rollout_opttask(params):
         pid_1 = pid_s.transform(np.array(params)[0, :3])
         pid_2 = pid_s.transform(np.array(params)[0, 3:])
-        print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
+        print(f"Optimizing Parameters {np.round(pid_1, 5)},{np.round(pid_2, 5)}")
         cum_cost = 0
         # p = np.array(params)
         # pid_params = [[p[0, 0], p[0, 1], p[0, 2]], [p[0, 3], p[0, 4], p[0, 5]]]
@@ -282,14 +300,14 @@ def optimizer(cfg):
             states_r.append(np.stack(state_log))
 
         print(f" - Cumulative cost {cum_cost}")
-        if False:
+        if True:
             import matplotlib.pyplot as plt
             colors = plt.get_cmap('tab10').colors
 
             xs = np.arange(np.shape(state_log)[0])
             ys = np.stack(states_r)
             traces = []
-            for idx in [0, 1, 2]:
+            for idx in cfg.pid.params.pry: #[0, 1, 2]:
                 cs_str = 'rgb' + str(colors[idx])
                 ys_sub = ys[:, :, idx]
                 err_traces, xs_p, ys_p = generate_errorbar_traces(ys_sub, xs=None, percentiles='66+95', color=cs_str,
@@ -297,7 +315,7 @@ def optimizer(cfg):
                 for t in err_traces:
                     traces.append(t)
 
-            layout = dict(title=f"cost {cum_cost}, pa {np.round(params, 2)}",
+            layout = dict(title=f"cost {cum_cost}, pa {np.round(np.concatenate((pid_1, pid_2)),3)}",
                           xaxis={'title': 'Timestep'},
                           yaxis={'title': 'Euler Angles', 'range': [-45, 45]},
                           font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
@@ -315,7 +333,7 @@ def optimizer(cfg):
 
         return np.sum(cum_cost).reshape(1, 1)
 
-    sim = BOPID(cfg.bo, cfg.policy, rollout_opttask)
+    sim = BOPID(cfg, rollout_opttask)
     # traj = sim.basic_rollout(s0, model)
 
     global random_cost
@@ -329,12 +347,13 @@ def optimizer(cfg):
             continue
         cost, [state_log, action_log] = sim.basic_rollout(s0, model)
         random_cost += cost
+        # plot_rollout(np.stack(state_log), np.stack(action_log), pry=cfg.pid.params.pry, save=False)
 
         states_r.append(np.stack(state_log))
 
     sim.policy.random = False
     log.info(f"Random Control Cumulative Cost {random_cost}, task normalized by this")
-    sim.norm_cost = random_cost
+    # sim.norm_cost = random_cost
 
     msg = "Initialized BO Objective of PID Control"
     # msg +=

@@ -10,6 +10,11 @@ register(
     entry_point='learn.envs.crazyflie_rigid:CrazyflieRigidEnv',
 )
 #
+register(
+    id='IonoRigid-v0',
+    entry_point='learn.envs.ionocraft_rigid:IonocraftRigidEnv',
+)
+#
 # register(
 #     id='QuadEnv-v0',
 #     entry_point='learn.envs.model_continuous:QuadEnv',

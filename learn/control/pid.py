@@ -176,8 +176,10 @@ class PidPolicy(Controller):
     """
     def __init__(self, cfg):
         super(PidPolicy, self).__init__(cfg)
+        parameters = gen_pid_params(cfg)
+        cfg = cfg[cfg.policy.mode]
         self.pids = []
-        self.cfg = cfg.pid
+        self.cfg = cfg
         self.mode = self.cfg.params.mode
         self.interal = 0
 
@@ -199,7 +201,6 @@ class PidPolicy(Controller):
         self.dt = self.cfg.params.dt
         self.numParameters = 0
 
-        parameters = gen_pid_params(cfg)
         # order: pitch, roll, yaw, pitchrate, rollrate, yawRate or pitch roll yaw yawrate for hybrid or pitch roll yaw for euler
         if self.mode == 'BASIC':
             self.numpids = 2

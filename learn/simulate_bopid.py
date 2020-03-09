@@ -41,21 +41,22 @@ def save_log(cfg, trial_num, trial_log):
 
 
 class simple_bo():
-    def __init__(self, bo_cfg, policy_cfg, opt_function):
+    def __init__(self, cfg, opt_function):
         # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
-        self.b_cfg = bo_cfg
-        self.p_cfg = policy_cfg
+        self.b_cfg = cfg.bo
+        self.p_cfg = cfg.policy
+        self.cfg = cfg
 
-        self.t_c = policy_cfg.pid.params.terminal_cost
-        self.l_c = policy_cfg.pid.params.living_cost
+        self.t_c = self.p_cfg.pid.params.terminal_cost
+        self.l_c = self.p_cfg.pid.params.living_cost
 
         self.norm_cost = 1
 
-        self.PIDMODE = policy_cfg.mode
-        self.policy = PidPolicy(policy_cfg)
-        evals = bo_cfg.iterations
-        param_min = [0] * len(list(policy_cfg.pid.params.min_values))
-        param_max = [1] * len(list(policy_cfg.pid.params.max_values))
+        self.PIDMODE = cfg.policy.mode
+        self.policy = PidPolicy(cfg)
+        evals = cfg.bo.iterations
+        param_min = [0] * len(list(cfg.pid.params.min_values))
+        param_max = [1] * len(list(cfg.pid.params.max_values))
         self.n_parameters = self.policy.numParameters
         self.n_pids = self.policy.numpids
         params_per_pid = self.n_parameters / self.n_pids
@@ -69,7 +70,7 @@ class simple_bo():
         # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
         # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
         self.Stop = StopCriteria(maxEvals=evals)
-        self.sim = bo_cfg.sim
+        self.sim = cfg.bo.sim
 
     def optimize(self):
         p = DotMap()
@@ -123,13 +124,13 @@ def pid(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    env_name = 'CrazyflieRigid-v0'
+    env_name = cfg.env.params.name
     env = gym.make(env_name)
     env.reset()
     full_rewards = []
     exp_cfg = cfg.experiment
 
-    pid_s = PID_scalar(cfg.policy)
+    pid_s = PID_scalar(cfg)
 
     def investigate_env_orientation(env, action, k):
         for i in range(k):
@@ -153,11 +154,11 @@ def pid(cfg):
         while r < cfg.experiment.repeat:
             sim.policy.reset()
             states, actions, rews, sim_error = rollout(env, sim.policy, exp_cfg)
-            plot_rollout(states, actions, pry=[1, 0, 2])
-            if sim_error:
-                print("Repeating strange simulation")
-                continue
-            rollout_cost = -1 * np.sum(rews) / len(rews)
+            # plot_rollout(states, actions, pry=[1, 0, 2])
+            # if sim_error:
+            #     print("Repeating strange simulation")
+            #     continue
+            rollout_cost = -1 * np.sum(rews) #/ len(rews)
             # if rollout_cost > max_cost:
             #      max_cost = rollout_cost
             # rollout_cost += get_reward_euler(states[-1], actions[-1])
@@ -170,30 +171,9 @@ def pid(cfg):
 
         return cum_cost.reshape(1, 1)
 
-    sim = simple_bo(cfg.bo, cfg.policy, bo_rollout_wrapper)
+    sim = simple_bo(cfg, bo_rollout_wrapper)
 
     log.info(f"Running random rollout for cost baseline")
-
-    # sim.policy.random = True
-    # sim.policy.update_period = sim.policy.update_period * 10
-    # random_cost = []
-    # r = 0
-    # while r < cfg.experiment.repeat:
-    #     states, actions, rews, sim_error = rollout(env, sim.policy, exp_cfg)
-    #     plot_rollout(states, actions, pry=[1, 0, 2])
-    #     if sim_error:
-    #         print("Repeating strange simulation")
-    #         continue
-    #     rollout_reward = 0  # -1 * np.sum(rews) / len(rews)
-    #     rollout_reward += get_reward_euler(states[-1], actions[-1])
-    #     random_cost.append(rollout_reward)
-    #     r += 1
-    #
-    # random_cost = np.mean(random_cost)
-    # sim.policy.random = False
-    # sim.policy.update_period = int(sim.policy.update_period / 10)
-
-    # log.info(f"Random Control Cumulative Cost {random_cost}, task normalized by this")
 
     msg = "Initialized BO Objective of PID Control"
     log.info(msg)
@@ -208,44 +188,6 @@ def pid(cfg):
         vals = np.round(pid_s.transform(vals), 1)
         print(f"Cost - {np.round(fx, 3)}: Pp: ", vals[0], " Ip: ", vals[1], " Dp: ", vals[2],
               "| Pr: ", vals[3], " Ir: ", vals[4], " Dr: ", vals[5])
-
-    # for s in range(cfg.experiment.seeds):
-    #     trial_rewards = []
-    #     log.info(f"Random Seed: {s}")
-    #     data = rollout(env, RandomController(env, cfg.policy), cfg.experiment)
-    #     X, dX, U = to_XUdX(data)
-    #
-    #     model, train_log = train_model(X, U, dX, cfg.model)
-    #
-    #     for i in range(cfg.experiment.num_r):
-    #         # controller = MPController(env, model, cfg.policy)
-    #         controller.reset_params()
-    #         data_new = rollout(env, controller, cfg.experiment)
-    #         rew = np.stack(data_new[2])
-    #
-    #         X, dX, U = combine_data(data_new, (X, dX, U))
-    #         msg = "Rollout completed of "
-    #         msg += f"Cumulative reward {np.sum(np.stack(data_new[2]))}, "
-    #         msg += f"Flight length {len(np.stack(data_new[2]))}"
-    #         log.info(msg)
-    #
-    #         reward = np.sum(rew)
-    #         reward = max(-10000, reward)
-    #         trial_rewards.append(reward)
-    #
-    #         trial_log = dict(
-    #             env_name=cfg.env.params.name,
-    #             seed=cfg.random_seed,
-    #             trial_num=i,
-    #             rewards=trial_rewards,
-    #             nll=train_log,
-    #         )
-    #         save_log(cfg, i, trial_log)
-    #
-    #         model, train_log = train_model(X, U, dX, cfg.model)
-    #     full_rewards.append(trial_rewards)
-
-    # plot_rewards_over_trials(full_rewards, env_name)
 
 
 def to_XUdX(data):

@@ -139,7 +139,7 @@ class RigidEnv(gym.Env):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        ypr0 = self.np_random.uniform(low=-5., high=5., size=(3,))
+        ypr0 = self.np_random.uniform(low=-15., high=15., size=(3,))
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
