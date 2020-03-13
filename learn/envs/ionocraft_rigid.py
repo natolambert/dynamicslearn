@@ -10,7 +10,7 @@ from .rigidbody import RigidEnv
 
 class IonocraftRigidEnv(RigidEnv):
     def __init__(self, dt=.001, m=.00005, L=.01, Ixx=1.967 * 10 ** -9, Iyy=1.967 * 10 ** -9, Izz=3.775 * 10 ** -9,
-                 x_noise=.0001, u_noise=0):
+                 x_noise=.0001, u_noise=0.00001):
         super(IonocraftRigidEnv, self).__init__(dt=dt)
 
         # Setup the parameters
@@ -139,7 +139,7 @@ class IonocraftRigidEnv(RigidEnv):
             F = (beta*I*(500*10**-6))/mu
             return F
 
-        l = self.L / np.sqrt(2)  # length to motors / axis of rotation for xy
+        l = self.L * np.sqrt(2)  # length to motors / axis of rotation for xy
         lz = 0  # axis for tauz
         c = 0  # coupling coefficient for yaw torque
         beta = .6
@@ -150,8 +150,25 @@ class IonocraftRigidEnv(RigidEnv):
         m3 = pwm_to_thrust(PWM[2], beta)
         m4 = pwm_to_thrust(PWM[3], beta)
 
+
+        F1 = m1
+        F4 = m2
+        F2 = m3
+        F3 = m4
+
+        L = (F2 + F3) * l - (F1 + F4) * l
+        M = (F1 + F3) * l - (F2 + F4) * l
+        N = lz * c * (-F1 - F2 + F3 + F4)
+
         Thrust = (-m1 - m2 - m3 - m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
         taux = l * (-m1 - m2 + m3 + m4)
         tauy = l * (m1 - m2 - m3 + m4)
         tauz = -lz * c * (-m1 + m2 - m3 + m4)
-        return np.array([Thrust, taux, tauy, tauz])
+        # return np.array([Thrust, taux, tauy, tauz])
+        return np.array([Thrust, L, M, N])
+        #
+        # Thrust = (-m1 - m2 - m3 - m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
+        # taux = l * (-m1 - m2 + m3 + m4)
+        # tauy = l * (m1 - m2 - m3 + m4)
+        # tauz = -lz * c * (-m1 + m2 - m3 + m4)
+        # return np.array([Thrust, taux, tauy, tauz])

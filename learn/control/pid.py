@@ -8,7 +8,6 @@ import copy
 import numpy as np
 
 
-
 # basic PID class to perform arithmetic around the setpoint
 class PID():
     def __init__(self, desired,
@@ -77,6 +76,9 @@ class PID():
 
         # calcualte error value added
         self.out += self.deriv * self.kd
+
+        if abs(self.error) < .01:
+            self.integral = 0
 
         # accumualte normalized eerror
         self.integral = self.error * self.dt
@@ -171,6 +173,7 @@ class PidPolicy(Controller):
     """
     Setup to run with a PID operating on pitch, then roll, then yaw.
     """
+
     def __init__(self, cfg):
         super(PidPolicy, self).__init__(cfg)
         parameters = gen_pid_params(cfg)
@@ -272,44 +275,16 @@ class PidPolicy(Controller):
             # PWM structure: 0:front right  1:front left  2:back left   3:back right
             '''Depending on which PID mode we are in, output the respective PWM values based on PID updates'''
             if self.mode == 'BASIC' or self.mode == 'INTEG':
-                output[0] = limit_thrust(self.equil[0] + self.p_m[0] * self.pids[0].out + self.r_m[0] * self.pids[1].out)
-                output[1] = limit_thrust(self.equil[1] + self.p_m[1] * self.pids[0].out + self.r_m[1] * self.pids[1].out)
-                output[2] = limit_thrust(self.equil[2] + self.p_m[2] * self.pids[0].out + self.r_m[2] * self.pids[1].out)
-                output[3] = limit_thrust(self.equil[3] + self.p_m[3] * self.pids[0].out + self.r_m[3] * self.pids[1].out)
+                output[0] = limit_thrust(
+                    self.equil[0] + self.p_m[0] * self.pids[0].out + self.r_m[0] * self.pids[1].out)
+                output[1] = limit_thrust(
+                    self.equil[1] + self.p_m[1] * self.pids[0].out + self.r_m[1] * self.pids[1].out)
+                output[2] = limit_thrust(
+                    self.equil[2] + self.p_m[2] * self.pids[0].out + self.r_m[2] * self.pids[1].out)
+                output[3] = limit_thrust(
+                    self.equil[3] + self.p_m[3] * self.pids[0].out + self.r_m[3] * self.pids[1].out)
             else:
                 raise NotImplementedError("Other PID Modes not updated")
-            # elif self.mode == 'EULER':
-            #     output[0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[2].out)
-            #     output[1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out)
-            #     output[2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[2].out)
-            #     output[3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out)
-            # elif self.mode == 'HYBRID':
-            #     output[0][0] = limit_thrust(self.equil[0] - self.pids[0].out + self.pids[1].out + self.pids[5].out)
-            #     output[0][1] = limit_thrust(self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[5].out)
-            #     output[0][2] = limit_thrust(self.equil[2] + self.pids[0].out - self.pids[1].out + self.pids[5].out)
-            #     output[0][3] = limit_thrust(self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[5].out)
-            # elif self.mode == 'RATE':  # update this with the signs above
-            #     output[0][0] = limit_thrust(self.equil[0] + self.pids[3].out - self.pids[4].out + self.pids[5].out)
-            #     output[0][1] = limit_thrust(self.equil[1] - self.pids[3].out - self.pids[4].out - self.pids[5].out)
-            #     output[0][2] = limit_thrust(self.equil[2] - self.pids[3].out + self.pids[4].out + self.pids[5].out)
-            #     output[0][3] = limit_thrust(self.equil[3] + self.pids[3].out + self.pids[4].out - self.pids[5].out)
-            # elif self.mode == 'ALL':  # update this with the signs above
-            #     output[0][0] = limit_thrust(
-            #         self.equil[0] + self.pids[0].out - self.pids[1].out + self.pids[2].out + self.pids[3].out -
-            #         self.pids[
-            #             4].out + self.pids[5].out)
-            #     output[0][1] = limit_thrust(
-            #         self.equil[1] - self.pids[0].out - self.pids[1].out - self.pids[2].out - self.pids[3].out -
-            #         self.pids[
-            #             4].out - self.pids[5].out)
-            #     output[0][2] = limit_thrust(
-            #         self.equil[2] - self.pids[0].out + self.pids[1].out + self.pids[2].out - self.pids[3].out +
-            #         self.pids[
-            #             4].out + self.pids[5].out)
-            #     output[0][3] = limit_thrust(
-            #         self.equil[3] + self.pids[0].out + self.pids[1].out - self.pids[2].out + self.pids[3].out +
-            #         self.pids[
-            #             4].out - self.pids[5].out)
 
             self.internal += 1
             self.last_action = np.array(output)

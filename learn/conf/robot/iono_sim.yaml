@@ -1,23 +1,23 @@
 robot: cf
-name:
+
 policy:
   mode: pid
   params:
-    period: 20
+    period: 10
 
 pid:
   params:
     mode: INTEG
-    equil: [1500, 1500, 1500, 1500]
+    equil: [1000, 1000, 1000, 1000]
     min_pwm: 0
     max_pwm: 3000
     int_max: 1000
-    dt: .02
+    dt: .01
     min_values: [0, 0, 0]
     max_values: [500, 500, 500]
     terminal_cost: 1
     living_cost: .1
-    pitch_mult: [1, -1, -1, +1]
+    pitch_mult: [+1, -1, -1, +1]
     roll_mult: [-1, -1, +1, +1]
     pry: [1, 0, 2]
 

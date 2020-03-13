@@ -17,7 +17,7 @@ policy:
 
 experiment:
   num_r: 10
-  r_len: 2500 #5000
+  r_len: 1000 #5000
   seeds: 1
   repeat: 25
 

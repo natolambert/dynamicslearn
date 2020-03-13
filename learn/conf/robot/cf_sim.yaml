@@ -1,7 +1,7 @@
 robot: cf
 
 policy:
-  mode: mpc
+  mode: pid
   params:
     period: 20
 
@@ -17,8 +17,8 @@ pid:
     max_values: [50000, 1, 50000]
     terminal_cost: 1
     living_cost: .1
-    pitch_mult: [1, -1, -1, +1]
-    roll_mult: [-1, -1, +1, +1]
+    pitch_mult:  [-1, 1, +1, 1]
+    roll_mult: [1, -1, -1, 1]
     pry: [1, 0, 2]
 
 env:

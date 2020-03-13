@@ -197,8 +197,18 @@ class CrazyflieRigidEnv(RigidEnv):
         m3 = pwm_to_thrust(PWM[2])
         m4 = pwm_to_thrust(PWM[3])
 
+        F1 = m1
+        F4 = m2
+        F2 = m3
+        F3 = m4
+
+        L = (F2 + F3) * l - (F1 + F4) * l
+        M = (F1 + F3) * l - (F2 + F4) * l
+        N = lz * c * (-F1 - F2 + F3 + F4)
+
         Thrust = (-m1 - m2 - m3 - m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
         taux = l * (-m1 - m2 + m3 + m4)
         tauy = l * (m1 - m2 - m3 + m4)
         tauz = -lz * c * (-m1 + m2 - m3 + m4)
-        return np.array([Thrust, taux, tauy, tauz])
+        # return np.array([Thrust, taux, tauy, tauz])
+        return np.array([Thrust, L, M, N])
