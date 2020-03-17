@@ -40,7 +40,7 @@ class RigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.001, x_noise=.001, u_noise=0):
+    def __init__(self, dt=.001, x_noise=.0005, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
@@ -139,7 +139,8 @@ class RigidEnv(gym.Env):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        ypr0 = self.np_random.uniform(low=-15., high=15., size=(3,))
+        ypr0 = self.np_random.uniform(low=-np.pi/4., high=np.pi/4, size=(3,))
+        ypr0[-1] = 0 # 0 out yaw
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
@@ -154,7 +155,7 @@ class RigidEnv(gym.Env):
 
     def get_done(self, state):
         # Done is pitch or roll > 35 deg
-        max_a = 45
+        max_a = np.deg2rad(45)
         d = (abs(state[1]) > max_a) or (abs(state[0]) > max_a)
         return d
 

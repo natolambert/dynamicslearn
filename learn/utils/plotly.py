@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 import pandas as pd
 import os
 
@@ -450,9 +450,9 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
     l = np.shape(ar)[0]
     xs = np.arange(l)
 
-    yaw = ar[:, pry[2]]
-    pitch = ar[:, pry[0]]
-    roll = ar[:, pry[1]]
+    yaw = np.degrees(ar[:, pry[2]])
+    pitch = np.degrees(ar[:, pry[0]])
+    roll = np.degrees(ar[:, pry[1]])
 
     actions = np.stack(actions)
 

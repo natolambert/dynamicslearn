@@ -2,15 +2,6 @@ import os
 import sys
 from dotmap import DotMap
 
-# For BO optimization
-import opto
-import opto.data as rdata
-from opto.opto.classes.OptTask import OptTask
-from opto.opto.classes import StopCriteria, Logs
-from opto.utils import bounds
-from opto.opto.acq_func import EI, UCB
-from opto import regression
-
 # add cwd to path to allow running directly from the repo top level directory
 sys.path.append(os.getcwd())
 
@@ -39,86 +30,10 @@ def save_log(cfg, trial_num, trial_log):
     log.info(f"T{trial_num} : Saving log {path}")
     torch.save(trial_log, path)
 
+
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
 from ax import ParameterType, FixedParameter, Arm, Metric, Runner, OptimizationConfig, Objective, Data
-
-
-class simple_bo():
-    def __init__(self, cfg, opt_function):
-        # self.Objective = SimulationOptimizer(bo_cfg, policy_cfg)
-        self.b_cfg = cfg.bo
-        self.p_cfg = cfg.policy
-        self.cfg = cfg
-
-        self.t_c = self.p_cfg.pid.params.terminal_cost
-        self.l_c = self.p_cfg.pid.params.living_cost
-
-        self.norm_cost = 1
-
-        self.PIDMODE = cfg.policy.mode
-        self.policy = PidPolicy(cfg)
-        evals = cfg.bo.iterations
-        param_min = [0] * len(list(cfg.pid.params.min_values))
-        param_max = [1] * len(list(cfg.pid.params.max_values))
-        self.n_parameters = self.policy.numParameters
-        self.n_pids = self.policy.numpids
-        params_per_pid = self.n_parameters / self.n_pids
-        assert params_per_pid % 1 == 0
-        params_per_pid = int(params_per_pid)
-
-        self.task = OptTask(f=opt_function, n_parameters=self.n_parameters, n_objectives=1,
-                            bounds=bounds(min=param_min * self.n_pids,
-                                          max=param_max * self.n_pids), task={'minimize'},
-                            vectorized=False)
-        # labels_param = ['KP_pitch','KI_pitch','KD_pitch', 'KP_roll' 'KI_roll', 'KD_roll', 'KP_yaw', 'KI_yaw', 'KD_yaw', 'KP_pitchRate', 'KI_pitchRate', 'KD_pitchRate', 'KP_rollRate',
-        # 'KI_rollRate', 'KD_rollRate', "KP_yawRate", "KI_yawRate", "KD_yawRate"])
-        self.Stop = StopCriteria(maxEvals=evals)
-        self.sim = cfg.bo.sim
-
-    def optimize(self):
-        p = DotMap()
-        p.verbosity = 1
-        p.acq_func = EI(model=None, logs=None)
-        # p.acq_func = UCB(model=None, logs=None)
-        p.model = regression.GP
-        self.opt = opto.BO(parameters=p, task=self.task, stopCriteria=self.Stop)
-        self.opt.optimize()
-
-    def getParameters(self):
-        log = self.opt.get_logs()
-        losses = log.get_objectives()
-        best = log.get_best_parameters()
-        bestLoss = log.get_best_objectives()
-        nEvals = log.get_n_evals()
-        best = [matrix.tolist() for matrix in best]  # can be a buggy line
-
-        print("Best PID parameters found with loss of: ", np.amin(bestLoss), " in ", nEvals, " evaluations.")
-        print("Pitch:   Prop: ", best[0], " Int: ", 0, " Deriv: ", best[1])
-        print("Roll:    Prop: ", best[2], " Int: ", 0, " Deriv: ", best[3])
-
-        return log
-
-    # def basic_rollout(self, s0, i_model):
-    #     # todo need to accound for history automatically
-    #     max_len = self.b_cfg.max_length
-    #     cur_action = self.policy.get_action(s0)
-    #     next_state, logvars = smart_model_step(i_model, s0, cur_action)
-    #     state = push_history(next_state, s0)
-    #     cost = 0
-    #     for k in range(max_len):
-    #         # print(f"Itr {k}")
-    #         # print(f"Action {cur_action.tolist()}")
-    #         # print(f"State {next_state.tolist()}")
-    #         cur_action = self.policy.get_action(next_state)
-    #         next_state, logvars = smart_model_step(i_model, state, cur_action)
-    #         state = push_history(next_state, state)
-    #         # print(f"logvars {logvars}")
-    #         # weight = 0 if k < 5 else 1
-    #         weight = .9 ** (max_len - k)
-    #         cost += weight * get_reward_iono(next_state, cur_action)
-    #
-    #     return cost / max_len  # cost
 
 
 def squ_cost(state, action):
@@ -131,24 +46,25 @@ def squ_cost(state, action):
 def living_reward(state, action):
     pitch = state[0]
     roll = state[1]
-    flag1 = np.abs(pitch) < 5
-    flag2 = np.abs(roll) < 5
+    flag1 = np.abs(pitch) < np.deg2rad(5)
+    flag2 = np.abs(roll) < np.deg2rad(5)
     rew = int(flag1) + int(flag2)
     return rew
 
 
 def rotation_mat(state, action):
     x0 = state
-    rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-                            [0., math.cos(x0[0]), -math.sin(x0[0])],
-                            [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-    return np.linalg.det(rotn_matrix)
+    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
+    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
+    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
+    # return np.linalg.det(np.linalg.inv(rotn_matrix))
+    return math.cos(x0[0]) * math.cos(x0[1])
 
 
 def get_rewards(states, actions, fncs=[]):
     rews = [[] for _ in range(len(fncs))]
-    for i, (s, a) in enumerate(zip(states, actions)):
-        for f in fncs:
+    for (s, a) in zip(states, actions):
+        for i, f in enumerate(fncs):
             rews[i].append(f(s, a))
 
     return rews
@@ -187,8 +103,11 @@ def pid(cfg):
         while r < cfg.experiment.repeat:
             pid.reset()
             states, actions, rews, sim_error = rollout(env, pid, exp_cfg)
-            plot_rollout(states, actions, pry=[1, 0, 2])
+            # plot_rollout(states, actions, pry=[1, 0, 2])
             rewards_full = get_rewards(states, actions, fncs=fncs)
+            for i, vec in enumerate(rewards_full):
+                mult_rewards[i].append(vec)
+
             if sim_error:
                 print("Repeating strange simulation")
                 continue
@@ -205,11 +124,20 @@ def pid(cfg):
         std = np.std(cum_cost)
         cum_cost = np.mean(cum_cost)
         # print(f"Cum. Cost {cum_cost / max_cost}")
-        print(f"- Mean Cum. Cost / Rew: {cum_cost}, std dev: {std}")
-        # {"Energy": (U_stored / total_mass_mg, 0.0),
-        #  "Strain": (strain, 0.0),
-        #  "Force": (F_required, 0.0)}
-        return cum_cost.reshape(1, 1), std
+        # print(f"- Mean Cum. Cost / Rew: {cum_cost}, std dev: {std}")
+        eval = {"Square": (-np.mean(rewards_full[0]), np.std(rewards_full[0])),
+                "Living": (np.mean(rewards_full[1]), np.std(rewards_full[1])),
+                "Rotation": (np.mean(rewards_full[2]), np.std(rewards_full[2]))}
+
+        for n, (key, value) in enumerate(eval.items()):
+            if n == 0:
+                print(f"- Square {np.round(value, 2)}")
+            elif n == 1:
+                print(f"- Living {np.round(value, 2)}")
+            else:
+                print(f"- Rotn {np.round(value, 2)}")
+        return eval
+        # return cum_cost.reshape(1, 1), std
 
     from ax import (
         ComparisonOp,
@@ -224,30 +152,30 @@ def pid(cfg):
         name="PID Control Robot",
         search_space=SearchSpace([
             RangeParameter(
-                name=f"roll-p", parameter_type=ParameterType.FLOAT, lower=10, upper=500.0, log_scale=True,
+                name=f"roll-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
             ),
             # FixedParameter(name="roll-i", value=0.0, parameter_type=ParameterType.FLOAT),
             RangeParameter(
-                name=f"roll-i", parameter_type=ParameterType.FLOAT, lower=0, upper=10.0, log_scale=False,
+                name=f"roll-i", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
             ),
             RangeParameter(
-                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=0, upper=10.0, log_scale=False,
+                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
             ),
 
             # RangeParameter(
-            #     name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=500.0, log_scale=True,
+            #     name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
             # ),
             # RangeParameter(
-            #     name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=1.0
+            #     name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
             # ),
             # RangeParameter(
-            #     name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=500.0
+            #     name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
             # ),
             # FixedParameter(name="pitch-i", value=0.0, parameter_type=ParameterType.FLOAT),
 
         ]),
         evaluation_function=bo_rollout_wrapper,
-        objective_name="Reward",
+        objective_name="Living",
         minimize=False,
         outcome_constraints=[],
     )
@@ -269,7 +197,7 @@ def pid(cfg):
 
     optimization_config = OptimizationConfig(
         objective=Objective(
-            metric=PIDMetric(name="base"),
+            metric=PIDMetric(name="Living"),
             minimize=False,
         ),
     )
@@ -287,38 +215,51 @@ def pid(cfg):
 
     print(f"Running Sobol initialization trials...")
     sobol = Models.SOBOL(exp.search_space)
-    num_search = 20
+    num_search = 25
     for i in range(num_search):
         exp.new_trial(generator_run=sobol.gen(1))
         exp.trials[len(exp.trials) - 1].run()
 
     # data = exp.fetch_data()
+    import plotly.graph_objects as go
+
     gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
-    plot = plot_contour(model=gpei,
-                        param_x="roll-p",
-                        param_y="roll-d",
-                        metric_name="base", )
-    data = plot[0]['data']
-    lay = plot[0]['layout']
 
-    render(plot)
+    objectives = ["Living", "Square", "Rotation"]
 
-    num_opt = 50
+    def plot_all(model, objectives, name="", rend=False):
+        for o in objectives:
+            plot = plot_contour(model=model,
+                                param_x="roll-p",
+                                param_y="roll-d",
+                                metric_name=o, )
+            plot[0]['layout']['title'] = o
+            data = plot[0]['data']
+            lay = plot[0]['layout']
+
+            fig = {
+                "data": data,
+                "layout": lay,
+            }
+            go.Figure(fig).write_image(name + o + ".png")
+            if rend: render(plot)
+
+    plot_all(gpei, objectives, name="Random fit-")
+
+    # data = plot[0]['data']
+    # lay = plot[0]['layout']
+
+    # render(plot)
+
+    num_opt = 100
     for i in range(num_opt):
         print(f"Running GP+EI optimization trial {i + 1}/{num_opt}...")
         # Reinitialize GP+EI model at each step with updated data.
         batch = exp.new_trial(generator_run=gpei.gen(1))
         gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
 
-        if (i % 5) == 0:
-            plot = plot_contour(model=gpei,
-                                param_x="roll-p",
-                                param_y="roll-d",
-                                metric_name="base", )
-            data = plot[0]['data']
-            lay = plot[0]['layout']
-
-            render(plot)
+        if ((i+1) % 10) == 0:
+            plot_all(gpei, objectives, name=f"optimizing {str(i+1)}-")
 
     objective_means = np.array([[exp.trials[trial].objective_mean] for trial in exp.trials])
     best_objective_plot = optimization_trace_single_method(
@@ -374,7 +315,6 @@ def pid(cfg):
     # go.Figure(fig).write_image("test.pdf")
 
     render(plot2)
-
 
 
 def to_XUdX(data):
