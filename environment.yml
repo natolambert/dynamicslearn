@@ -1,98 +1,83 @@
-name: learn
+name: ml
 channels:
   - pytorch
   - defaults
 dependencies:
-  - appnope=0.1.0=py36hf537a9a_0
-  - backcall=0.1.0=py36_0
+  - appnope=0.1.0=py37_0
+  - backcall=0.1.0=py37_0
   - blas=1.0=mkl
-  - ca-certificates=2018.03.07=0
-  - certifi=2018.10.15=py36_0
-  - cffi=1.11.5=py36h342bebf_0
-  - cycler=0.10.0=py36hfc81398_0
-  - cython=0.29=py36h0a44026_0
-  - decorator=4.3.0=py36_0
+  - ca-certificates=2020.1.1=0
+  - certifi=2019.11.28=py37_0
+  - decorator=4.4.2=py_0
   - freetype=2.9.1=hb4e5f40_0
-  - intel-openmp=2018.0.3=0
-  - ipython_genutils=0.2.0=py36h241746c_0
-  - jedi=0.13.1=py36_0
+  - intel-openmp=2019.4=233
+  - ipython=7.13.0=py37h5ca1d4c_0
+  - ipython_genutils=0.2.0=py37_0
+  - jedi=0.16.0=py37_0
   - jpeg=9b=he5867d9_2
-  - kiwisolver=1.0.1=py36h0a44026_0
-  - libcxx=4.0.1=h579ed51_0
-  - libcxxabi=4.0.1=hebd6815_0
-  - libedit=3.1.20170329=hb402a30_2
+  - libcxx=4.0.1=hcfea43d_1
+  - libcxxabi=4.0.1=hcfea43d_1
+  - libedit=3.1.20181209=hb402a30_0
   - libffi=3.2.1=h475c297_4
   - libgfortran=3.0.1=h93005f0_2
-  - libpng=1.6.34=he12f830_0
-  - libtiff=4.0.9=hcb84e12_1
-  - matplotlib=2.2.3=py36h54f8f79_0
-  - mkl=2018.0.3=1
-  - mkl_fft=1.0.4=py36h5d10147_1
-  - mkl_random=1.0.1=py36h5d10147_1
-  - ncurses=6.1=h0a44026_0
-  - ninja=1.8.2=py36h04f5b5a_1
-  - olefile=0.45.1=py36_0
-  - openssl=1.1.1a=h1de35cc_0
-  - pandas=0.23.4=py36h6440ff4_0
-  - parso=0.3.1=py36_0
-  - patsy=0.5.0=py36_0
-  - pexpect=4.6.0=py36_0
-  - pickleshare=0.7.5=py36_0
-  - pillow=5.2.0=py36hb68e598_0
-  - prompt_toolkit=2.0.6=py36_0
-  - ptyprocess=0.6.0=py36_0
-  - pycparser=2.18=py36_1
-  - pygments=2.2.0=py36h240cd3f_0
-  - pyparsing=2.2.0=py36_1
-  - python=3.6.7=haf84260_0
-  - python-dateutil=2.7.3=py36_0
-  - pytorch=0.4.1=py36_cuda0.0_cudnn0.0_1
-  - pytz=2018.5=py36_0
-  - readline=7.0=hc1231fa_4
-  - scikit-learn=0.19.1=py36hf9f1f73_0
-  - scipy=1.1.0=py36hf1f7d93_0
-  - seaborn=0.9.0=py36_0
-  - simplegeneric=0.8.1=py36_2
-  - six=1.11.0=py36_1
-  - sqlite=3.25.3=ha441bb4_0
-  - statsmodels=0.9.0=py36h1d22016_0
+  - libpng=1.6.37=ha441bb4_0
+  - libtiff=4.1.0=hcb84e12_0
+  - mkl=2019.4=233
+  - mkl-service=2.3.0=py37hfbe908c_0
+  - mkl_fft=1.0.15=py37h5e564d8_0
+  - mkl_random=1.1.0=py37ha771720_0
+  - ncurses=6.2=h0a44026_0
+  - ninja=1.9.0=py37h04f5b5a_0
+  - numpy=1.18.1=py37h7241aed_0
+  - numpy-base=1.18.1=py37h6575580_1
+  - olefile=0.46=py37_0
+  - openssl=1.1.1e=h1de35cc_0
+  - pandas=1.0.2=py37h6c726b0_0
+  - parso=0.6.2=py_0
+  - pexpect=4.8.0=py37_0
+  - pickleshare=0.7.5=py37_0
+  - pillow=7.0.0=py37h4655f20_0
+  - pip=20.0.2=py37_1
+  - prompt_toolkit=3.0.3=py_0
+  - ptyprocess=0.6.0=py37_0
+  - pygments=2.6.1=py_0
+  - python=3.7.6=h359304d_2
+  - python-dateutil=2.8.1=py_0
+  - pytorch=1.4.0=py3.7_0
+  - pytz=2019.3=py_0
+  - readline=7.0=h1de35cc_5
+  - setuptools=46.0.0=py37_0
+  - six=1.14.0=py37_0
+  - sqlite=3.31.1=ha441bb4_0
   - tk=8.6.8=ha441bb4_0
-  - torchvision=0.2.1=py36_1
-  - tornado=5.1=py36h1de35cc_0
-  - traitlets=4.3.2=py36h65bd3ce_0
-  - wcwidth=0.1.7=py36h8c6ec74_0
-  - wheel=0.31.1=py36_0
+  - torchvision=0.5.0=py37_cpu
+  - traitlets=4.3.3=py37_0
+  - wcwidth=0.1.8=py_0
+  - wheel=0.34.2=py37_0
   - xz=5.2.4=h1de35cc_4
-  - zlib=1.2.11=hf3cbc9b_2
+  - zlib=1.2.11=h1de35cc_3
+  - zstd=1.3.7=h5bba6e5_0
   - pip:
-    - absl-py==0.7.1
-    - astor==0.7.1
-    - astroid==2.1.0
-    - autopep8==1.4.3
-    - chardet==3.0.4
-    - future==0.17.1
-    - gast==0.2.2
-    - grpcio==1.19.0
-    - gtimer==1.0.0b5
-    - gym==0.10.8
-    - h5py==2.9.0
-    - hydra-core==0.9.0
-    - idna==2.8
-    - isort==4.3.4
-    - joblib==0.13.2
-    - lazy-object-proxy==1.3.1
-    - markdown==3.0.1
-    - mccabe==0.6.1
-    - numpy==1.15.4
-    - omegaconf==1.3.0
-    - pip==19.2.3
-    - protobuf==3.7.0
-    - pycodestyle==2.4.0
-    - pyglet==1.3.2
-    - pylint==2.2.2
-    - pyyaml==5.1.2
-    - requests==2.21.0
-    - setuptools==39.1.0
-    - termcolor==1.1.0
-    - typed-ast==1.1.0
+    - ax-platform==0.1.9
+    - botorch==0.2.1
+    - cloudpickle==1.3.0
+    - cycler==0.10.0
+    - future==0.18.2
+    - gpytorch==1.0.1
+    - gym==0.17.1
+    - hydra-core==0.11.3
+    - jinja2==2.11.1
+    - joblib==0.14.1
+    - kiwisolver==1.1.0
+    - markupsafe==1.1.1
+    - matplotlib==3.2.0
+    - omegaconf==1.4.1
+    - plotly==4.5.4
+    - pyglet==1.5.0
+    - pyparsing==2.4.6
+    - pyyaml==5.3
+    - retrying==1.3.3
+    - scikit-learn==0.22.2.post1
+    - scipy==1.4.1
+prefix: /Users/nato/miniconda3/envs/ml
 

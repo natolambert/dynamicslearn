@@ -1,0 +1,34 @@
+defaults:
+  - robot: ???
+  - models: nn
+
+dimension: all
+save: true
+checkpoint_file: trial_{}.dat
+random_seed: 1
+
+policy:
+  mode: mpc
+  pid:
+    params:
+      terminal_cost: 1
+      living_cost: .1
+
+experiment:
+  num_r: 10
+  r_len: 1000 #5000
+  repeat: 25
+
+bo:
+  random: 25
+  optimized: 100
+
+metric:
+  name: Living
+  minimize: False
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    subdir: ${hydra.job.num}

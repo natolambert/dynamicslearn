@@ -1,6 +1,5 @@
 import os
 import sys
-from dotmap import DotMap
 
 # add cwd to path to allow running directly from the repo top level directory
 sys.path.append(os.getcwd())
@@ -34,6 +33,51 @@ def save_log(cfg, trial_num, trial_log):
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
 from ax import ParameterType, FixedParameter, Arm, Metric, Runner, OptimizationConfig, Objective, Data
+
+from ax.plot.trace import optimization_trace_single_method
+from ax.utils.notebook.plotting import render, init_notebook_plotting
+from ax.plot.contour import plot_contour
+
+
+def plot_learning(exp, cfg):
+    objective_means = np.array([[exp.trials[trial].objective_mean] for trial in exp.trials])
+    cumulative = optimization_trace_single_method(
+        y=np.maximum.accumulate(objective_means.T, axis=1), ylabel=cfg.metric.name,
+        trace_color=(83, 78, 194),
+        # optimum=-3.32237,  # Known minimum objective for Hartmann6 function.
+    )
+    all = optimization_trace_single_method(
+        y=objective_means.T, ylabel=cfg.metric.name,
+        model_transitions=[cfg.bo.random], trace_color=(114, 110, 180),
+        # optimum=-3.32237,  # Known minimum objective for Hartmann6 function.
+    )
+    layout_learn = cumulative[0]['layout']
+    layout_learn['paper_bgcolor'] = 'rgba(0,0,0,0)'
+    layout_learn['plot_bgcolor'] = 'rgba(0,0,0,0)'
+
+    d1 = cumulative[0]['data']
+    d2 = all[0]['data']
+
+    for t in d1:
+        t['legendgroup'] = cfg.metric.name + ", cum. max"
+        if 'name' in t and t['name'] == 'Generator change':
+            t['name'] = 'End Random Iterations'
+        else:
+            t['name'] = cfg.metric.name + ", cum. max"
+
+    for t in d2:
+        t['legendgroup'] = cfg.metric.name
+        if 'name' in t and t['name'] == 'Generator change':
+            t['name'] = 'End Random Iterations'
+        else:
+            t['name'] = cfg.metric.name
+
+    fig = {
+        "data": d1 + d2,  # data,
+        "layout": layout_learn,
+    }
+    import plotly.graph_objects as go
+    return go.Figure(fig)
 
 
 def squ_cost(state, action):
@@ -71,7 +115,7 @@ def get_rewards(states, actions, fncs=[]):
 
 
 ######################################################################
-@hydra.main(config_path='conf/mpc.yaml')
+@hydra.main(config_path='conf/bopid.yaml')
 def pid(cfg):
     env_name = cfg.env.params.name
     env = gym.make(env_name)
@@ -81,8 +125,8 @@ def pid(cfg):
 
     pid_s = PID_scalar(cfg)
 
-    # global max_cost
-    # max_cost = 0.
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # # # # # # # # # # # Evalutation Function  # # # # # # # # # # # # # # # # # # # #
     def bo_rollout_wrapper(params, weights=None):  # env, controller, exp_cfg):
         # pid_1 = pid_s.transform(np.array(params)[0, :3])
         # pid_2 = pid_s.transform(np.array(params)[0, 3:])
@@ -139,6 +183,9 @@ def pid(cfg):
         return eval
         # return cum_cost.reshape(1, 1), std
 
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
     from ax import (
         ComparisonOp,
         ParameterType,
@@ -175,12 +222,12 @@ def pid(cfg):
 
         ]),
         evaluation_function=bo_rollout_wrapper,
-        objective_name="Living",
-        minimize=False,
+        objective_name=cfg.metric.name,
+        minimize=cfg.metric.minimize,
         outcome_constraints=[],
     )
 
-    class PIDMetric(Metric):
+    class GenericMetric(Metric):
         def fetch_trial_data(self, trial):
             records = []
             for arm_name, arm in trial.arms_by_name.items():
@@ -195,32 +242,27 @@ def pid(cfg):
                 })
             return Data(df=pd.DataFrame.from_records(records))
 
-    optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=PIDMetric(name="Living"),
-            minimize=False,
-        ),
-    )
-
     class MyRunner(Runner):
         def run(self, trial):
             return {"name": str(trial.index)}
 
+    optimization_config = OptimizationConfig(
+        objective=Objective(
+            metric=GenericMetric(name="Living"),
+            minimize=False,
+        ),
+    )
+
     exp.runner = MyRunner()
     exp.optimization_config = optimization_config
 
-    from ax.plot.trace import optimization_trace_single_method
-    from ax.utils.notebook.plotting import render, init_notebook_plotting
-    from ax.plot.contour import plot_contour
-
     print(f"Running Sobol initialization trials...")
     sobol = Models.SOBOL(exp.search_space)
-    num_search = 25
+    num_search = cfg.bo.random
     for i in range(num_search):
         exp.new_trial(generator_run=sobol.gen(1))
         exp.trials[len(exp.trials) - 1].run()
 
-    # data = exp.fetch_data()
     import plotly.graph_objects as go
 
     gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
@@ -251,70 +293,18 @@ def pid(cfg):
 
     # render(plot)
 
-    num_opt = 100
+    num_opt = cfg.bo.optimized
     for i in range(num_opt):
         print(f"Running GP+EI optimization trial {i + 1}/{num_opt}...")
         # Reinitialize GP+EI model at each step with updated data.
         batch = exp.new_trial(generator_run=gpei.gen(1))
         gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
 
-        if ((i+1) % 10) == 0:
-            plot_all(gpei, objectives, name=f"optimizing {str(i+1)}-")
+        if ((i + 1) % 10) == 0:
+            plot_all(gpei, objectives, name=f"optimizing {str(i + 1)}-")
 
-    objective_means = np.array([[exp.trials[trial].objective_mean] for trial in exp.trials])
-    best_objective_plot = optimization_trace_single_method(
-        y=np.maximum.accumulate(objective_means.T, axis=1),
-        # optimum=-3.32237,  # Known minimum objective for Hartmann6 function.
-    )
-    render(best_objective_plot)
-
-    plot = plot_contour(model=gpei,
-                        param_x="roll-p",
-                        param_y="pitch-p",
-                        metric_name="base", )
-    data = plot[0]['data']
-    lay = plot[0]['layout']
-
-    import plotly.graph_objects as go
-    fig = {
-        "data": data,
-        "layout": lay,
-    }
-    # go.Figure(fig).write_image("test.pdf")
-
-    render(plot)
-
-    plot2 = plot_contour(model=gpei,
-                         param_x="roll-d",
-                         param_y="pitch-d",
-                         metric_name="base", )
-    data = plot2[0]['data']
-    lay = plot2[0]['layout']
-
-    import plotly.graph_objects as go
-    # fig2 = {
-    #     "data": data,
-    #     "layout": lay,
-    # }
-    # go.Figure(fig).write_image("test.pdf")
-
-    render(plot2)
-
-    plot2 = plot_contour(model=gpei,
-                         param_x="roll-i",
-                         param_y="pitch-i",
-                         metric_name="base", )
-    data = plot2[0]['data']
-    lay = plot2[0]['layout']
-
-    import plotly.graph_objects as go
-    # fig2 = {
-    #     "data": data,
-    #     "layout": lay,
-    # }
-    # go.Figure(fig).write_image("test.pdf")
-
-    render(plot2)
+    plot_learning(exp, cfg).show()
+    plot_all(gpei, objectives, name=f"FINAL -", rend=True)
 
 
 def to_XUdX(data):
