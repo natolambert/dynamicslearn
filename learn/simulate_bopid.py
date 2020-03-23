@@ -23,16 +23,18 @@ from learn.utils.bo import get_reward_euler, plot_cost_itr, plot_parameters, PID
 log = logging.getLogger(__name__)
 
 
-def save_log(cfg, trial_num, trial_log):
+def save_log(cfg, exp, trial_log, ax=False):
+    trial_num = 0
     name = cfg.checkpoint_file.format(trial_num)
     path = os.path.join(os.getcwd(), name)
     log.info(f"T{trial_num} : Saving log {path}")
     torch.save(trial_log, path)
+    save(exp, os.path.join(os.getcwd(), "exp.json"))
 
 
 from ax.modelbridge.registry import Models
 from ax.service.ax_client import AxClient
-from ax import ParameterType, FixedParameter, Arm, Metric, Runner, OptimizationConfig, Objective, Data
+from ax import save, ParameterType, FixedParameter, Arm, Metric, Runner, OptimizationConfig, Objective, Data
 
 from ax.plot.trace import optimization_trace_single_method
 from ax.utils.notebook.plotting import render, init_notebook_plotting
@@ -130,8 +132,7 @@ def pid(cfg):
     def bo_rollout_wrapper(params, weights=None):  # env, controller, exp_cfg):
         # pid_1 = pid_s.transform(np.array(params)[0, :3])
         # pid_2 = pid_s.transform(np.array(params)[0, 3:])
-        pid_1 = [params["roll-p"], params["roll-i"],
-                 params["roll-d"]]  # [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
         pid_2 = [params["roll-p"], params["roll-i"], params["roll-d"]]
         print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
         pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
@@ -209,15 +210,15 @@ def pid(cfg):
                 name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
             ),
 
-            # RangeParameter(
-            #     name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
-            # ),
-            # RangeParameter(
-            #     name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            # ),
-            # RangeParameter(
-            #     name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            # ),
+            RangeParameter(
+                name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
+            ),
+            RangeParameter(
+                name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
+            ),
+            RangeParameter(
+                name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
+            ),
             # FixedParameter(name="pitch-i", value=0.0, parameter_type=ParameterType.FLOAT),
 
         ]),
@@ -226,6 +227,9 @@ def pid(cfg):
         minimize=cfg.metric.minimize,
         outcome_constraints=[],
     )
+
+    from ax.storage.metric_registry import register_metric
+    from ax.storage.runner_registry import register_runner
 
     class GenericMetric(Metric):
         def fetch_trial_data(self, trial):
@@ -248,10 +252,12 @@ def pid(cfg):
 
     optimization_config = OptimizationConfig(
         objective=Objective(
-            metric=GenericMetric(name="Living"),
-            minimize=False,
+            metric=GenericMetric(name=cfg.metric.name),
+            minimize=cfg.metric.minimize,
         ),
     )
+    register_metric(GenericMetric)
+    register_runner(MyRunner)
 
     exp.runner = MyRunner()
     exp.optimization_config = optimization_config
@@ -288,11 +294,6 @@ def pid(cfg):
 
     plot_all(gpei, objectives, name="Random fit-")
 
-    # data = plot[0]['data']
-    # lay = plot[0]['layout']
-
-    # render(plot)
-
     num_opt = cfg.bo.optimized
     for i in range(num_opt):
         print(f"Running GP+EI optimization trial {i + 1}/{num_opt}...")
@@ -301,7 +302,19 @@ def pid(cfg):
         gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
 
         if ((i + 1) % 10) == 0:
-            plot_all(gpei, objectives, name=f"optimizing {str(i + 1)}-")
+            plot_all(gpei, objectives, name=f"optimizing {str(i + 1)}-", rend=False)
+
+    from ax.plot.exp_utils import exp_to_df
+
+    # print(exp_to_df(exp=exp))
+    experiment_log = {
+        "Exp": exp_to_df(exp=exp),
+        # "Model": gpei,
+        "Cfg": cfg
+    }
+    log.info("Printing Parameters")
+    print(exp_to_df(exp=exp))
+    save_log(cfg, exp, experiment_log)
 
     plot_learning(exp, cfg).show()
     plot_all(gpei, objectives, name=f"FINAL -", rend=True)

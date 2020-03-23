@@ -20,8 +20,8 @@ experiment:
   repeat: 25
 
 bo:
-  random: 25
-  optimized: 100
+  random: 2
+  optimized: 2
 
 metric:
   name: Living
