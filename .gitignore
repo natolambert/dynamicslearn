@@ -12,6 +12,7 @@ _summaries/
 /_training_logs
 /.vscode/
 /outputs/
+/sweeps/
 /multirun/
 /.idea/
 *.pyc

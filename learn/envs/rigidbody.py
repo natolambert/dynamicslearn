@@ -139,7 +139,7 @@ class RigidEnv(gym.Env):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        ypr0 = self.np_random.uniform(low=-np.pi/4., high=np.pi/4, size=(3,))
+        ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16, size=(3,))
         ypr0[-1] = 0 # 0 out yaw
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 

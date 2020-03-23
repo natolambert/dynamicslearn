@@ -342,7 +342,7 @@ def rollout(env, controller, exp_cfg):
     actions = []
     rews = []
     state = env.reset()
-    for t in range(exp_cfg.r_len):
+    for t in range(exp_cfg.r_len+1):
         last_state = state
         if done:
             break

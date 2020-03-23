@@ -8,7 +8,7 @@ checkpoint_file: trial_{}.dat
 random_seed: 1
 
 policy:
-  mode: mpc
+  mode: pid
   pid:
     params:
       terminal_cost: 1
@@ -20,8 +20,8 @@ experiment:
   repeat: 25
 
 bo:
-  random: 2
-  optimized: 2
+  random: 25
+  optimized: 75
 
 metric:
   name: Living
@@ -31,4 +31,11 @@ hydra:
   run:
     dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
+    dir: ./sweeps/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: ['random_seed']

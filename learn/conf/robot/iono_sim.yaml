@@ -1,9 +1,8 @@
 robot: cf
 name:
 policy:
-  mode: pid
   params:
-    period: 20
+    period: 10
 
 pid:
   params:
