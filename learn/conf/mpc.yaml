@@ -16,7 +16,7 @@ policy:
 
 
 experiment:
-  num_r: 10
+  num_r: 25
   r_len: 1000 #5000
   seeds: 1
   repeat: 25
@@ -25,7 +25,7 @@ mpc:
   params:
     mode: random
     N: 5000
-    T: 5
+    T: 10
     hold: false
 
 
@@ -34,7 +34,7 @@ bo:
   sim: false
 
 metric:
-  name: Living
+  name: Rotation
   minimize: False
 
 hydra:

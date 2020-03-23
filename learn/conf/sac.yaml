@@ -1,0 +1,66 @@
+defaults:
+  - robot: ???
+  - models: nn
+
+save: true
+checkpoint_file: trial_{}.dat
+random_seed: 1
+device: cpu
+save_replay: false
+
+policy:
+  mode: sac
+  pid:
+    params:
+      terminal_cost: 1
+      living_cost: .1
+
+metric:
+  name: Living
+  minimize: false
+
+experiment:
+  num_r: 25
+  r_len: 1000 #5000
+  seeds: 1
+  repeat: 25
+
+alg:
+  layer_size: 256
+  num_layers: 2
+  replay_buffer_size: 1E6
+  learning_steps: 1000
+  params:
+    start_steps: 10000
+    eval_freq: 10000
+    max_steps: 1E6
+    num_eval_episodes: 10
+    num_eval_timesteps: 1000
+    batch_size: 512
+  trainer:
+    initial_temp: .02
+    discount: .99
+    soft_target_tau: 5E-3
+    target_update_period: 2
+    actor_lr: 2E-4
+    critic_lr: 2E-4
+    actor_beta: 0.9
+    critic_beta: 0.9
+    log_std_min: -10
+    log_std_max: 2
+    reward_scale: 1
+    tau: .005
+    use_automatic_entropy_tuning: true
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./sweeps/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: ['random_seed']
