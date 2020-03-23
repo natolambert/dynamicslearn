@@ -1,44 +1,487 @@
+#!/usr/bin/env python3
 import os
 import sys
 
 # add cwd to path to allow running directly from the repo top level directory
 sys.path.append(os.getcwd())
 
-import pandas as pd
-import numpy as np
+from time import time, strftime, localtime
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
 import math
-import time
-from learn.control.random import RandomController
-from learn.control.mpc import MPController
-from learn import envs
-from learn.trainer import train_model
-import gym
 import logging
 import hydra
+import gym
+import random
+
+from learn import envs
 from learn.utils.plotly import plot_rewards_over_trials, plot_rollout
+from learn.simulate_mpc import living_reward, squ_cost, rotation_mat
 
-log = logging.getLogger(__name__)
-
-
-def save_log(cfg, trial_num, trial_log):
-    name = cfg.checkpoint_file.format(trial_num)
-    path = os.path.join(os.getcwd(), name)
-    log.info(f"T{trial_num} : Saving log {path}")
-    torch.save(trial_log, path)
+LOG_FREQ = 10000
+OUT_SIZE = 29
 
 
-######################################################################
-@hydra.main(config_path='conf/mpc.yaml')
-def mpc(cfg):
+class eval_mode(object):
+    def __init__(self, *models):
+        self.models = models
+
+    def __enter__(self):
+        self.prev_states = []
+        for model in self.models:
+            self.prev_states.append(model.training)
+            model.train(False)
+
+    def __exit__(self, *args):
+        for model, state in zip(self.models, self.prev_states):
+            model.train(state)
+        return False
+
+
+class ReplayBuffer(object):
+    def __init__(self, obs_dim, action_dim, device, capacity):
+        self.device = device
+        self.capacity = capacity
+
+        if type(obs_dim) == int:
+            self.obses = np.empty((capacity, obs_dim), dtype=np.float32)
+            self.next_obses = np.empty((capacity, obs_dim), dtype=np.float32)
+        else:
+            self.obses = np.empty((capacity, *obs_dim), dtype=np.uint8)
+            self.next_obses = np.empty((capacity, *obs_dim), dtype=np.uint8)
+        self.actions = np.empty((capacity, action_dim), dtype=np.float32)
+        self.rewards = np.empty((capacity, 1), dtype=np.float32)
+        self.not_dones = np.empty((capacity, 1), dtype=np.float32)
+
+        self.idx = 0
+        self.full = False
+
+    def add(self, obs, action, reward, next_obs, done):
+        np.copyto(self.obses[self.idx], obs)
+        np.copyto(self.actions[self.idx], action)
+        np.copyto(self.rewards[self.idx], reward)
+        np.copyto(self.next_obses[self.idx], next_obs)
+        np.copyto(self.not_dones[self.idx], not done)
+
+        self.idx = (self.idx + 1) % self.capacity
+        self.full = self.full or self.idx == 0
+
+    def sample(self, batch_size):
+        idxs = np.random.randint(
+            0, self.capacity if self.full else self.idx, size=batch_size)
+
+        obses = torch.as_tensor(self.obses[idxs], device=self.device).float()
+        actions = torch.as_tensor(self.actions[idxs], device=self.device)
+        rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
+        next_obses = torch.as_tensor(
+            self.next_obses[idxs], device=self.device).float()
+        not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
+
+        return obses, actions, rewards, next_obses, not_dones
+
+
+def set_seed_everywhere(seed):
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None):
+    returns = []
+    for i in range(num_episodes):
+        # print(f"Eval episode: {i}...")
+        # video = VideoRecorder(env, enabled=video_dir is not None and i == 0)
+        s = 0
+        obs = env.reset()
+        done = False
+        total_reward = 0
+        while (not done) and (s < num_eval_timesteps):
+            with torch.no_grad():
+                with eval_mode(policy):
+                    action = policy.select_action(obs)
+
+            obs, reward, done, _ = env.step(action)
+            if metric is not None:
+                reward = metric(obs, action)
+            # video.record()
+            total_reward += reward
+            s += 1
+        returns.append(total_reward)
+    L.info(f" - - Evaluated, mean reward {np.mean(returns)}, n={num_episodes}")
+    return returns
+
+
+def select_action(Actor, observation, cfg):
+    with torch.no_grad():
+        observation = torch.FloatTensor(observation).to(cfg.device)
+        observation = observation.unsqueeze(0)
+        if Actor.log_std_min is not None:
+            mu, _, _, _ = Actor(
+                observation, compute_pi=False, compute_log_pi=False)
+        else:
+            mu = Actor(
+                observation, compute_pi=False, compute_log_pi=False)
+        return mu.cpu().data.numpy().flatten()
+
+
+def sample_action(Actor, observation, cfg):
+    with torch.no_grad():
+        observation = torch.FloatTensor(observation).to(cfg.device)
+        observation = observation.unsqueeze(0)
+        if Actor.log_std_min is not None:
+            mu, pi, _, _ = Actor(observation, compute_log_pi=False)
+        else:
+            raise ValueError("Deterministic Actor has no Sampling Method")
+        return pi.cpu().data.numpy().flatten()
+
+
+def soft_update_params(net, target_net, tau):
+    for param, target_param in zip(net.parameters(), target_net.parameters()):
+        target_param.data.copy_(tau * param.data +
+                                (1 - tau) * target_param.data)
+
+
+def gaussian_likelihood(noise, log_std):
+    pre_sum = -0.5 * noise.pow(2) - log_std
+    return pre_sum.sum(
+        -1, keepdim=True) - 0.5 * np.log(2 * np.pi) * noise.size(-1)
+
+
+def apply_squashing_func(mu, pi, log_pi):
+    mu = torch.tanh(mu)
+    if pi is not None:
+        pi = torch.tanh(pi)
+    if log_pi is not None:
+        log_pi -= torch.log(F.relu(1 - pi.pow(2)) + 1e-6).sum(-1, keepdim=True)
+    return mu, pi, log_pi
+
+
+def weight_init(m):
+    if isinstance(m, nn.Linear):
+        nn.init.orthogonal_(m.weight.data)
+        m.bias.data.fill_(0.0)
+
+
+def tie_weights(src, trg):
+    assert type(src) == type(trg)
+
+    trg.weight = src.weight
+    trg.bias = src.bias
+
+
+class Actor(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim, hidden_depth, log_std_min,
+                 log_std_max):
+        super().__init__()
+
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
+
+        if hidden_depth == 2:
+            self.trunk = nn.Sequential(
+                nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, 2 * action_dim))
+        elif hidden_depth == 3:
+            self.trunk = nn.Sequential(
+                nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, 2 * action_dim))
+        elif hidden_depth == 4:
+            self.trunk = nn.Sequential(
+                nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, 2 * action_dim))
+        else:
+            raise ValueError(f"Actor Depth {hidden_depth} no supported")
+
+        self.apply(weight_init)
+
+    def forward(self,
+                observation,
+                compute_pi=True,
+                compute_log_pi=True,
+                detach_encoder=False):
+
+        mu, log_std = self.trunk(observation).chunk(2, dim=-1)
+
+        log_std = torch.tanh(log_std)
+        log_std = self.log_std_min + 0.5 * (
+                self.log_std_max - self.log_std_min) * (log_std + 1)
+
+        if compute_pi:
+            std = log_std.exp()
+            noise = torch.randn_like(mu)
+            pi = mu + noise * std
+            log_det = log_std.sum(dim=-1)
+            entropy = 0.5 * (1.0 + math.log(2 * math.pi) + log_det)
+        else:
+            pi = None
+            entropy = None
+
+        if compute_log_pi:
+            log_pi = gaussian_likelihood(noise, log_std)
+        else:
+            log_pi = None
+
+        mu, pi, log_pi = apply_squashing_func(mu, pi, log_pi)
+
+        return mu, pi, log_pi, entropy
+
+
+class QFunction(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim):
+        super().__init__()
+
+        self.trunk = nn.Sequential(
+            nn.Linear(state_dim + action_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, 1))
+
+    def forward(self, state, action):
+        assert state.size(0) == action.size(0)
+
+        state_action = torch.cat([state, action], dim=1)
+        return self.trunk(state_action)
+
+
+class Critic(nn.Module):
+    def __init__(self,
+                 state_dim,
+                 action_dim,
+                 hidden_dim):
+        super().__init__()
+
+        self.encoder = None
+
+        self.Q1 = QFunction(state_dim, action_dim, hidden_dim)
+        self.Q2 = QFunction(state_dim, action_dim, hidden_dim)
+
+        self.apply(weight_init)
+
+    def forward(self, observation, action, detach_encoder=False):
+        if self.encoder is not None:
+            observation = self.encoder(observation, detach=detach_encoder)
+        q1 = self.Q1(observation, action)
+        q2 = self.Q2(observation, action)
+
+        return q1, q2, observation
+
+    def log(self, L, step, log_freq=LOG_FREQ):
+        self.Q1.log(L, step, log_freq)
+        self.Q2.log(L, step, log_freq)
+
+
+class SAC(object):
+    def __init__(self, device, state_dim, action_dim, hidden_dim, hidden_depth,
+                 initial_temperature, actor_lr, critic_lr, actor_beta,
+                 critic_beta, log_std_min, log_std_max):
+        self.device = device
+
+        self.actor = Actor(
+            state_dim,
+            action_dim,
+            hidden_dim,
+            hidden_depth,
+            log_std_min,
+            log_std_max).to(device)
+
+        self.critic = Critic(
+            state_dim,
+            action_dim,
+            hidden_dim).to(device)
+
+        self.obs_decoder = None
+
+        self.critic_target = Critic(
+            state_dim,
+            action_dim,
+            hidden_dim).to(device)
+        self.critic_target.load_state_dict(self.critic.state_dict())
+
+        self.actor_optimizer = torch.optim.Adam(
+            self.actor.parameters(), lr=actor_lr, betas=(actor_beta, 0.999))
+        self.critic_optimizer = torch.optim.Adam(
+            self.critic.parameters(), lr=critic_lr, betas=(critic_beta, 0.999))
+
+        self.log_alpha = torch.tensor(np.log(initial_temperature)).to(device)
+        self.log_alpha.requires_grad = True
+        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha])
+
+        self.train()
+        self.critic_target.train()
+
+    def train(self, training=True):
+        self.training = training
+        self.actor.train(training)
+        self.critic.train(training)
+
+    @property
+    def alpha(self):
+        return self.log_alpha.exp()
+
+    def select_action(self, observation):
+        with torch.no_grad():
+            observation = torch.FloatTensor(observation).to(self.device)
+            observation = observation.unsqueeze(0)
+            mu, _, _, _ = self.actor(
+                observation, compute_pi=False, compute_log_pi=False)
+            return mu.cpu().data.numpy().flatten()
+
+    def sample_action(self, observation):
+        with torch.no_grad():
+            observation = torch.FloatTensor(observation).to(self.device)
+            observation = observation.unsqueeze(0)
+            mu, pi, _, _ = self.actor(observation, compute_log_pi=False)
+            return pi.cpu().data.numpy().flatten()
+
+    def sample_action_batch(self, observation):
+        with torch.no_grad():
+            observation = torch.FloatTensor(observation).to(self.device)
+            observation = observation.unsqueeze(0)
+            mu, pi, _, _ = self.actor(observation, compute_log_pi=False)
+            return pi.cpu().data.numpy()
+
+    def _update_critic(self, obs, action, reward, next_obs, not_done, discount,
+                       L, step):
+        with torch.no_grad():
+            _, policy_action, log_pi, _ = self.actor(next_obs)
+            target_Q1, target_Q2, _ = self.critic_target(
+                next_obs, policy_action)
+            target_V = torch.min(target_Q1,
+                                 target_Q2) - self.alpha.detach() * log_pi
+            target_Q = reward + (not_done * discount * target_V)
+
+        # Get current Q estimates
+        current_Q1, current_Q2, h_obs = self.critic(obs, action)
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(
+            current_Q2, target_Q)
+        # L.info(f"train_critic/loss: {critic_loss}")
+
+        # Optimize the critic
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        # self.critic.log(L, step)
+        if self.critic.encoder is not None:
+            self.critic.encoder.log(L, step)
+
+    def _update_actor(self, obs, target_entropy, L, step):
+        _, pi, log_pi, entropy = self.actor(obs, detach_encoder=True)
+
+        actor_Q1, actor_Q2, _ = self.critic(obs, pi, detach_encoder=True)
+
+        actor_Q = torch.min(actor_Q1, actor_Q2)
+
+        actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
+        # L.info(f"train_actor/loss: {actor_loss}")
+        # L.info(f"train_actor/entropy {entropy.mean()}")
+        # Optimize the actor
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
+        # self.actor.log(L, step)
+
+        if target_entropy is not None:
+            self.log_alpha_optimizer.zero_grad()
+            alpha_loss = (
+                    self.alpha * (-log_pi - target_entropy).detach()).mean()
+            # L.info(f"train_alpha/target_entropy: {target_entropy}")
+            # L.info(f"train_alpha/loss: {alpha_loss}")
+            # L.info(f"train_alpha/value: {self.alpha}")
+            alpha_loss.backward()
+            self.log_alpha_optimizer.step()
+
+    def update(self,
+               replay_buffer,
+               step,
+               L,
+               batch_size=100,
+               discount=0.99,
+               tau=0.005,
+               policy_freq=2,
+               target_entropy=None):
+
+        obs, action, reward, next_obs, not_done = replay_buffer.sample(
+            batch_size)
+
+        # L.info(f"train/batch_reward: {reward.mean()}")
+
+        self._update_critic(obs, action, reward, next_obs, not_done, discount,
+                            L, step)
+
+        if step % policy_freq == 0:
+            self._update_actor(obs, target_entropy, L, step)
+            soft_update_params(self.critic, self.critic_target, tau)
+
+    def save(self, model_dir, step):
+        torch.save(self.actor.state_dict(),
+                   "%s/actor_%s.pt" % (model_dir, step))
+        torch.save(self.critic.state_dict(),
+                   "%s/critic_%s.pt" % (model_dir, step))
+
+    def load(self, model_dir, step):
+        self.actor.load_state_dict(
+            torch.load("%s/actor_%s.pt" % (model_dir, step)))
+        self.critic.load_state_dict(
+            torch.load("%s/critic_%s.pt" % (model_dir, step)))
+
+
+def sac_experiment(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    env_name = cfg.env.params.name
-    env = gym.make(env_name)
-    env.reset()
-    full_rewards = []
+    real_env = gym.make(cfg.env.params.name)
+
+    obs_dim = cfg.model.params.dx
+    action_dim = cfg.model.params.du
+    target_entropy_coef = 1
+    batch_size = cfg.alg.params.batch_size  # 512
+    discount = cfg.alg.trainer.discount  # .99
+    tau = cfg.alg.trainer.tau  # .005
+    policy_freq = cfg.alg.trainer.target_update_period  # 2
+    replay_buffer_size = int(cfg.alg.replay_buffer_size)  # 1000000
+    start_steps = cfg.alg.params.start_steps  # 10000
+    eval_freq = cfg.alg.params.eval_freq  # 10000
+    max_steps = int(cfg.alg.params.max_steps)  # 2E6
+    num_eval_episodes = cfg.alg.params.num_eval_episodes  # 5
+    num_eval_timesteps = cfg.alg.params.num_eval_timesteps  # 1000
+    num_rl_updates = 1
+    model_dir = None
+
+    replay_buffer = ReplayBuffer(obs_dim, action_dim, cfg.device, replay_buffer_size)
+
+    policy = SAC(cfg.device, obs_dim, action_dim,
+                 hidden_dim=cfg.alg.layer_size,
+                 hidden_depth=cfg.alg.num_layers,
+                 initial_temperature=cfg.alg.trainer.initial_temp,
+                 actor_lr=cfg.alg.trainer.actor_lr,  # 1E-3,
+                 critic_lr=cfg.alg.trainer.critic_lr,  # 1E-3,
+                 actor_beta=cfg.alg.trainer.actor_beta,  # 0.9,
+                 critic_beta=cfg.alg.trainer.critic_beta,  # 0.9,
+                 log_std_min=cfg.alg.trainer.log_std_min,  # -10,
+                 log_std_max=cfg.alg.trainer.log_std_max)  # 2)
+
+    step = 0
+    steps_since_eval = 0
+    episode_num = 0
+    episode_reward = 0
+    episode_success = 0
+    episode_step = 0
+    saved_idx = 0
+    done = True
+    returns = None
+    target_entropy = -action_dim * target_entropy_coef
 
     if cfg.metric.name == 'Living':
         metric = living_reward
@@ -49,210 +492,116 @@ def mpc(cfg):
     else:
         raise ValueError("Improper metric name passed")
 
-    for s in range(cfg.experiment.seeds):
-        trial_rewards = []
-        log.info(f"Random Seed: {s}")
-        rand_costs = []
-        data_rand = []
-        r = 0
-        while r < cfg.experiment.repeat:
-            data_r = rollout(env, RandomController(env, cfg), cfg.experiment, metric=metric)
-            plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=True, loc=f"/R_{r}")
-            rews = data_r[-2]
-            sim_error = data_r[-1]
-            if sim_error:
-                print("Repeating strange simulation")
-                continue
-            rand_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
-            # log.info(f" - Cost {np.sum(rews) / cfg.experiment.r_len}")
-            r += 1
+    to_plot_rewards = []
+    rewards = evaluate_policy(real_env, policy, step, log, num_eval_episodes, num_eval_timesteps, None, metric=metric)
+    to_plot_rewards.append(rewards)
+    start_time = time()
 
-            data_sample = subsample(data_r, cfg.policy.params.period)
-            data_rand.append(data_sample)
+    env = gym.make(cfg.env.params.name)
 
-        X, dX, U = to_XUdX(data_sample)
-        X, dX, U = combine_data(data_rand[:-1], (X, dX, U))
-        msg = "Random Rollouts completed of "
-        msg += f"Mean Cumulative reward {np.mean(rand_costs) / cfg.experiment.r_len}, "
-        msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rand])}"
-        log.info(msg)
+    layout = dict(
+        title=f"Learning Curve Reward vs Number of Steps Trials (Env: {cfg.env.params.name}, Alg: {cfg.policy.mode})",
+        xaxis={'title': f"Steps*{eval_freq}"},
+        yaxis={'title': f"Avg Reward Num:{num_eval_episodes}"},
+        font=dict(family='Times New Roman', size=18, color='#7f7f7f'),
+        legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
+    )
 
-        trial_log = dict(
-            env_name=cfg.env.params.name,
-            model=None,
-            seed=cfg.random_seed,
-            raw_data=data_rand,
-            trial_num=-1,
-            rewards=rand_costs,
-            nll=None,
-        )
-        save_log(cfg, -1, trial_log)
 
-        model, train_log = train_model(X, U, dX, cfg.model)
 
-        for i in range(cfg.experiment.num_r):
-            controller = MPController(env, model, cfg)
+    while step < max_steps:
+        # log.info(f"===================================")
+        if step % 1000 == 0:
+            log.info(f"Step {step}")
 
-            r = 0
-            cum_costs = []
-            data_rs = []
-            while r < cfg.experiment.repeat:
-                data_r = rollout(env, controller, cfg.experiment, metric=metric)
-                plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=True, loc=f"/{str(i)}_{r}")
-                rews = data_r[-2]
-                sim_error = data_r[-1]
+        if done:
+            if step != 0:
+                # log.info(f"train/duration: {time() - start_time}")
+                start_time = time()
+                # L.dump(step)
 
-                if sim_error:
-                    print("Repeating strange simulation")
-                    continue
-                cum_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
-                # log.info(f" - Cost {np.sum(rews) / cfg.experiment.r_len}")
-                r += 1
+            # Evaluate episode
+            if steps_since_eval >= eval_freq:
+                steps_since_eval %= eval_freq
+                log.info(f"eval/episode: {episode_num}")
+                returns = evaluate_policy(env, policy, step, log, num_eval_episodes, num_eval_timesteps,
+                                          None)
+                to_plot_rewards.append(returns)
 
-                data_sample = subsample(data_r, cfg.policy.params.period)
-                data_rs.append(data_sample)
+                if model_dir is not None:
+                    policy.save(model_dir, step)
 
-            X, dX, U = combine_data(data_rs, (X, dX, U))
-            msg = "Rollouts completed of "
-            msg += f"Mean Cumulative reward {np.mean(cum_costs) / cfg.experiment.r_len}, "
-            msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rs])}"
-            log.info(msg)
+            # log.info(f"train/episode_reward', episode_reward, step)
 
-            reward = np.sum(rews)
-            # reward = max(-10000, reward)
-            trial_rewards.append(reward)
+            obs = env.reset()
+            done = False
+            episode_reward = 0
+            episode_success = 0
+            episode_step = 0
+            episode_num += 1
 
+            # log.info(f"train/episode', episode_num, step)
+
+        # Select action randomly or according to policy
+        if step < start_steps:
+            action = env.action_space.sample()
+        else:
+            with torch.no_grad():
+                with eval_mode(policy):
+                    action = policy.sample_action(obs)
+
+        if step >= start_steps:
+            num_updates = start_steps if step == start_steps else num_rl_updates
+            for _ in range(num_updates):
+                policy.update(
+                    replay_buffer,
+                    step,
+                    log,
+                    batch_size,
+                    discount,
+                    tau,
+                    policy_freq,
+                    target_entropy=target_entropy)
+
+        next_obs, reward, done, _ = env.step(action)
+        # done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(done)
+        done = 1 if episode_step + 1 == num_eval_timesteps else float(done)
+        reward = metric(next_obs, action)
+        episode_reward += reward
+
+        replay_buffer.add(obs, action, reward, next_obs, done)
+
+        obs = next_obs
+
+        episode_step += 1
+        step += 1
+        steps_since_eval += 1
+        if (step % eval_freq) == 0:
             trial_log = dict(
                 env_name=cfg.env.params.name,
-                model=model,
-                seed=cfg.random_seed,
-                raw_data=data_rs,
-                trial_num=i,
-                rewards=cum_costs,
-                nll=train_log,
+                trial_num=saved_idx,
+                replay_buffer=replay_buffer if cfg.save_replay else [],
+                policy=policy,
+                rewards=to_plot_rewards,
             )
-            save_log(cfg, i, trial_log)
-
-            model, train_log = train_model(X, U, dX, cfg.model)
-            full_rewards.append(cum_costs)
-
-        fig = plot_rewards_over_trials(np.transpose(np.stack(full_rewards)), env_name)
-        fig.write_image(os.getcwd() + "learning-curve.pdf")
+            save_log(cfg, step, trial_log)
+            saved_idx += 1
 
 
-def subsample(rollout, period):
-    """
-    Subsamples the rollout data for training a dynamics model with
-    :param rollout: data from the rollout function
-    :param period: from the robot cfg, how frequent control updates vs sim
-    :return:
-    """
-    l = [r[::period] for i, r in enumerate(rollout) if i < 3]
-    # l = l.append([rollout[-1]])
-    return l
+def save_log(cfg, trial_num, trial_log):
+    name = cfg.checkpoint_file.format(trial_num)
+    path = os.path.join(os.getcwd(), name)
+    log.info(f"T{trial_num} : Saving log {path}")
+    torch.save(trial_log, path)
 
 
-def to_XUdX(data):
-    states = np.stack(data[0])
-    X = states[:-1, :]
-    dX = states[1:, :] - states[:-1, :]
-    U = np.stack(data[1])[:-1, :]
-    return X, dX, U
+log = logging.getLogger(__name__)
 
 
-def combine_data(data_rs, full_data):
-    X = full_data[0]
-    U = full_data[2]
-    dX = full_data[1]
-    for data in data_rs:
-        X_new, dX_new, U_new = to_XUdX(data)
-        X = np.concatenate((X, X_new), axis=0)
-        U = np.concatenate((U, U_new), axis=0)
-        dX = np.concatenate((dX, dX_new), axis=0)
-    return X, dX, U
-
-
-def squ_cost(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        cost = pitch ** 2 + roll ** 2
-    else:
-        pitch = state[0]
-        roll = state[1]
-        cost = pitch ** 2 + roll ** 2
-    return cost
-
-
-def living_reward(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = (torch.abs(pitch) < np.deg2rad(5)).float() + (torch.abs(roll) < np.deg2rad(5)).float()
-    else:
-        pitch = state[0]
-        roll = state[1]
-        flag1 = np.abs(pitch) < np.deg2rad(5)
-        flag2 = np.abs(roll) < np.deg2rad(5)
-        rew = int(flag1) + int(flag2)
-    return rew
-
-
-def rotation_mat(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = torch.cos(pitch) * torch.cos(roll)
-
-    else:
-        rew = math.cos(state[0]) * math.cos(state[1])
-
-    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
-    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-    # return np.linalg.det(np.linalg.inv(rotn_matrix))
-    return rew
-
-
-def euler_numer(last_state, state, mag=5):
-    flag = False
-    if abs(state[0] - last_state[0]) > np.deg2rad(mag):
-        flag = True
-    elif abs(state[1] - last_state[1]) > np.deg2rad(mag):
-        flag = True
-    elif abs(state[2] - last_state[2]) > np.deg2rad(mag):
-        flag = True
-    if flag:
-        print("Stopping - Large euler angle step detected, likely non-physical")
-    return flag
-
-
-def rollout(env, controller, exp_cfg, metric=None):
-    start = time.time()
-    done = False
-    states = []
-    actions = []
-    rews = []
-    state = env.reset()
-    for t in range(exp_cfg.r_len + 1):
-        last_state = state
-        if done:
-            break
-        action, update = controller.get_action(state, metric=metric)
-        states.append(state)
-        actions.append(action)
-
-        state, rew, done, _ = env.step(action)
-        sim_error = euler_numer(last_state, state)
-        done = done or sim_error
-        if metric is not None:
-            rews.append(metric(state, action))
-        else:
-            rews.append(rew)
-    end = time.time()
-    # log.info(f"Rollout in {end - start} s, logged {len(rews)} (subsampled later by control period)")
-    return states, actions, rews, sim_error
+@hydra.main(config_path='conf/sac.yaml')
+def experiment(cfg):
+    sac_experiment(cfg)
 
 
 if __name__ == '__main__':
-    sys.exit(mpc())
+    sys.exit(experiment())
