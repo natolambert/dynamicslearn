@@ -9,22 +9,18 @@ random_seed: 1
 
 policy:
   mode: mpc
-  pid:
-    params:
-      terminal_cost: 1
-      living_cost: .1
 
 
 experiment:
-  num_r: 25
-  r_len: 1000 #5000
+  num_roll: 50
+  r_len: 2000 #5000
   seeds: 1
-  repeat: 1
+  repeat: 5
 
 mpc:
   params:
     mode: random
-    N: 5000
+    N: 2500
     T: 10
     hold: false
 

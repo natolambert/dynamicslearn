@@ -10,10 +10,6 @@ save_replay: false
 
 policy:
   mode: sac
-  pid:
-    params:
-      terminal_cost: 1
-      living_cost: .1
 
 metric:
   name: Living
@@ -29,13 +25,13 @@ alg:
   layer_size: 256
   num_layers: 2
   replay_buffer_size: 1E6
-  learning_steps: 1000
+  learning_steps: 1000 #1000
   params:
-    start_steps: 5000
-    eval_freq: 5000
-    max_steps: 1E5
+    start_steps: 5000 #5000
+    eval_freq: 5000 #5000
+    max_steps: 1E5 #1E5
     num_eval_episodes: 5
-    num_eval_timesteps: 2000
+    num_eval_timesteps: 2000 #2000
     batch_size: 512
   trainer:
     initial_temp: .02

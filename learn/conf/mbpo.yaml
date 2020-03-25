@@ -10,20 +10,10 @@ save_replay: false
 
 policy:
   mode: mbpo
-  pid:
-    params:
-      terminal_cost: 1
-      living_cost: .1
 
 metric:
   name: Living
   minimize: false
-
-experiment:
-  num_r: 25
-  r_len: 1000 #5000
-  seeds: 1
-  repeat: 25
 
 mbpo:
   num_epochs: 125
@@ -40,8 +30,8 @@ alg:
     start_steps: 0
     eval_freq: 1
     max_steps: 2.5E5
-    num_eval_episodes: 10
-    num_eval_timesteps: 1000
+    num_eval_episodes: 5
+    num_eval_timesteps: 2000
     batch_size: 512
   trainer:
     initial_temp: .02

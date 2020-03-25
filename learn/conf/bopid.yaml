@@ -17,7 +17,7 @@ policy:
 experiment:
   num_r: 10
   r_len: 2000 #5000
-  repeat: 1
+  repeat: 10
 
 bo:
   random: 25
