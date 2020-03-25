@@ -16,21 +16,23 @@ metric:
   minimize: false
 
 mbpo:
+  save_model: false
   num_epochs: 125
   k_steps: [1,15,20,100]
-  model_rollouts: 400
-  dynam_size: 5E4
+  model_rollouts: 100 # from 400
+  dynam_size: 5E3
   g_steps: 30
-  env_steps: 500
+  env_steps: 250 # from 250
+
 alg:
   layer_size: 256
   num_layers: 4
-  replay_buffer_size: 1E6
+  replay_buffer_size: 1E4
   params:
-    start_steps: 0
+    start_steps: 250
     eval_freq: 1
-    max_steps: 2.5E5
-    num_eval_episodes: 5
+    max_steps: 1E5
+    num_eval_episodes: 1
     num_eval_timesteps: 2000
     batch_size: 512
   trainer:
