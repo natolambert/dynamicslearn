@@ -36,9 +36,9 @@ model:
       - pitch
       - roll
       - yaw
-    true_state_targets:
       - omegax
       - omegay
       - omegaz
+    true_state_targets:
     ignore_in:  # can be non axis specific
     extra_inputs:

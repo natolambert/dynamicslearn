@@ -38,7 +38,7 @@ class MPController(Controller):
         for t in range(self.T):
             action_batch = action_candidates[:, t, :]
             state_batch = states[:, t, :]
-            next_state_batch = torch.tensor(self.model.predict(state_batch, action_batch))
+            next_state_batch = state_batch + torch.tensor(self.model.predict(state_batch, action_batch)).float()
             states[:, t + 1, :] = next_state_batch
             if metric is not None:
                 rewards[:, t] = metric(next_state_batch, action_batch)
@@ -47,6 +47,17 @@ class MPController(Controller):
 
         # TODO compute rewards
         cumulative_reward = torch.sum(rewards, dim=1)
+
+        if False:
+            # Basic waterfall plot
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            # Create and style traces
+            for i, vec in enumerate(states[:,:,0]):
+                if i < 500:
+                    fig.add_trace(go.Scatter(y=vec))
+            fig.show()
+
         best = torch.argmax(cumulative_reward)
         actions_seq = action_candidates[best, :, :]
         best_action = actions_seq[0]

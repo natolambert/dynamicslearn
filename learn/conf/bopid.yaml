@@ -14,6 +14,13 @@ policy:
       terminal_cost: 1
       living_cost: .1
 
+mpc:
+  params:
+    mode: random
+    N: 250
+    T: 10
+    hold: true
+
 experiment:
   num_r: 10
   r_len: 2000 #5000

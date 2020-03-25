@@ -12,7 +12,7 @@ policy:
 
 
 experiment:
-  num_roll: 50
+  num_roll: 5
   r_len: 2000 #5000
   seeds: 1
   repeat: 5
@@ -20,9 +20,9 @@ experiment:
 mpc:
   params:
     mode: random
-    N: 2500
+    N: 250
     T: 10
-    hold: false
+    hold: true
 
 
 bo:
@@ -30,7 +30,7 @@ bo:
   sim: false
 
 metric:
-  name: Rotation
+  name: Square
   minimize: False
 
 hydra:

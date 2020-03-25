@@ -91,6 +91,9 @@ def get_rewards(states, actions, fncs=[]):
 
     return rews
 
+from learn.simulate_sac import *
+from learn.simulate_mpc import *
+from learn.simulate_bopid import *
 
 ######################################################################
 @hydra.main(config_path='conf/bopid.yaml')
@@ -101,6 +104,172 @@ def pid(cfg):
     full_rewards = []
     exp_cfg = cfg.experiment
 
+    def compare_control(env, cfg):
+        import torch
+        from learn.control.pid import PidPolicy
+
+        controllers = []
+        labels = []
+
+        # from learn.simulate_sac import *
+        # Rotation policy
+        sac_policy1 = torch.load(
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-32-26/trial_70000.dat')
+        controllers.append(sac_policy1['policy'])
+        labels.append("SAC - Rotation")
+
+        # Living reward policy
+        sac_policy2 = torch.load(
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-31-45/trial_35000.dat')
+        controllers.append(sac_policy2['policy'])
+        labels.append("SAC - Living")
+
+        # Optimized PID parameters
+        pid_params = [[2531.917, 61.358, 33.762], [2531.917, 61.358, 33.762]]
+        pid = PidPolicy(cfg)
+        pid.set_params(pid_params)
+        controllers.append(pid)
+        labels.append("PID - temp")
+
+        from learn.control.mpc import MPController
+        cfg.policy.mode='mpc'
+        dynam_model = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-25/10-45-17/trial_1.dat')
+        mpc = MPController(env, dynam_model['model'], cfg)
+
+        controllers.append(mpc)
+        labels.append("MPC - temp")
+
+        import plotly.graph_objects as go
+        import plotly
+
+        colors = [
+            '#1f77b4',  # muted blue
+            '#ff7f0e',  # safety orange
+            '#2ca02c',  # cooked asparagus green
+            '#d62728',  # brick red
+            '#9467bd',  # muted purple
+            '#8c564b',  # chestnut brown
+            '#e377c2',  # raspberry yogurt pink
+            '#7f7f7f',  # middle gray
+            '#bcbd22',  # curry yellow-green
+            '#17becf'  # blue-teal
+        ]
+
+        markers = [
+            "cross-open-dot",
+            "circle-open-dot",
+            "x-open-dot",
+            "triangle-up-open-dot",
+            "y-down-open",
+            "diamond-open-dot",
+            "hourglass-open",
+            "hash-open-dot",
+            "star-open-dot",
+            "square-open-dot",
+        ]
+
+        if cfg.metric.name == 'Living':
+            metric = living_reward
+        elif cfg.metric.name == 'Rotation':
+            metric = rotation_mat
+        elif cfg.metric.name == 'Square':
+            metric = squ_cost
+        else:
+            raise ValueError("Improper metric name passed")
+
+        fig = plotly.subplots.make_subplots(rows=2, cols=1,
+                                            # subplot_titles=("Pitch Responses", "Roll Responses"),
+                                            # vertical_spacing=.15,
+                                            shared_xaxes=True,)  # go.Figure()
+
+        pry = [1, 0, 2]
+        # state0 = 2*env.reset()
+        state0 = env.reset()
+        for i, (con, lab) in enumerate(zip(controllers,labels)):
+            print(f"Evaluating controller type {lab}")
+            _ = env.reset()
+            env.set_state(np.concatenate((np.zeros(6), state0)))
+            state = state0
+            states = []
+            actions = []
+            rews = []
+            done = False
+            for t in range(cfg.experiment.r_len + 1):
+                if done:
+                    break
+                if "SAC" in lab:
+                    with torch.no_grad():
+                        with eval_mode(con):
+                            action = con.select_action(state)
+                            action = np.array([65535,65535,65535,65535]) * (action + 1) / 2
+
+                else:
+                    action = con.get_action(state,metric=metric)
+                states.append(state)
+                actions.append(action)
+
+                state, rew, done, _ = env.step(action)
+                done = done
+
+            states = np.stack(states)
+            actions = np.stack(actions)
+
+            pitch = np.degrees(states[:, pry[0]])
+            roll = np.degrees(states[:, pry[1]])
+
+
+            fig.add_trace(go.Scatter(y=roll, name=lab, legendgroup=lab,
+                                     line=dict(color=colors[i], width=2), # mode='lines+markers',
+                                     marker=dict(color=colors[i], symbol=markers[i], size=16)
+                                     ), row=1, col=1)
+
+            fig.add_trace(go.Scatter(y = pitch, name=lab+"pitch", legendgroup=lab, showlegend=False,
+                                     line=dict(color=colors[i], width=2),
+                                     marker=dict(color=colors[i], symbol=markers[i], size=16)
+                                     ), row=2, col=1)
+
+        fig.update_xaxes(title_text="Timestep", row=2, col=1)
+        # fig.update_xaxes(title_text="xaxis 1 title", row=1, col=1)
+        fig.update_yaxes(title_text="Roll (Degrees)", row=1, col=1)
+        fig.update_yaxes(title_text="Pitch (Degrees)", row=2, col=1)
+
+        fig.update_layout(title='Euler Angles from MPC Rollout',
+                          font=dict(
+                              family="Times New Roman, Times, serif",
+                              size=24,
+                              color="black"
+                          ),
+                          legend_orientation="h",
+                          legend=dict(x=.05, y=0.5,
+                                      bgcolor='rgba(205, 223, 212, .4)',
+                                      bordercolor="Black",
+                                      ),
+                          # xaxis_title='Timestep',
+                          # yaxis_title='Angle (Degrees)',
+                          plot_bgcolor='white',
+                          width=1600,
+                          height=1000,
+                          xaxis=dict(
+                              showline=True,
+                              showgrid=False,
+                              showticklabels=True, ),
+                          yaxis=dict(
+                              showline=True,
+                              showgrid=False,
+                              showticklabels=True, ),
+                          )
+        print(f"Plotting {len(labels)} control responses")
+        save = False
+        if save:
+            fig.write_image(os.getcwd() + "compare.png")
+        else:
+            fig.show()
+
+        return fig
+
+
+    compare_control(env, cfg)
+    quit()
     pid_s = PID_scalar(cfg)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

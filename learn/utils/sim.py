@@ -99,7 +99,7 @@ def rollout(env, controller, exp_cfg, metric=None):
         else:
             rews.append(rew)
     end = time.time()
-    # log.info(f"Rollout in {end - start} s, logged {len(rews)} (subsampled later by control period)")
+    print(f"Rollout in {end - start} s, logged {len(rews)}")
     return states, actions, rews, sim_error
 
 

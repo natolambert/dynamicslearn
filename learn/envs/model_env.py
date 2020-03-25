@@ -84,7 +84,7 @@ class ModelEnv(gym.Env):
             history_used = True
 
         raise ValueError("Check History")
-        
+
         if len(action) < len(actions_in):
             if len(actions_in) % len(action) == 0:
                 hist = int(len(actions_in) / len(action))

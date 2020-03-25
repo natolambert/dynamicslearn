@@ -5,7 +5,6 @@ import sys
 # add cwd to path to allow running directly from the repo top level directory
 sys.path.append(os.getcwd())
 
-from time import time, strftime, localtime
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -523,7 +522,6 @@ def sac_experiment(cfg):
     to_plot_rewards = []
     rewards = evaluate_policy(real_env, policy, step, log, num_eval_episodes, num_eval_timesteps, None, metric=metric)
     to_plot_rewards.append(rewards)
-    start_time = time()
 
     env = gym.make(cfg.env.params.name)
 
@@ -546,11 +544,6 @@ def sac_experiment(cfg):
             log.info(f"Step {step}")
 
         if done:
-            if step != 0:
-                # log.info(f"train/duration: {time() - start_time}")
-                start_time = time()
-                # L.dump(step)
-
             # Evaluate episode
             if steps_since_eval >= eval_freq:
                 steps_since_eval %= eval_freq

@@ -12,44 +12,6 @@ import matplotlib.pyplot as plt
 
 from .sim import gather_predictions
 
-def compare_control(env, cfg):
-    import torch
-    from learn.control.pid import PidPolicy
-
-    # Rotation policy
-    sac_policy1 = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-32-26/trial_70000.dat')
-
-    # Living reward policy
-    sac_policy2 = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-31-45/trial_35000.dat')
-
-    # Optimized PID parameters
-    pid_params = torch.load('')
-    pid_params = [[2531.917,   61.358, 3543.762], [2531.917,   61.358, 3543.762]]
-    pid = PidPolicy(cfg)
-    pid.set_params(pid_params)
-
-    dynam_model = torch.load('')
-    controllers = []
-
-    state0 = env.reset()
-    for con in controllers:
-        state0 = env.reset()
-        env.set_state(np.concatenate((np.zeros(6), state0)))
-        states = []
-        actions = []
-        rews = []
-        for t in range(cfg.experiment.r_len + 1):
-            last_state = state
-            if done:
-                break
-            action, update = con.get_action(state)
-            states.append(state)
-            actions.append(action)
-
-            state, rew, done, _ = env.step(action)
-            done = done
-
-    return
 
 def plot_dist(df, x, y, z):
     import plotly.express as px
