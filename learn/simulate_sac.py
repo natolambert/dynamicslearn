@@ -90,12 +90,14 @@ def set_seed_everywhere(seed):
     random.seed(seed)
 
 
-def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None):
+def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None, show = False):
     returns = []
     for i in range(num_episodes):
         # print(f"Eval episode: {i}...")
         # video = VideoRecorder(env, enabled=video_dir is not None and i == 0)
         s = 0
+        states = []
+        actions = []
         obs = env.reset()
         done = False
         total_reward = 0
@@ -104,13 +106,19 @@ def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, vide
                 with eval_mode(policy):
                     action = policy.select_action(obs)
 
-            obs, reward, done, _ = env.step(action)
+            action_scale = env.action_space.high * (action + 1) / 2
+            obs, reward, done, _ = env.step(action_scale)
+            states.append(obs)
+            actions.append(action_scale)
             if metric is not None:
                 reward = metric(obs, action)
             # video.record()
             total_reward += reward
             s += 1
         returns.append(total_reward)
+
+        if show:
+            plot_rollout(states,actions,  pry=[1, 0, 2])
     L.info(f" - - Evaluated, mean reward {np.mean(returns)}, n={num_episodes}")
     return returns
 
@@ -282,8 +290,11 @@ class Critic(nn.Module):
 class SAC(object):
     def __init__(self, device, state_dim, action_dim, hidden_dim, hidden_depth,
                  initial_temperature, actor_lr, critic_lr, actor_beta,
-                 critic_beta, log_std_min, log_std_max):
+                 critic_beta, log_std_min, log_std_max, period=1):
         self.device = device
+
+        # self.period = period
+        # self.internal = 0
 
         self.actor = Actor(
             state_dim,
@@ -322,25 +333,40 @@ class SAC(object):
         self.training = training
         self.actor.train(training)
         self.critic.train(training)
+        # self.internal = 0
 
     @property
     def alpha(self):
         return self.log_alpha.exp()
 
     def select_action(self, observation):
+        # if self.internal % self.period == 0:
         with torch.no_grad():
             observation = torch.FloatTensor(observation).to(self.device)
             observation = observation.unsqueeze(0)
             mu, _, _, _ = self.actor(
                 observation, compute_pi=False, compute_log_pi=False)
-            return mu.cpu().data.numpy().flatten()
+            action_sel =  mu.cpu().data.numpy().flatten()
+            # self.last_action_sel = action_sel
+            # self.internal += 1
+            return action_sel
+        # else:
+        #     self.internal += 1
+        #     return self.last_action_sel
 
     def sample_action(self, observation):
+        # if self.internal % self.period == 0:
         with torch.no_grad():
             observation = torch.FloatTensor(observation).to(self.device)
             observation = observation.unsqueeze(0)
             mu, pi, _, _ = self.actor(observation, compute_log_pi=False)
-            return pi.cpu().data.numpy().flatten()
+            action_sam = pi.cpu().data.numpy().flatten()
+            # self.last_action_sam = action_sam
+            # self.internal += 1
+            return action_sam
+        # else:
+        #     self.internal += 1
+        #     return self.last_action_sam
 
     def sample_action_batch(self, observation):
         with torch.no_grad():
@@ -373,6 +399,7 @@ class SAC(object):
         # self.critic.log(L, step)
         if self.critic.encoder is not None:
             self.critic.encoder.log(L, step)
+
 
     def _update_actor(self, obs, target_entropy, L, step):
         _, pi, log_pi, entropy = self.actor(obs, detach_encoder=True)
@@ -470,7 +497,8 @@ def sac_experiment(cfg):
                  actor_beta=cfg.alg.trainer.actor_beta,  # 0.9,
                  critic_beta=cfg.alg.trainer.critic_beta,  # 0.9,
                  log_std_min=cfg.alg.trainer.log_std_min,  # -10,
-                 log_std_max=cfg.alg.trainer.log_std_max)  # 2)
+                 log_std_max=cfg.alg.trainer.log_std_max,
+                 period=cfg.policy.params.period)  # 2)
 
     step = 0
     steps_since_eval = 0
@@ -525,7 +553,7 @@ def sac_experiment(cfg):
                 steps_since_eval %= eval_freq
                 log.info(f"eval/episode: {episode_num}")
                 returns = evaluate_policy(env, policy, step, log, num_eval_episodes, num_eval_timesteps,
-                                          None)
+                                          None,  metric=metric)
                 to_plot_rewards.append(returns)
 
                 if model_dir is not None:
@@ -563,7 +591,9 @@ def sac_experiment(cfg):
                     policy_freq,
                     target_entropy=target_entropy)
 
-        next_obs, reward, done, _ = env.step(action)
+        action_scale = env.action_space.high*(action +1)/2
+        next_obs, reward, done, _ = env.step(action_scale)
+        # print(next_obs[:3])
         # done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(done)
         done = 1 if episode_step + 1 == num_eval_timesteps else float(done)
         reward = metric(next_obs, action)

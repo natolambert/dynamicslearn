@@ -19,7 +19,7 @@ experiment:
   num_r: 25
   r_len: 1000 #5000
   seeds: 1
-  repeat: 25
+  repeat: 1
 
 mpc:
   params:

@@ -3,21 +3,17 @@ import os
 import sys
 
 # add cwd to path to allow running directly from the repo top level directory
-# sys.path.append(os.getcwd())
+sys.path.append(os.getcwd())
 from time import time, strftime, localtime
 import logging
 import hydra
 import gym
 import torch
 import numpy as np
-from mbrl.environments.model_env import ModelEnv
-# noinspection PyUnresolvedReferences
-from mbrl import utils, environments
-from mbrl.dataset import SASDataset, SAS
-import visdom
+from learn.envs.model_env import ModelEnv
 
-from baselines.sac import SAC
-from baselines.utils import ReplayBuffer, eval_mode, set_seed_everywhere, evaluate_policy, update_plot
+
+from learn.simulate_sac import SAC, ReplayBuffer, eval_mode, set_seed_everywhere, evaluate_policy, update_plot
 
 
 def mbpo_experiment(cfg):
@@ -127,7 +123,6 @@ def mbpo_experiment(cfg):
     lab = cfg.full_log_dir[cfg.full_log_dir.rfind('/') + 1:]
 
     set_seed_everywhere(cfg.random_seed)
-    vis_alg = visdom.Visdom(port=9239)
 
     def get_recent_transitions(sasdata, num):
         if len(sasdata) <= num:
@@ -245,7 +240,6 @@ def mbpo_experiment(cfg):
         returns = evaluate_policy(real_env, policy, step, log, num_eval_episodes, num_eval_timesteps,
                                   None)
         to_plot_rewards.append(returns)
-        update_plot(to_plot_rewards, vis_alg, layout, lab)
 
         trial_log = dict(
             env_name=cfg.env.params.name,

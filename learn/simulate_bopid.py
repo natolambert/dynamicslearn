@@ -92,8 +92,8 @@ def squ_cost(state, action):
 def living_reward(state, action):
     pitch = state[0]
     roll = state[1]
-    flag1 = np.abs(pitch) < np.deg2rad(5)
-    flag2 = np.abs(roll) < np.deg2rad(5)
+    flag1 = np.abs(pitch) < np.deg2rad(10)
+    flag2 = np.abs(roll) < np.deg2rad(10)
     rew = int(flag1) + int(flag2)
     return rew
 
@@ -132,7 +132,8 @@ def pid(cfg):
     def bo_rollout_wrapper(params, weights=None):  # env, controller, exp_cfg):
         # pid_1 = pid_s.transform(np.array(params)[0, :3])
         # pid_2 = pid_s.transform(np.array(params)[0, 3:])
-        pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        # pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        pid_1 = [params["roll-p"], params["roll-i"], params["roll-d"]] #[params["pitch-p"], params["pitch-i"], params["pitch-d"]]
         pid_2 = [params["roll-p"], params["roll-i"], params["roll-d"]]
         print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
         pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
@@ -156,14 +157,14 @@ def pid(cfg):
             if sim_error:
                 print("Repeating strange simulation")
                 continue
-            if len(rews) < 400:
-                cum_cost.append(-(cfg.experiment.r_len - len(rews)) / cfg.experiment.r_len)
-            else:
-                rollout_cost = np.sum(rews) / cfg.experiment.r_len  # / len(rews)
-                # if rollout_cost > max_cost:
-                #      max_cost = rollout_cost
-                # rollout_cost += get_reward_euler(states[-1], actions[-1])
-                cum_cost.append(rollout_cost)
+            # if len(rews) < 400:
+            #     cum_cost.append(-(cfg.experiment.r_len - len(rews)) / cfg.experiment.r_len)
+            # else:
+            rollout_cost = np.sum(rews) / cfg.experiment.r_len  # / len(rews)
+            # if rollout_cost > max_cost:
+            #      max_cost = rollout_cost
+            # rollout_cost += get_reward_euler(states[-1], actions[-1])
+            cum_cost.append(rollout_cost)
             r += 1
 
         std = np.std(cum_cost)
@@ -176,11 +177,11 @@ def pid(cfg):
 
         for n, (key, value) in enumerate(eval.items()):
             if n == 0:
-                print(f"- Square {np.round(value, 2)}")
+                print(f"- Square {np.round(value, 4)}")
             elif n == 1:
-                print(f"- Living {np.round(value, 2)}")
+                print(f"- Living {np.round(value, 4)}")
             else:
-                print(f"- Rotn {np.round(value, 2)}")
+                print(f"- Rotn {np.round(value, 4)}")
         return eval
         # return cum_cost.reshape(1, 1), std
 
@@ -207,18 +208,18 @@ def pid(cfg):
                 name=f"roll-i", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
             ),
             RangeParameter(
-                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
+                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=1, upper=5000.0, log_scale=True,
             ),
 
-            RangeParameter(
-                name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
-            ),
-            RangeParameter(
-                name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            ),
-            RangeParameter(
-                name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            ),
+            # RangeParameter(
+            #     name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
+            # ),
+            # RangeParameter(
+            #     name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
+            # ),
+            # RangeParameter(
+            #     name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
+            # ),
             # FixedParameter(name="pitch-i", value=0.0, parameter_type=ParameterType.FLOAT),
 
         ]),
@@ -285,6 +286,10 @@ def pid(cfg):
             data = plot[0]['data']
             lay = plot[0]['layout']
 
+            for i, d in enumerate(data):
+                if i > 1:
+                    d['cliponaxis'] = False
+
             fig = {
                 "data": data,
                 "layout": lay,
@@ -346,7 +351,8 @@ def rollout(env, controller, exp_cfg):
         last_state = state
         if done:
             break
-        action, update = controller.get_action(state)
+        # action, update = controller.get_action(state)
+        action = controller.get_action(state)
         # if update:
         states.append(state)
         actions.append(action)

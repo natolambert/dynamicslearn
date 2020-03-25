@@ -1,6 +1,5 @@
 import os
 import sys
-from dotmap import DotMap
 
 # add cwd to path to allow running directly from the repo top level directory
 sys.path.append(os.getcwd())
@@ -74,9 +73,20 @@ def mpc(cfg):
         X, dX, U = to_XUdX(data_sample)
         X, dX, U = combine_data(data_rand[:-1], (X, dX, U))
         msg = "Random Rollouts completed of "
-        msg += f"Mean Cumulative reward {np.mean(rand_costs)/ cfg.experiment.r_len}, "
+        msg += f"Mean Cumulative reward {np.mean(rand_costs) / cfg.experiment.r_len}, "
         msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rand])}"
         log.info(msg)
+
+        trial_log = dict(
+            env_name=cfg.env.params.name,
+            model=None,
+            seed=cfg.random_seed,
+            raw_data=data_rand,
+            trial_num=-1,
+            rewards=rand_costs,
+            nll=None,
+        )
+        save_log(cfg, -1, trial_log)
 
         model, train_log = train_model(X, U, dX, cfg.model)
 
@@ -99,8 +109,8 @@ def mpc(cfg):
                 # log.info(f" - Cost {np.sum(rews) / cfg.experiment.r_len}")
                 r += 1
 
-                data_sample = subsample(data_r, cfg.policy.params.period)
-                data_rs.append(data_sample)
+                # data_sample = subsample(data_r, cfg.policy.params.period)
+                data_rs.append(data_r)
 
             X, dX, U = combine_data(data_rs, (X, dX, U))
             msg = "Rollouts completed of "
@@ -126,19 +136,20 @@ def mpc(cfg):
             model, train_log = train_model(X, U, dX, cfg.model)
             full_rewards.append(cum_costs)
 
-        plot_rewards_over_trials(np.transpose(np.stack(full_rewards)), env_name)
+        fig = plot_rewards_over_trials(np.transpose(np.stack(full_rewards)), env_name)
+        fig.write_image(os.getcwd() + "learning-curve.pdf")
 
 
-def subsample(rollout, period):
-    """
-    Subsamples the rollout data for training a dynamics model with
-    :param rollout: data from the rollout function
-    :param period: from the robot cfg, how frequent control updates vs sim
-    :return:
-    """
-    l = [r[::period] for i, r in enumerate(rollout) if i < 3]
-    # l = l.append([rollout[-1]])
-    return l
+# def subsample(rollout, period):
+#     """
+#     Subsamples the rollout data for training a dynamics model with
+#     :param rollout: data from the rollout function
+#     :param period: from the robot cfg, how frequent control updates vs sim
+#     :return:
+#     """
+#     l = [r[::period] for i, r in enumerate(rollout) if i < 3]
+#     # l = l.append([rollout[-1]])
+#     return l
 
 
 def to_XUdX(data):
@@ -162,28 +173,45 @@ def combine_data(data_rs, full_data):
 
 
 def squ_cost(state, action):
-    pitch = state[0]
-    roll = state[1]
-    cost = pitch ** 2 + roll ** 2
-    return cost
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        cost = pitch ** 2 + roll ** 2
+    else:
+        pitch = state[0]
+        roll = state[1]
+        cost = pitch ** 2 + roll ** 2
+    return -cost
 
 
 def living_reward(state, action):
-    pitch = state[0]
-    roll = state[1]
-    flag1 = np.abs(pitch) < np.deg2rad(5)
-    flag2 = np.abs(roll) < np.deg2rad(5)
-    rew = int(flag1) + int(flag2)
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        rew = (torch.abs(pitch) < np.deg2rad(10)).float() + (torch.abs(roll) < np.deg2rad(10)).float()
+    else:
+        pitch = state[0]
+        roll = state[1]
+        flag1 = np.abs(pitch) < np.deg2rad(10)
+        flag2 = np.abs(roll) < np.deg2rad(10)
+        rew = int(flag1) + int(flag2)
     return rew
 
 
 def rotation_mat(state, action):
-    x0 = state
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        rew = torch.cos(pitch) * torch.cos(roll)
+
+    else:
+        rew = math.cos(state[0]) * math.cos(state[1])
+
     # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
     #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
     #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
     # return np.linalg.det(np.linalg.inv(rotn_matrix))
-    return math.cos(x0[0]) * math.cos(x0[1])
+    return rew
 
 
 def euler_numer(last_state, state, mag=5):
@@ -210,7 +238,7 @@ def rollout(env, controller, exp_cfg, metric=None):
         last_state = state
         if done:
             break
-        action, update = controller.get_action(state)
+        action, update = controller.get_action(state, metric=metric)
         states.append(state)
         actions.append(action)
 

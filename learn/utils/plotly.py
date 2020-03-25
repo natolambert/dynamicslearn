@@ -236,6 +236,7 @@ def plot_rewards_over_trials(rewards, env_name):
 
     import plotly.io as pio
     pio.show(fig)
+    return fig
 
 
 def hv_characterization():

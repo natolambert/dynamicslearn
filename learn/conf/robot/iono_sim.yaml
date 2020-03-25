@@ -2,7 +2,7 @@ robot: iono
 name:
 policy:
   params:
-    period: 10
+    period: 1
 
 pid:
   params:

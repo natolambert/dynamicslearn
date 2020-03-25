@@ -16,12 +16,12 @@ policy:
 
 experiment:
   num_r: 10
-  r_len: 1000 #5000
-  repeat: 25
+  r_len: 2000 #5000
+  repeat: 1
 
 bo:
   random: 25
-  optimized: 75
+  optimized: 100
 
 metric:
   name: Living
