@@ -12,13 +12,13 @@ class RandomController(Controller):
         print("Resetting Random Controller Not Needed, but passed")
         return
 
-    def get_action(self, state):
+    def get_action(self, state, metric=None):
         action = self.env.action_space.sample().astype(float)
-        if self.internal % self.update_period == 0:
-            self.last_action = action
-            self.internal += 1
-            return action, True
-        else:
-            self.internal += 1
-            action = self.last_action
-            return action, False
+        # if self.internal % self.update_period == 0:
+        self.last_action = action
+        self.internal += 1
+        return action #, True
+        # else:
+        #     self.internal += 1
+        #     action = self.last_action
+        #     return action, False

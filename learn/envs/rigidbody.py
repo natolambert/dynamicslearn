@@ -40,11 +40,15 @@ class RigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.001, x_noise=.0005, u_noise=0):
+    def __init__(self, dt=.01, x_noise=.01, u_noise=0):
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
         self.x_noise = x_noise
+
+        # simulate ten steps per return
+        self.repeat = 10
+        self.dt = self.dt/self.repeat
 
         # Setup the state indices
         self.idx_xyz = [0, 1, 2]
@@ -69,59 +73,62 @@ class RigidEnv(gym.Env):
         u = self.pwm_thrust_torque(pwm)
         state = self.state
 
-        dt = self.dt
-        u0 = u
-        x0 = state
-        idx_xyz = self.idx_xyz
-        idx_xyz_dot = self.idx_xyz_dot
-        idx_ptp = self.idx_ptp
-        idx_ptp_dot = self.idx_ptp_dot
+        for i in range(self.repeat):
+            dt = self.dt
+            u0 = u
+            x0 = state
+            idx_xyz = self.idx_xyz
+            idx_xyz_dot = self.idx_xyz_dot
+            idx_ptp = self.idx_ptp
+            idx_ptp_dot = self.idx_ptp_dot
 
-        m = self.m
-        L = self.L
-        Ixx = self.Ixx
-        Iyy = self.Iyy
-        Izz = self.Izz
-        g = self.g
+            m = self.m
+            L = self.L
+            Ixx = self.Ixx
+            Iyy = self.Iyy
+            Izz = self.Izz
+            g = self.g
 
-        Tx = np.array([Iyy / Ixx - Izz / Ixx, L / Ixx])
-        Ty = np.array([Izz / Iyy - Ixx / Iyy, L / Iyy])
-        Tz = np.array([Ixx / Izz - Iyy / Izz, 1. / Izz])
+            Tx = np.array([Iyy / Ixx - Izz / Ixx, L / Ixx])
+            Ty = np.array([Izz / Iyy - Ixx / Iyy, L / Iyy])
+            Tz = np.array([Ixx / Izz - Iyy / Izz, 1. / Izz])
 
-        # # Add noise to input
-        # u_noise_vec = np.random.normal(
-        #     loc=0, scale=self.u_noise, size=(self.u_dim))
-        # u = u+u_noise_vec
+            # # Add noise to input
+            # u_noise_vec = np.random.normal(
+            #     loc=0, scale=self.u_noise, size=(self.u_dim))
+            # u = u+u_noise_vec
 
-        # Array containing the forces
-        Fxyz = np.zeros(3)
-        Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(
-            x0[idx_ptp[2]]) + math.sin(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(
-            x0[idx_ptp[2]]) - math.sin(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
-        Fxyz[2] = g - 1 * (math.cos(x0[idx_ptp[0]]) *
-                           math.cos(x0[idx_ptp[1]])) * u0[0] / m
+            # Array containing the forces
+            Fxyz = np.zeros(3)
+            Fxyz[0] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.cos(
+                x0[idx_ptp[2]]) + math.sin(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[2]])) * u0[0] / m
+            Fxyz[1] = -1 * (math.cos(x0[idx_ptp[0]]) * math.sin(x0[idx_ptp[1]]) * math.sin(
+                x0[idx_ptp[2]]) - math.sin(x0[idx_ptp[0]]) * math.cos(x0[idx_ptp[2]])) * u0[0] / m
+            Fxyz[2] = g - 1 * (math.cos(x0[idx_ptp[0]]) *
+                               math.cos(x0[idx_ptp[1]])) * u0[0] / m
 
-        # Compute the torques
-        t0 = np.array([x0[idx_ptp_dot[1]] * x0[idx_ptp_dot[2]], u0[1]])
-        t1 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[2]], u0[2]])
-        t2 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[1]], u0[3]])
-        Txyz = np.array([Tx.dot(t0), Ty.dot(t1), Tz.dot(t2)])
+            # Compute the torques
+            t0 = np.array([x0[idx_ptp_dot[1]] * x0[idx_ptp_dot[2]], u0[1]])
+            t1 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[2]], u0[2]])
+            t2 = np.array([x0[idx_ptp_dot[0]] * x0[idx_ptp_dot[1]], u0[3]])
+            Txyz = np.array([Tx.dot(t0), Ty.dot(t1), Tz.dot(t2)])
 
-        x1 = np.zeros(12)
-        x1[idx_xyz_dot] = x0[idx_xyz_dot] + dt * Fxyz
-        x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
-        x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
-        x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
+            x1 = np.zeros(12)
+            x1[idx_xyz_dot] = x0[idx_xyz_dot] + dt * Fxyz
+            x1[idx_ptp_dot] = x0[idx_ptp_dot] + dt * Txyz
+            x1[idx_xyz] = x0[idx_xyz] + dt * x0[idx_xyz_dot]
+            x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
+
+            # makes states less than 1e-12 = 0
+            x1[abs(x1) < 1e-12] = 0
+            self.state = x1
+            state = x1
 
         # Add noise component
         x_noise_vec = np.random.normal(
             loc=0, scale=self.x_noise, size=(self.x_dim))
 
-        x1 += x_noise_vec
-        # makes states less than 1e-12 = 0
-        x1[abs(x1) < 1e-12] = 0
-        self.state = x1
+        self.state += x_noise_vec
 
         obs = self.get_obs()
         reward = self.get_reward(obs, u)
@@ -139,7 +146,7 @@ class RigidEnv(gym.Env):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16, size=(3,))
+        ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16., size=(3,))
         ypr0[-1] = 0 # 0 out yaw
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
