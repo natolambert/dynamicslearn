@@ -3,7 +3,7 @@ import torch
 import torch.optim as optim
 import math
 import gym
-from gym import spaces, logger
+from gym import spaces
 from gym.utils import seeding
 from .rigidbody import RigidEnv
 
@@ -31,7 +31,7 @@ class IonocraftRigidEnv(RigidEnv):
         self.theta_threshold_radians = 12 * 2 * math.pi / 360
 
         self.action_space = spaces.Box(low=np.array([0, 0, 0, 0]),
-                                       high=np.array([65535, 65535, 65535, 65535]),
+                                       high=np.array([3000, 3000, 3000, 3000]),
                                        dtype=np.int32)
 
     def get_obs(self):

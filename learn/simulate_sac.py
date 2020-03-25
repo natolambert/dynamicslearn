@@ -18,7 +18,7 @@ import random
 
 from learn import envs
 from learn.utils.plotly import plot_rewards_over_trials, plot_rollout
-from learn.simulate_mpc import living_reward, squ_cost, rotation_mat
+from learn.utils.sim import *
 
 LOG_FREQ = 10000
 OUT_SIZE = 29
@@ -90,7 +90,7 @@ def set_seed_everywhere(seed):
     random.seed(seed)
 
 
-def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None, show = False):
+def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None, show=False):
     returns = []
     for i in range(num_episodes):
         # print(f"Eval episode: {i}...")
@@ -118,7 +118,7 @@ def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, vide
         returns.append(total_reward)
 
         if show:
-            plot_rollout(states,actions,  pry=[1, 0, 2])
+            plot_rollout(states, actions, pry=[1, 0, 2])
     L.info(f" - - Evaluated, mean reward {np.mean(returns)}, n={num_episodes}")
     return returns
 
@@ -346,7 +346,7 @@ class SAC(object):
             observation = observation.unsqueeze(0)
             mu, _, _, _ = self.actor(
                 observation, compute_pi=False, compute_log_pi=False)
-            action_sel =  mu.cpu().data.numpy().flatten()
+            action_sel = mu.cpu().data.numpy().flatten()
             # self.last_action_sel = action_sel
             # self.internal += 1
             return action_sel
@@ -399,7 +399,6 @@ class SAC(object):
         # self.critic.log(L, step)
         if self.critic.encoder is not None:
             self.critic.encoder.log(L, step)
-
 
     def _update_actor(self, obs, target_entropy, L, step):
         _, pi, log_pi, entropy = self.actor(obs, detach_encoder=True)
@@ -469,6 +468,7 @@ def sac_experiment(cfg):
     log.info("=========================================")
 
     real_env = gym.make(cfg.env.params.name)
+    set_seed_everywhere(cfg.random_seed)
 
     obs_dim = cfg.model.params.dx
     action_dim = cfg.model.params.du
@@ -527,6 +527,11 @@ def sac_experiment(cfg):
 
     env = gym.make(cfg.env.params.name)
 
+    from gym import spaces
+    env.action_space = spaces.Box(low=np.array([0, 0, 0, 0]),
+                                       high=np.array([65535, 65535, 65535, 65535]),
+                                       dtype=np.int32)
+
     layout = dict(
         title=f"Learning Curve Reward vs Number of Steps Trials (Env: {cfg.env.params.name}, Alg: {cfg.policy.mode})",
         xaxis={'title': f"Steps*{eval_freq}"},
@@ -534,8 +539,6 @@ def sac_experiment(cfg):
         font=dict(family='Times New Roman', size=18, color='#7f7f7f'),
         legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
     )
-
-
 
     while step < max_steps:
         # log.info(f"===================================")
@@ -553,7 +556,7 @@ def sac_experiment(cfg):
                 steps_since_eval %= eval_freq
                 log.info(f"eval/episode: {episode_num}")
                 returns = evaluate_policy(env, policy, step, log, num_eval_episodes, num_eval_timesteps,
-                                          None,  metric=metric)
+                                          None, metric=metric)
                 to_plot_rewards.append(returns)
 
                 if model_dir is not None:
@@ -591,7 +594,7 @@ def sac_experiment(cfg):
                     policy_freq,
                     target_entropy=target_entropy)
 
-        action_scale = env.action_space.high*(action +1)/2
+        action_scale = env.action_space.high * (action + 1) / 2
         next_obs, reward, done, _ = env.step(action_scale)
         # print(next_obs[:3])
         # done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(done)
@@ -617,6 +620,7 @@ def sac_experiment(cfg):
             save_log(cfg, step, trial_log)
             saved_idx += 1
 
+    plot_rewards_over_trials(to_plot_rewards, cfg.env.params.name, save=True)
 
 def save_log(cfg, trial_num, trial_log):
     name = cfg.checkpoint_file.format(trial_num)

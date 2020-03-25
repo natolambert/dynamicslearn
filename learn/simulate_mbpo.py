@@ -14,7 +14,8 @@ from learn.envs.model_env import ModelEnv
 
 
 from learn.simulate_sac import SAC, ReplayBuffer, eval_mode, set_seed_everywhere, evaluate_policy, update_plot
-
+from learn.utils.sim import *
+from learn.trainer import train_model
 
 def mbpo_experiment(cfg):
     log.info("============= Configuration =============")
@@ -23,12 +24,22 @@ def mbpo_experiment(cfg):
 
     real_env = gym.make(cfg.env.params.name)
 
-    # instantiate model for this round
-    dynamics_model = utils.instantiate(cfg.dynamics_model)
+    if cfg.metric.name == 'Living':
+        metric = living_reward
+    elif cfg.metric.name == 'Rotation':
+        metric = rotation_mat
+    elif cfg.metric.name == 'Square':
+        metric = squ_cost
+    else:
+        raise ValueError("Improper metric name passed")
 
-    # datasets
-    D_env = SASDataset()
-    D_model = SASDataset()
+    # instantiate model for this round
+    X = []
+    U = []
+    dX = []
+    dynamics_model, train_log = train_model(X, U, dX, cfg.model)
+
+    D_env = (X, U, dX)
 
     # loads a dataset and pretrains a model if instructed to do so
     if cfg.alg.pretrain:
@@ -61,7 +72,7 @@ def mbpo_experiment(cfg):
         state_batch = torch.tensor(indexable[idx_state].cpu().numpy().squeeze())
         for i in range(k):
             action_batch = policy.sample_action_batch(state_batch).squeeze()
-            next_state_batch, reward_batch, done_batch, _ = model_env.step_from(state_batch.to('cuda'),
+            next_state_batch, reward_batch, done_batch, _ = model_env.step_from(state_batch.to(cfg.device),
                                                                                 action_batch)
 
             for s_b, a_b, r_b, ns_b, d_b in zip(state_batch, action_batch, reward_batch, next_state_batch,
@@ -72,10 +83,7 @@ def mbpo_experiment(cfg):
 
         return replay_buffer
 
-    if cfg.model_env:
-        model_env = ModelEnv(real_env, dynamics_model)
-    else:
-        raise ValueError("MBPO Running on real environment is just SAC, run that")
+    model_env = ModelEnv(real_env, dynamics_model)
 
     obs_dim = cfg.env.state_size
     action_dim = cfg.env.action_size
@@ -101,8 +109,6 @@ def mbpo_experiment(cfg):
                  critic_beta=cfg.alg.trainer.critic_beta,  # 0.9,
                  log_std_min=cfg.alg.trainer.log_std_min,  # -10,
                  log_std_max=cfg.alg.trainer.log_std_max)  # 2)
-
-    hc_dynam = torch.load('/checkpoint/nol/hc-model-ex.dat')
 
     step = 0
     saved_idx = 0
@@ -144,13 +150,15 @@ def mbpo_experiment(cfg):
 
         # Train model
         if len(D_env) > 0:
-            # # dynamics_model.to
             if cfg.mbpo.dynam_size > 0:
                 D_train = get_recent_transitions(D_env, cfg.mbpo.dynam_size)
-                dynamics_model = train_model(D_train, dynamics_model, cfg, log)
+                # dynamics_model = train_model(D_train, dynamics_model, cfg, log)
+                dynamics_model, train_log = train_model(X, U, dX, cfg.model)
             else:
-                dynamics_model = train_model(D_env, dynamics_model, cfg, log)
-            model_env = ModelEnv(real_env, dynamics_model)
+                # dynamics_model = train_model(D_env, dynamics_model, cfg, log)
+                dynamics_model, train_log = train_model(X, U, dX, cfg.model)
+
+            model_env = ModelEnv(real_env, cfg, dynamics_model, metric)
 
         s_t = real_env.reset()
         e = 0

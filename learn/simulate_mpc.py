@@ -17,6 +17,7 @@ import gym
 import logging
 import hydra
 from learn.utils.plotly import plot_rewards_over_trials, plot_rollout
+from learn.utils.sim import *
 
 log = logging.getLogger(__name__)
 
@@ -57,23 +58,24 @@ def mpc(cfg):
         r = 0
         while r < cfg.experiment.repeat:
             data_r = rollout(env, RandomController(env, cfg), cfg.experiment, metric=metric)
-            plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=True, loc=f"/R_{r}")
+            plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/R_{r}")
             rews = data_r[-2]
             sim_error = data_r[-1]
             if sim_error:
                 print("Repeating strange simulation")
                 continue
-            rand_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
+            # rand_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
+            rand_costs.append(np.sum(rews))  # for minimization
             # log.info(f" - Cost {np.sum(rews) / cfg.experiment.r_len}")
             r += 1
 
-            data_sample = subsample(data_r, cfg.policy.params.period)
-            data_rand.append(data_sample)
+            # data_sample = subsample(data_r, cfg.policy.params.period)
+            data_rand.append(data_r)
 
-        X, dX, U = to_XUdX(data_sample)
+        X, dX, U = to_XUdX(data_r)
         X, dX, U = combine_data(data_rand[:-1], (X, dX, U))
         msg = "Random Rollouts completed of "
-        msg += f"Mean Cumulative reward {np.mean(rand_costs) / cfg.experiment.r_len}, "
+        msg += f"Mean Cumulative reward {np.mean(rand_costs)}, "
         msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rand])}"
         log.info(msg)
 
@@ -90,7 +92,7 @@ def mpc(cfg):
 
         model, train_log = train_model(X, U, dX, cfg.model)
 
-        for i in range(cfg.experiment.num_r):
+        for i in range(cfg.experiment.num_roll):
             controller = MPController(env, model, cfg)
 
             r = 0
@@ -98,14 +100,15 @@ def mpc(cfg):
             data_rs = []
             while r < cfg.experiment.repeat:
                 data_r = rollout(env, controller, cfg.experiment, metric=metric)
-                plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=True, loc=f"/{str(i)}_{r}")
+                plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/{str(i)}_{r}")
                 rews = data_r[-2]
                 sim_error = data_r[-1]
 
                 if sim_error:
                     print("Repeating strange simulation")
                     continue
-                cum_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
+                # cum_costs.append(np.sum(rews) / cfg.experiment.r_len)  # for minimization
+                cum_costs.append(np.sum(rews))  # for minimization
                 # log.info(f" - Cost {np.sum(rews) / cfg.experiment.r_len}")
                 r += 1
 
@@ -114,7 +117,7 @@ def mpc(cfg):
 
             X, dX, U = combine_data(data_rs, (X, dX, U))
             msg = "Rollouts completed of "
-            msg += f"Mean Cumulative reward {np.mean(cum_costs) / cfg.experiment.r_len}, "
+            msg += f"Mean Cumulative reward {np.mean(cum_costs)}, " #/ cfg.experiment.r_len
             msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rs])}"
             log.info(msg)
 
@@ -171,87 +174,6 @@ def combine_data(data_rs, full_data):
         dX = np.concatenate((dX, dX_new), axis=0)
     return X, dX, U
 
-
-def squ_cost(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        cost = pitch ** 2 + roll ** 2
-    else:
-        pitch = state[0]
-        roll = state[1]
-        cost = pitch ** 2 + roll ** 2
-    return -cost
-
-
-def living_reward(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = (torch.abs(pitch) < np.deg2rad(10)).float() + (torch.abs(roll) < np.deg2rad(10)).float()
-    else:
-        pitch = state[0]
-        roll = state[1]
-        flag1 = np.abs(pitch) < np.deg2rad(10)
-        flag2 = np.abs(roll) < np.deg2rad(10)
-        rew = int(flag1) + int(flag2)
-    return rew
-
-
-def rotation_mat(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = torch.cos(pitch) * torch.cos(roll)
-
-    else:
-        rew = math.cos(state[0]) * math.cos(state[1])
-
-    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
-    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-    # return np.linalg.det(np.linalg.inv(rotn_matrix))
-    return rew
-
-
-def euler_numer(last_state, state, mag=5):
-    flag = False
-    if abs(state[0] - last_state[0]) > np.deg2rad(mag):
-        flag = True
-    elif abs(state[1] - last_state[1]) > np.deg2rad(mag):
-        flag = True
-    elif abs(state[2] - last_state[2]) > np.deg2rad(mag):
-        flag = True
-    if flag:
-        print("Stopping - Large euler angle step detected, likely non-physical")
-    return flag
-
-
-def rollout(env, controller, exp_cfg, metric=None):
-    start = time.time()
-    done = False
-    states = []
-    actions = []
-    rews = []
-    state = env.reset()
-    for t in range(exp_cfg.r_len + 1):
-        last_state = state
-        if done:
-            break
-        action, update = controller.get_action(state, metric=metric)
-        states.append(state)
-        actions.append(action)
-
-        state, rew, done, _ = env.step(action)
-        sim_error = euler_numer(last_state, state)
-        done = done or sim_error
-        if metric is not None:
-            rews.append(metric(state, action))
-        else:
-            rews.append(rew)
-    end = time.time()
-    # log.info(f"Rollout in {end - start} s, logged {len(rews)} (subsampled later by control period)")
-    return states, actions, rews, sim_error
 
 
 if __name__ == '__main__':

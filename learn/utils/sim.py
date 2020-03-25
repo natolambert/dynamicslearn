@@ -19,6 +19,88 @@ import copy
 # Plotting
 # import matplotlib.pyplot as plt
 # import matplotlib
+import time
+
+def squ_cost(state, action):
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        cost = pitch ** 2 + roll ** 2
+    else:
+        pitch = state[0]
+        roll = state[1]
+        cost = pitch ** 2 + roll ** 2
+    return -cost
+
+
+def living_reward(state, action):
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        rew = (torch.abs(pitch) < np.deg2rad(5)).float() + (torch.abs(roll) < np.deg2rad(5)).float()
+    else:
+        pitch = state[0]
+        roll = state[1]
+        flag1 = np.abs(pitch) < np.deg2rad(5)
+        flag2 = np.abs(roll) < np.deg2rad(5)
+        rew = int(flag1) + int(flag2)
+    return rew
+
+
+def rotation_mat(state, action):
+    if torch.is_tensor(state):
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        rew = torch.cos(pitch) * torch.cos(roll)
+
+    else:
+        rew = math.cos(state[0]) * math.cos(state[1])
+
+    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
+    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
+    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
+    # return np.linalg.det(np.linalg.inv(rotn_matrix))
+    return rew
+
+
+def euler_numer(last_state, state, mag=5):
+    flag = False
+    if abs(state[0] - last_state[0]) > np.deg2rad(mag):
+        flag = True
+    elif abs(state[1] - last_state[1]) > np.deg2rad(mag):
+        flag = True
+    elif abs(state[2] - last_state[2]) > np.deg2rad(mag):
+        flag = True
+    if flag:
+        print("Stopping - Large euler angle step detected, likely non-physical")
+    return flag
+
+
+def rollout(env, controller, exp_cfg, metric=None):
+    start = time.time()
+    done = False
+    states = []
+    actions = []
+    rews = []
+    state = env.reset()
+    for t in range(exp_cfg.r_len + 1):
+        last_state = state
+        if done:
+            break
+        action = controller.get_action(state, metric=metric)
+        states.append(state)
+        actions.append(action)
+
+        state, rew, done, _ = env.step(action)
+        sim_error = euler_numer(last_state, state)
+        done = done or sim_error
+        if metric is not None:
+            rews.append(metric(state, action))
+        else:
+            rews.append(rew)
+    end = time.time()
+    # log.info(f"Rollout in {end - start} s, logged {len(rews)} (subsampled later by control period)")
+    return states, actions, rews, sim_error
 
 
 def explorepwm_equil(df):

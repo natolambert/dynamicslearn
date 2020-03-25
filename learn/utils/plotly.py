@@ -12,6 +12,44 @@ import matplotlib.pyplot as plt
 
 from .sim import gather_predictions
 
+def compare_control(env, cfg):
+    import torch
+    from learn.control.pid import PidPolicy
+
+    # Rotation policy
+    sac_policy1 = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-32-26/trial_70000.dat')
+
+    # Living reward policy
+    sac_policy2 = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-24/18-31-45/trial_35000.dat')
+
+    # Optimized PID parameters
+    pid_params = torch.load('')
+    pid_params = [[2531.917,   61.358, 3543.762], [2531.917,   61.358, 3543.762]]
+    pid = PidPolicy(cfg)
+    pid.set_params(pid_params)
+
+    dynam_model = torch.load('')
+    controllers = []
+
+    state0 = env.reset()
+    for con in controllers:
+        state0 = env.reset()
+        env.set_state(np.concatenate((np.zeros(6), state0)))
+        states = []
+        actions = []
+        rews = []
+        for t in range(cfg.experiment.r_len + 1):
+            last_state = state
+            if done:
+                break
+            action, update = con.get_action(state)
+            states.append(state)
+            actions.append(action)
+
+            state, rew, done, _ = env.step(action)
+            done = done
+
+    return
 
 def plot_dist(df, x, y, z):
     import plotly.express as px
@@ -199,22 +237,14 @@ def plot_test_train(model, dataset, variances=False):
     return mse
 
 
-def plot_rewards_over_trials(rewards, env_name):
+def plot_rewards_over_trials(rewards, env_name, save=False):
+    import plotly.graph_objects as go
     data = []
     traces = []
     colors = plt.get_cmap('tab10').colors
 
-    # for i, (log_dir, logs) in enumerate(all_logs.items()):
-    #     string = log_dir
     i = 0
     cs_str = 'rgb' + str(colors[i])
-    #     if i == 0: env_name = logs[0]['env_name']
-    #     # new_data = [np.asarray(log['rewards']) for log in logs]
-    #     # full_len = max([len(d) for d in new_data])
-    #     # for vec in new_data:
-    #     #     if len(vec) < full_len:
-    #     #         np.concatenate
-    # ys = np.stack([np.asarray(log['rewards']) for r in rewards])
     ys = np.stack(rewards)
     data.append(ys)
     err_traces, xs, ys = generate_errorbar_traces(np.asarray(data[i]), color=cs_str, name=f"simulation")
@@ -224,6 +254,8 @@ def plot_rewards_over_trials(rewards, env_name):
     layout = dict(title=f"Learning Curve Reward vs Number of Trials (Env: {env_name})",
                   xaxis={'title': 'Trial Num'},
                   yaxis={'title': 'Cum. Reward'},
+                  plot_bgcolor='white',
+                  showlegend=False,
                   font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
                   height=1000,
                   width=1500,
@@ -234,8 +266,13 @@ def plot_rewards_over_trials(rewards, env_name):
         'layout': layout
     }
 
-    import plotly.io as pio
-    pio.show(fig)
+    fig =  go.Figure(fig)
+
+    if save:
+        fig.write_image(os.getcwd() + "/learning.png")
+    else:
+        fig.show()
+
     return fig
 
 

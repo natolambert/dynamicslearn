@@ -138,21 +138,6 @@ class BOPID():
         return cost / self.norm_cost, [state_log, action_log]  # / max_len  # cost
 
 
-def push_history(new, orig):
-    """
-    Takes in the new data and makes it the first elements of a vector.
-    - For using dynamics models with history.
-    :param new: New data
-    :param orig: old data (with some form of history)
-    :return: [new, orig] cut at old length
-    """
-    assert len(orig) / len(new) % 1.0 == 0
-    hist = int(len(orig) / len(new))
-    l = len(new)
-    data = np.copy(orig)
-    data[l:] = orig[:-l]
-    data[:l] = new
-    return data
 
 
 '''

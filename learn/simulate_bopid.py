@@ -19,6 +19,7 @@ import logging
 import hydra
 from learn.utils.plotly import plot_rewards_over_trials, plot_rollout
 from learn.utils.bo import get_reward_euler, plot_cost_itr, plot_parameters, PID_scalar
+from learn.utils.sim import *
 
 log = logging.getLogger(__name__)
 
@@ -80,31 +81,6 @@ def plot_learning(exp, cfg):
     }
     import plotly.graph_objects as go
     return go.Figure(fig)
-
-
-def squ_cost(state, action):
-    pitch = state[0]
-    roll = state[1]
-    cost = pitch ** 2 + roll ** 2
-    return cost
-
-
-def living_reward(state, action):
-    pitch = state[0]
-    roll = state[1]
-    flag1 = np.abs(pitch) < np.deg2rad(10)
-    flag2 = np.abs(roll) < np.deg2rad(10)
-    rew = int(flag1) + int(flag2)
-    return rew
-
-
-def rotation_mat(state, action):
-    x0 = state
-    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
-    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-    # return np.linalg.det(np.linalg.inv(rotn_matrix))
-    return math.cos(x0[0]) * math.cos(x0[1])
 
 
 def get_rewards(states, actions, fncs=[]):
@@ -311,12 +287,16 @@ def pid(cfg):
 
     from ax.plot.exp_utils import exp_to_df
 
-    # print(exp_to_df(exp=exp))
+    best_arm, _ = batch.best_arm_predictions
+    best_parameters = best_arm.parameters
+
+    print(exp_to_df(exp=exp))
     experiment_log = {
         "Exp": exp_to_df(exp=exp),
-        # "Model": gpei,
-        "Cfg": cfg
+        "Cfg": cfg,
+        "Best_param": best_parameters,
     }
+
     log.info("Printing Parameters")
     print(exp_to_df(exp=exp))
     save_log(cfg, exp, experiment_log)
@@ -340,46 +320,6 @@ def combine_data(new_data, full_data):
     dX = np.concatenate((full_data[1], dX_new), axis=0)
     return X, dX, U
 
-
-def rollout(env, controller, exp_cfg):
-    done = False
-    states = []
-    actions = []
-    rews = []
-    state = env.reset()
-    for t in range(exp_cfg.r_len+1):
-        last_state = state
-        if done:
-            break
-        # action, update = controller.get_action(state)
-        action = controller.get_action(state)
-        # if update:
-        states.append(state)
-        actions.append(action)
-
-        state, rew, done, _ = env.step(action)
-        sim_error = euler_numer(last_state, state)
-        done = done or sim_error
-        # if update:
-        rews.append(rew)
-
-    # large terminal cost
-    # rews[-1] = rews[-1] * exp_cfg.r_len
-
-    return states, actions, rews, sim_error
-
-
-def euler_numer(last_state, state, mag=10):
-    flag = False
-    if abs(state[0] - last_state[0]) > mag:
-        flag = True
-    elif abs(state[1] - last_state[1]) > mag:
-        flag = True
-    elif abs(state[2] - last_state[2]) > mag:
-        flag = True
-    # if flag:
-    # print("Stopping - Large euler angle step detected, likely non-physical")
-    return False  # flag
 
 
 if __name__ == '__main__':
