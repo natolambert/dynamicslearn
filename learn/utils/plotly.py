@@ -12,6 +12,170 @@ import matplotlib.pyplot as plt
 
 from .sim import gather_predictions
 
+colors = [
+    '#1f77b4',  # muted blue
+    '#ff7f0e',  # safety orange
+    '#2ca02c',  # cooked asparagus green
+    '#d62728',  # brick red
+    '#9467bd',  # muted purple
+    '#8c564b',  # chestnut brown
+    '#e377c2',  # raspberry yogurt pink
+    '#7f7f7f',  # middle gray
+    '#bcbd22',  # curry yellow-green
+    '#17becf'  # blue-teal
+]
+
+markers = [
+    "cross-open-dot",
+    "circle-open-dot",
+    "x-open-dot",
+    "triangle-up-open-dot",
+    "y-down-open",
+    "diamond-open-dot",
+    "hourglass-open",
+    "hash-open-dot",
+    "star-open-dot",
+    "square-open-dot",
+]
+
+
+def plot_results(logx=False, logy=False, save=False):
+    import glob
+    import torch
+    SAC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/'
+    # '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/18-46-58/'
+    MPC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-57/'
+    # '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/19-48-27/'
+    MPC_example_lowN = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-33-38/'
+    sweep_dirs = [SAC_example, MPC_example, MPC_example_lowN]
+    alg_names = ['SAC', 'MPC', 'MPC-Low N']
+    labels = []
+    rewards = []
+    samples = []
+    algs = []
+    # outer loop is control type
+    for dir, alg in zip(sweep_dirs, alg_names):
+        sub_dirs = os.listdir(dir)
+        # This sweeps across the reward functions eg
+        for sub in sub_dirs:
+            # this
+            path = os.path.join(dir, sub)
+            seeds = glob.glob(path + "/*")
+            # This sweeps across the random seeds
+            seed_r = []
+            seed_samples = []
+            for s in seeds:
+                trials = glob.glob(s + '/trial_*')
+                trials.sort(key=lambda x: os.path.getmtime(x))
+                data = torch.load(trials[-1])
+                seed_r.append(data['rewards'])
+                seed_samples.append(data['steps'])
+            rewards.append(seed_r)
+            samples.append(seed_samples)
+            algs.append(alg)
+            labels.append(sub[sub.find("name=") + len("name="):sub.find(',')])
+
+    import plotly
+    import plotly.graph_objects as go
+
+    unique_labels = np.unique(labels)
+    traces = []
+    fig = plotly.subplots.make_subplots(rows=len(unique_labels), cols=1,
+                                        subplot_titles=(unique_labels),
+                                        vertical_spacing=0.1,
+                                        shared_xaxes=True, )  # go.Figure()
+    for p, u in enumerate(unique_labels):
+        idx = np.argwhere(np.array(labels) == u)
+        for c, i in enumerate(idx.squeeze()):
+            to_plot_rew = rewards[i]
+            to_plot_samples = samples[i]
+            alg = algs[i]
+            lab = labels[i]
+
+            min_len = min([len(r) for r in to_plot_rew])
+            to_plot_rew = np.stack([t[:min_len] for t in to_plot_rew]).squeeze()
+            to_plot_samples = np.stack([t[:min_len] for t in to_plot_samples]).squeeze()
+
+            rew_mean = np.mean(np.stack(to_plot_rew).squeeze(), axis=0)
+            rew_std = np.std(np.stack(to_plot_rew).squeeze(), axis=0)
+            samp_mean = np.mean(np.stack(to_plot_samples).squeeze(), axis=0)
+            samp_std = np.std(np.stack(to_plot_samples).squeeze(), axis=0)
+
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(), xs=[to_plot_samples[0].tolist()],
+                                                  color=colors[c], name=alg)
+
+            # fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
+            #                          error_y=dict(
+            #                              type='data',  # value of error bar given in data coordinates
+            #                              array=rew_std,
+            #                              visible=True),
+            #                          error_x=dict(
+            #                              type='data',  # value of error bar given in data coordinates
+            #                              array=samp_std,
+            #                              visible=True)
+            #                          # line=dict(color=colors[i], width=2),  # mode='lines+markers',
+            #                          # marker=dict(color=colors[i], symbol=markers[i], size=16)
+            #                          ), row=p, col=1)
+            for t in tr:
+                t['legendgroup'] = alg
+                if p > 0:
+                    t['showlegend'] = False
+                fig.add_trace(t, p + 1, 1)
+
+    if logx:
+        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
+        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
+        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
+    else:
+        fig.update_xaxes(title_text="Env Step", range=[0, 50000], row=3, col=1)
+        fig.update_xaxes(range=[0, 50000], row=2, col=1)
+        fig.update_xaxes(range=[0, 50000], row=1, col=1)
+
+    if logy:
+        fig.update_yaxes(title_text="Living Rew.", type='log', row=1, col=1)
+        fig.update_yaxes(title_text="Rotation Rew.", type='log', row=2, col=1)
+        fig.update_yaxes(title_text="Square Cost", type='log', row=3, col=1)
+    else:
+        fig.update_yaxes(title_text="Living Rew.", row=1, col=1)
+        fig.update_yaxes(title_text="Rotation Rew.", row=2, col=1)
+        fig.update_yaxes(title_text="Square Cost", range=[-50, 0], row=3, col=1)
+
+    fig.update_layout(title=f"Sample Efficiency vs Reward",
+                      font=dict(
+                          family="Times New Roman, Times, serif",
+                          size=24,
+                          color="black"
+                      ),
+                      # legend_orientation="h",
+                      # legend=dict(x=.05, y=0.5,
+                      #             bgcolor='rgba(205, 223, 212, .4)',
+                      #             bordercolor="Black",
+                      #             ),
+                      # xaxis_title='Timestep',
+                      # yaxis_title='Angle (Degrees)',
+                      plot_bgcolor='white',
+                      width=1500,
+                      height=800,
+                      xaxis=dict(
+                          showline=True,
+                          showgrid=False,
+                          showticklabels=True, ),
+                      yaxis=dict(
+                          showline=True,
+                          showgrid=False,
+                          showticklabels=True, ),
+                      legend_orientation="h",
+                      legend=dict(x=.7, y=0.1,
+                                  bgcolor='rgba(205, 223, 212, .4)',
+                                  bordercolor="Black",
+                                  ),
+                      )
+
+    if save:
+        fig.write_image(os.getcwd() + "/learning.png")
+    else:
+        fig.show()
+
 
 def plot_dist(df, x, y, z):
     import plotly.express as px
@@ -155,7 +319,7 @@ def plot_test_train(model, dataset, variances=False):
                  markersize=.9, linewidth=1.2, alpha=.8)  # , linestyle=':')
         ax2.set_title("Test Data Predictions")
 
-    mse = np.mean((np.array(pred_sort_pll_test)-gt_sort_test)**2)
+    mse = np.mean((np.array(pred_sort_pll_test) - gt_sort_test) ** 2)
     print(f"Mean sq error across test set: {mse}")
 
     fontProperties = {'family': 'Times New Roman'}
@@ -228,7 +392,7 @@ def plot_rewards_over_trials(rewards, env_name, save=False):
         'layout': layout
     }
 
-    fig =  go.Figure(fig)
+    fig = go.Figure(fig)
 
     if save:
         fig.write_image(os.getcwd() + "/learning.png")
@@ -385,6 +549,9 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
 
     minX = min([len(x) for x in xs])
 
+    if "#" in color:
+        color = 'rgb' + str(tuple(int(color[i + 1:i + 3], 16) for i in (0, 2, 4)))
+
     xs = [x[:minX] for x in xs]
     ys = [y[:minX] for y in ys]
 
@@ -489,6 +656,6 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
                           showticklabels=True, ),
                       )
     if save:
-        fig.write_image(os.getcwd()+loc+"_rollout.png")
+        fig.write_image(os.getcwd() + loc + "_rollout.png")
     else:
         fig.show()
