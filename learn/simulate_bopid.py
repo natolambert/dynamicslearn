@@ -91,9 +91,11 @@ def get_rewards(states, actions, fncs=[]):
 
     return rews
 
+
 from learn.simulate_sac import *
 from learn.simulate_mpc import *
 from learn.simulate_bopid import *
+
 
 ######################################################################
 @hydra.main(config_path='conf/bopid.yaml')
@@ -103,6 +105,109 @@ def pid(cfg):
     env.reset()
     full_rewards = []
     exp_cfg = cfg.experiment
+
+    def plot_results():
+        import glob
+        SAC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/18-46-58/'
+        MPC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/19-48-27/'
+
+        sweep_dirs = [SAC_example, MPC_example]
+        alg_names = ['SAC', 'MPC']
+        labels = []
+        rewards = []
+        samples = []
+        algs = []
+        # outer loop is control type
+        for dir, alg in zip(sweep_dirs, alg_names):
+            sub_dirs = os.listdir(dir)
+            # This sweeps across the reward functions eg
+            for sub in sub_dirs:
+                # this
+                path = os.path.join(dir, sub)
+                seeds = glob.glob(path + "/*")
+                # This sweeps across the random seeds
+                seed_r = []
+                seed_samples = []
+                for s in seeds:
+                    trials = glob.glob(s + '/trial_*')
+                    trials.sort(key=lambda x: os.path.getmtime(x))
+                    data = torch.load(trials[-1])
+                    seed_r.append(data['rewards'])
+                    seed_samples.append(data['steps'])
+                rewards.append(seed_r)
+                samples.append(seed_samples)
+                algs.append(alg)
+                labels.append(sub[sub.find("name=") + len("name="):sub.rfind(',')])
+
+        import plotly
+        import plotly.graph_objects as go
+
+        unique_labels = np.unique(labels)
+        figs = []
+        for u in unique_labels:
+            fig = plotly.subplots.make_subplots(rows=1, cols=1,
+                                                # subplot_titles=("Pitch Responses", "Roll Responses"),
+                                                # vertical_spacing=.15,
+                                                shared_xaxes=False, )  # go.Figure()
+            idx = np.argwhere(np.array(labels) == u)
+            for i in idx.squeeze():
+                to_plot_rew = rewards[i]
+                to_plot_samples = samples[i]
+                alg = algs[i]
+                lab = labels[i]
+
+                min_len = min([len(r) for r in to_plot_rew])
+                to_plot_rew = np.stack([t[:min_len] for t in to_plot_rew]).squeeze()
+                to_plot_samples = np.stack([t[:min_len] for t in to_plot_samples]).squeeze()
+
+                rew_mean = np.mean(np.stack(to_plot_rew).squeeze(), axis=0)
+                rew_std = np.std(np.stack(to_plot_rew).squeeze(), axis=0)
+                samp_mean = np.mean(np.stack(to_plot_samples).squeeze(), axis=0)
+                samp_std = np.std(np.stack(to_plot_samples).squeeze(), axis=0)
+
+                fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
+                                         error_y=dict(
+                                             type='data',  # value of error bar given in data coordinates
+                                             array=rew_std,
+                                             visible=True),
+                                         error_x=dict(
+                                             type='data',  # value of error bar given in data coordinates
+                                             array=samp_std,
+                                             visible=True)
+                                         # line=dict(color=colors[i], width=2),  # mode='lines+markers',
+                                         # marker=dict(color=colors[i], symbol=markers[i], size=16)
+                                         ), row=1, col=1)
+
+            fig.update_layout(title=f"Sample Efficiency vs Reward, {u}",
+                              font=dict(
+                                  family="Times New Roman, Times, serif",
+                                  size=24,
+                                  color="black"
+                              ),
+                              # legend_orientation="h",
+                              # legend=dict(x=.05, y=0.5,
+                              #             bgcolor='rgba(205, 223, 212, .4)',
+                              #             bordercolor="Black",
+                              #             ),
+                              # xaxis_title='Timestep',
+                              # yaxis_title='Angle (Degrees)',
+                              plot_bgcolor='white',
+                              width=1000,
+                              height=1000,
+                              xaxis=dict(
+                                  showline=True,
+                                  showgrid=False,
+                                  showticklabels=True, ),
+                              yaxis=dict(
+                                  showline=True,
+                                  showgrid=False,
+                                  showticklabels=True, ),
+                              )
+            fig.show()
+        return
+
+    plot_results()
+    quit()
 
     def compare_control(env, cfg):
         import torch
@@ -132,8 +237,9 @@ def pid(cfg):
         labels.append("PID - temp")
 
         from learn.control.mpc import MPController
-        cfg.policy.mode='mpc'
-        dynam_model = torch.load('/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-25/10-45-17/trial_1.dat')
+        cfg.policy.mode = 'mpc'
+        dynam_model = torch.load(
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2020-03-25/10-45-17/trial_1.dat')
         mpc = MPController(env, dynam_model['model'], cfg)
 
         controllers.append(mpc)
@@ -180,12 +286,12 @@ def pid(cfg):
         fig = plotly.subplots.make_subplots(rows=2, cols=1,
                                             # subplot_titles=("Pitch Responses", "Roll Responses"),
                                             # vertical_spacing=.15,
-                                            shared_xaxes=True,)  # go.Figure()
+                                            shared_xaxes=True, )  # go.Figure()
 
         pry = [1, 0, 2]
         # state0 = 2*env.reset()
         state0 = env.reset()
-        for i, (con, lab) in enumerate(zip(controllers,labels)):
+        for i, (con, lab) in enumerate(zip(controllers, labels)):
             print(f"Evaluating controller type {lab}")
             _ = env.reset()
             env.set_state(np.concatenate((np.zeros(6), state0)))
@@ -201,10 +307,10 @@ def pid(cfg):
                     with torch.no_grad():
                         with eval_mode(con):
                             action = con.select_action(state)
-                            action = np.array([65535,65535,65535,65535]) * (action + 1) / 2
+                            action = np.array([65535, 65535, 65535, 65535]) * (action + 1) / 2
 
                 else:
-                    action = con.get_action(state,metric=metric)
+                    action = con.get_action(state, metric=metric)
                 states.append(state)
                 actions.append(action)
 
@@ -217,13 +323,12 @@ def pid(cfg):
             pitch = np.degrees(states[:, pry[0]])
             roll = np.degrees(states[:, pry[1]])
 
-
             fig.add_trace(go.Scatter(y=roll, name=lab, legendgroup=lab,
-                                     line=dict(color=colors[i], width=2), # mode='lines+markers',
+                                     line=dict(color=colors[i], width=2),  # mode='lines+markers',
                                      marker=dict(color=colors[i], symbol=markers[i], size=16)
                                      ), row=1, col=1)
 
-            fig.add_trace(go.Scatter(y = pitch, name=lab+"pitch", legendgroup=lab, showlegend=False,
+            fig.add_trace(go.Scatter(y=pitch, name=lab + "pitch", legendgroup=lab, showlegend=False,
                                      line=dict(color=colors[i], width=2),
                                      marker=dict(color=colors[i], symbol=markers[i], size=16)
                                      ), row=2, col=1)
@@ -267,7 +372,6 @@ def pid(cfg):
 
         return fig
 
-
     compare_control(env, cfg)
     quit()
     pid_s = PID_scalar(cfg)
@@ -278,7 +382,8 @@ def pid(cfg):
         # pid_1 = pid_s.transform(np.array(params)[0, :3])
         # pid_2 = pid_s.transform(np.array(params)[0, 3:])
         # pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
-        pid_1 = [params["roll-p"], params["roll-i"], params["roll-d"]] #[params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        pid_1 = [params["roll-p"], params["roll-i"],
+                 params["roll-d"]]  # [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
         pid_2 = [params["roll-p"], params["roll-i"], params["roll-d"]]
         print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
         pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
@@ -488,7 +593,6 @@ def combine_data(new_data, full_data):
     U = np.concatenate((full_data[2], U_new), axis=0)
     dX = np.concatenate((full_data[1], dX_new), axis=0)
     return X, dX, U
-
 
 
 if __name__ == '__main__':
