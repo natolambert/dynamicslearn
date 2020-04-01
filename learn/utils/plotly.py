@@ -47,8 +47,10 @@ def plot_results(logx=False, logy=False, save=False):
     MPC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-57/'
     # '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/19-48-27/'
     MPC_example_lowN = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-33-38/'
-    sweep_dirs = [SAC_example, MPC_example, MPC_example_lowN]
-    alg_names = ['SAC', 'MPC', 'MPC-Low N']
+    MPC_example_lowNT = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-26/11-01-16/'
+
+    sweep_dirs = [SAC_example, MPC_example, MPC_example_lowN,  MPC_example_lowNT]
+    alg_names = ['SAC', 'MPC', 'MPC-Low N', 'MPC-Low N&T']
     labels = []
     rewards = []
     samples = []

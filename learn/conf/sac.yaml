@@ -30,11 +30,11 @@ alg:
     start_steps: 5000 #5000
     eval_freq: 5000 #5000
     max_steps: 1E5 #1E5
-    num_eval_episodes: 5
+    num_eval_episodes: 1
     num_eval_timesteps: 2000 #2000
     batch_size: 512
   trainer:
-    initial_temp: .02
+    initial_temp: .1
     discount: .99
     soft_target_tau: 5E-3
     target_update_period: 2
@@ -53,7 +53,7 @@ hydra:
     dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
     dir: ./sweeps/${now:%Y-%m-%d}/${now:%H-%M-%S}
-    subdir: ${hydra.job.num}
+    subdir: ${hydra.job.override_dirname}/${hydra.job.num}
   job:
     config:
       override_dirname:

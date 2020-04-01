@@ -44,11 +44,13 @@ class ModelEnv(gym.Env):
     def get_done(self, state):
         # Done is pitch or roll > 35 deg
         max_a = np.deg2rad(45)
-        d = (abs(state[1]) > max_a) or (abs(state[0]) > max_a)
+        if torch.is_tensor(state):
+            d = (torch.abs(state[:, 1]) > 40) | (torch.abs(state[:, 0]) > 40)
+        else:
+            d = (abs(state[1]) > max_a) or (abs(state[0]) > max_a)
         return d
 
     def step(self, action):
-
         if self.state_failed(new_state):
             done = True
 
@@ -57,45 +59,15 @@ class ModelEnv(gym.Env):
         return self.state, reward, done, {}
 
     def step_from(self, state, action):
-        states_in = self.model.state_list
-        actions_in = self.model.input_list
-        targets = self.model.change_state_list
-        len_in = len(states_in)
-        len_out = len(targets)
-
-        def convert_predictions(prediction, state_in, states_list, targets_list):
-            output = np.copy(state_in[:len(targets_list)])
-            # print(states_list)
-            for i, (p, s, s_l, t_l) in enumerate(zip(prediction, state_in, states_list, targets_list)):
-                find = t_l[:t_l.rfind('_') + 1]
-                if find == 'linaz_':
-                    find = 'linyz_'  # TYPO FIX
-                index = [idx for idx, s in enumerate(states_list) if find in s][0]
-                # if delta, add change
-                # print(find)
-                # print(index)
-                if t_l[-2:] == 'dx':
-                    output[index] = state_in[index] + p
-                else:
-                    output[index] = p
-            return output
-
-        if len_out > len_in:
-            history_used = True
-
-        raise ValueError("Check History")
-
-        if len(action) < len(actions_in):
-            if len(actions_in) % len(action) == 0:
-                hist = int(len(actions_in) / len(action))
-                action = np.repeat(action, hist).flatten()  # np.array([action] * hist).flatten()
+        # Does not work with history mode on
         output, logvars = self.model.predict(state, action, ret_var=True)
-        next_state = convert_predictions(output, state, states_in, targets)
+        next_state = state + output
 
         obs = next_state
-        reward =  self.reward_fnc(obs,action)
+        reward = self.reward_fnc(obs, action)
         done = self.get_done(obs)
         return obs, reward, done, {}
+
 
 def push_history(new, orig):
     """
@@ -112,6 +84,3 @@ def push_history(new, orig):
     data[l:] = orig[:-l]
     data[:l] = new
     return data
-
-
-

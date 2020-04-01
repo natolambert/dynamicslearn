@@ -93,8 +93,8 @@ def params_to_training(data):
     return X, U, dX
 
 
-def train_model(X, U, dX, model_cfg):
-    log.info(f"Training Model on {np.shape(X)[0]} pts")
+def train_model(X, U, dX, model_cfg, logged=False):
+    if logged: log.info(f"Training Model on {np.shape(X)[0]} pts")
     start = time.time()
     train_log = dict()
 
@@ -106,7 +106,7 @@ def train_model(X, U, dX, model_cfg):
         mat = to_matrix(X, U, dX, model_cfg)
         num_pts = np.shape(mat)[0]
         if num_pts < model_cfg.params.training.cluster:
-            log.info(f"Not enough points to cluster to {model_cfg.params.training.cluster} yet.")
+            if logged: log.info(f"Not enough points to cluster to {model_cfg.params.training.cluster} yet.")
             X_t = X
             U_t = U
             dX_t = dX
@@ -134,7 +134,7 @@ def train_model(X, U, dX, model_cfg):
     train_log['min_testerror'] = min_err_test
 
     end = time.time()
-    log.info(f"Trained Model in {end-start} s")
+    if logged: log.info(f"Trained Model in {end-start} s")
     return model, train_log
 
 

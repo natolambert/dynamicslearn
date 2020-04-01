@@ -91,6 +91,7 @@ def set_seed_everywhere(seed):
 
 def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, video_dir=None, metric=None, show=False):
     returns = []
+    start = time.time()
     for i in range(num_episodes):
         # print(f"Eval episode: {i}...")
         # video = VideoRecorder(env, enabled=video_dir is not None and i == 0)
@@ -114,10 +115,12 @@ def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, vide
             # video.record()
             total_reward += reward
             s += 1
-        returns.append(total_reward)
+        returns.append(total_reward) #/len(states))
 
         if show:
             plot_rollout(states, actions, pry=[1, 0, 2])
+    end = time.time()
+    print(f"Rollout in {end - start} s, logged {len(states)}")
     L.info(f" - - Evaluated, mean reward {np.mean(returns)}, n={num_episodes}")
     return returns
 
@@ -520,15 +523,18 @@ def sac_experiment(cfg):
         raise ValueError("Improper metric name passed")
 
     to_plot_rewards = []
+    total_steps = []
     rewards = evaluate_policy(real_env, policy, step, log, num_eval_episodes, num_eval_timesteps, None, metric=metric)
+
     to_plot_rewards.append(rewards)
+    total_steps.append(0)
 
     env = gym.make(cfg.env.params.name)
 
-    from gym import spaces
-    env.action_space = spaces.Box(low=np.array([0, 0, 0, 0]),
-                                       high=np.array([65535, 65535, 65535, 65535]),
-                                       dtype=np.int32)
+    # from gym import spaces
+    # env.action_space = spaces.Box(low=np.array([0, 0, 0, 0]),
+    #                                    high=np.array([65535, 65535, 65535, 65535]),
+    #                                    dtype=np.int32)
 
     layout = dict(
         title=f"Learning Curve Reward vs Number of Steps Trials (Env: {cfg.env.params.name}, Alg: {cfg.policy.mode})",
@@ -551,6 +557,7 @@ def sac_experiment(cfg):
                 returns = evaluate_policy(env, policy, step, log, num_eval_episodes, num_eval_timesteps,
                                           None, metric=metric)
                 to_plot_rewards.append(returns)
+                total_steps.append(step)
 
                 if model_dir is not None:
                     policy.save(model_dir, step)
@@ -607,6 +614,7 @@ def sac_experiment(cfg):
                 env_name=cfg.env.params.name,
                 trial_num=saved_idx,
                 replay_buffer=replay_buffer if cfg.save_replay else [],
+                steps=total_steps,
                 policy=policy,
                 rewards=to_plot_rewards,
             )

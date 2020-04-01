@@ -17,12 +17,12 @@ metric:
 
 mbpo:
   save_model: false
-  num_epochs: 125
-  k_steps: [1,15,20,100]
-  model_rollouts: 100 # from 400
+  num_epochs: 50
+  k_steps: [1,15,1,40]
+  model_rollouts: 200 # from 400
   dynam_size: 5E3
-  g_steps: 30
-  env_steps: 250 # from 250
+  g_steps: 15 #
+  env_steps: 500 # from 250
 
 alg:
   layer_size: 256
@@ -36,7 +36,7 @@ alg:
     num_eval_timesteps: 2000
     batch_size: 512
   trainer:
-    initial_temp: .02
+    initial_temp: .05
     discount: .99
     soft_target_tau: 2.5E-3
     target_update_period: 2

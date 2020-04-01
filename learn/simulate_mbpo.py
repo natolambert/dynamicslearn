@@ -67,7 +67,7 @@ def mbpo_experiment(cfg):
         indexable = torch.stack(list(D_env[0]))
         num_samples = len(D_env[0])
         idx_state = np.random.randint(0, num_samples, m_rollouts)
-        state_batch = torch.tensor(indexable[idx_state].cpu().numpy().squeeze())
+        state_batch = torch.tensor(indexable[idx_state].cpu().numpy().squeeze()).float()
         for i in range(k):
             # Get actions from policy
             action_batch = policy.sample_action_batch(state_batch).squeeze()
@@ -83,7 +83,9 @@ def mbpo_experiment(cfg):
                 replay_buffer.add(s_b, a_b, r_b, ns_b, d_b)
 
             # state_batch = torch.tensor(next_state_batch).clone().detach()
-            state_batch = next_state_batch.clone().detach()
+            state_batch = next_state_batch.clone().detach().float()
+            if torch.sum(state_batch != state_batch) >0:
+                raise ValueError("NAN NOOOOO")
 
         return replay_buffer
 
@@ -193,13 +195,13 @@ def mbpo_experiment(cfg):
             # Select action randomly or according to policy
             if steps < cfg.alg.params.start_steps:
                 action = real_env.action_space.sample()
-                steps += 1
             else:
                 with torch.no_grad():
                     with eval_mode(policy):
                         action = policy.sample_action(s_t)
 
             s_tp1, r, done, _ = real_env.step(action)
+            steps += 1
             D_env[0].append(torch.tensor(s_t, dtype=torch.float32))
             D_env[1].append(torch.tensor(action, dtype=torch.float32))
             D_env[2].append(torch.tensor(s_tp1 - s_t, dtype=torch.float32))

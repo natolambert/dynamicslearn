@@ -12,15 +12,16 @@ policy:
 
 
 experiment:
-  num_roll: 5
+  num_roll: 3 #25
   r_len: 2000 #5000
   seeds: 1
-  repeat: 5
+  random: 1
+  repeat: 1
 
 mpc:
   params:
     mode: random
-    N: 250
+    N: 2500
     T: 10
     hold: true
 
@@ -38,7 +39,7 @@ hydra:
     dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
     dir: ./sweeps/${now:%Y-%m-%d}/${now:%H-%M-%S}
-    subdir: ${hydra.job.num}
+    subdir: ${hydra.job.override_dirname}/${hydra.job.num}
   job:
     config:
       override_dirname:

@@ -180,7 +180,7 @@ class GeneralNN(nn.Module):
 
         self.scalarX.fit(X)
         self.scalarU.fit(U)
-        self.scalardX.fit(dX)    # Note crashes with simulation when clustering.
+        self.scalardX.fit(dX)  # Note crashes with simulation when clustering.
 
         # Stores the fit as tensors for offline prediction, etc
         if True:
@@ -235,7 +235,7 @@ class GeneralNN(nn.Module):
         # Handle inizializations on first call
         if self.init_training == False:
             self.init_weights_orth()
-            if self.prob: self.init_loss_fnc(dataset[2], l_mean=1, l_cov=1)  # data for std,
+            if self.prob: self.init_loss_fnc(np.array(dataset[2]), l_mean=1, l_cov=1)  # data for std,
         self.init_training = True
 
         train_params = model_params.optimizer
