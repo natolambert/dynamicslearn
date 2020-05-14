@@ -119,6 +119,9 @@ def evaluate_policy(env, policy, step, L, num_episodes, num_eval_timesteps, vide
 
         if show:
             plot_rollout(states, actions, pry=[1, 0, 2])
+        else:
+            plot_rollout(states, actions, pry=[1, 0, 2], save=True, loc=f"/{str(step)}")
+
     end = time.time()
     print(f"Rollout in {end - start} s, logged {len(states)}")
     L.info(f" - - Evaluated, mean reward {np.mean(returns)}, n={num_episodes}")
@@ -519,6 +522,8 @@ def sac_experiment(cfg):
         metric = rotation_mat
     elif cfg.metric.name == 'Square':
         metric = squ_cost
+    elif cfg.metric.name == 'Yaw':
+        metric = yaw_r
     else:
         raise ValueError("Improper metric name passed")
 
@@ -576,10 +581,12 @@ def sac_experiment(cfg):
         # Select action randomly or according to policy
         if step < start_steps:
             action = env.action_space.sample()
+            action_scale = action
         else:
             with torch.no_grad():
                 with eval_mode(policy):
                     action = policy.sample_action(obs)
+                    action_scale = env.action_space.high * (action + 1) / 2
 
         if step >= start_steps:
             num_updates = start_steps if step == start_steps else num_rl_updates
@@ -594,7 +601,6 @@ def sac_experiment(cfg):
                     policy_freq,
                     target_entropy=target_entropy)
 
-        action_scale = env.action_space.high * (action + 1) / 2
         next_obs, reward, done, _ = env.step(action_scale)
         # print(next_obs[:3])
         # done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(done)
@@ -602,7 +608,7 @@ def sac_experiment(cfg):
         reward = metric(next_obs, action)
         episode_reward += reward
 
-        replay_buffer.add(obs, action, reward, next_obs, done)
+        replay_buffer.add(obs, action_scale, reward, next_obs, done)
 
         obs = next_obs
 

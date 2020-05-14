@@ -46,6 +46,14 @@ def living_reward(state, action):
         rew = int(flag1) + int(flag2)
     return rew
 
+def yaw_r(state, action):
+    if torch.is_tensor(state):
+        yaw = state[:, 2]
+        rew = yaw**2
+    else:
+        yaw = state[2]
+        rew = yaw**2
+    return rew +.5*squ_cost(state,action)
 
 def rotation_mat(state, action):
     if torch.is_tensor(state):

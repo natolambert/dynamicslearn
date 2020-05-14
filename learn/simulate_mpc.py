@@ -47,6 +47,8 @@ def mpc(cfg):
         metric = rotation_mat
     elif cfg.metric.name == 'Square':
         metric = squ_cost
+    elif cfg.metric.name == 'Yaw':
+        metric = yaw_r
     else:
         raise ValueError("Improper metric name passed")
 

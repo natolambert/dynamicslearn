@@ -106,13 +106,19 @@ def pid(cfg):
     full_rewards = []
     exp_cfg = cfg.experiment
 
-    def compare_control(env, cfg):
+    from learn.utils.plotly import hv_characterization
+    hv_characterization()
+
+    def compare_control(env, cfg, save=True):
         import torch
         from learn.control.pid import PidPolicy
 
         controllers = []
         labels = []
         metrics = []
+
+        # PID  baselines
+        # /Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-04-14/11-12-02
 
         # from learn.simulate_sac import *
         # Rotation policy
@@ -131,7 +137,7 @@ def pid(cfg):
 
         # Square cost policy
         sac_policy2 = torch.load(
-            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/metric.name=Square,robot=iono_sim/26/trial_45000.dat')
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/metric.name=Square,robot=iono_sim/26/trial_40000.dat')
         controllers.append(sac_policy2['policy'])
         labels.append("SAC - Square")
         metrics.append(2)
@@ -191,22 +197,24 @@ def pid(cfg):
         ]
 
         markers = [
-            "cross-open-dot",
+            "cross",
             "circle-open-dot",
             "x-open-dot",
             "triangle-up-open-dot",
             "y-down-open",
             "diamond-open-dot",
-            "hourglass-open",
-            "hash-open-dot",
-            "star-open-dot",
-            "square-open-dot",
+            "hourglass",
+            "hash",
+            "star",
+            "square",
         ]
 
         m1 = living_reward
         m2 = rotation_mat
         m3 = squ_cost
         eval_metrics = [m1, m2, m3]
+        metric_names = ["Living", "Rotation", "Square"]
+
         fig = plotly.subplots.make_subplots(rows=3, cols=2,
                                             # subplot_titles=["Living", "Rotation", "Square"],
                                             subplot_titles=["Pitch", "Roll", " ",
@@ -215,9 +223,12 @@ def pid(cfg):
                                             horizontal_spacing=0.03,
                                             shared_xaxes=True, )  # go.Figure()
 
+        fig_mpc = go.Figure()
+        fig_sac = go.Figure()
+
         pry = [1, 0, 2]
         # state0 = 2*env.reset()
-        state0 = env.reset()
+        # state0 = env.reset()
         state0 = np.array([0, np.deg2rad(15), 0, 0, 0, 0])
         for i, (con, lab, m) in enumerate(zip(controllers, labels, metrics)):
             print(f"Evaluating controller type {lab}")
@@ -229,7 +240,7 @@ def pid(cfg):
             rews = []
             done = False
             # for t in range(cfg.experiment.r_len + 1):
-            for t in range(250):
+            for t in range(500):
                 if done:
                     break
                 if "SAC" in lab:
@@ -255,6 +266,26 @@ def pid(cfg):
             pitch = np.degrees(states[:, pry[0]])
             roll = np.degrees(states[:, pry[1]])
 
+            # deal with markers
+            num_mark = np.zeros(len(pitch))
+            mark_every = 50
+            m_size = 32
+            start = np.random.randint(0, int(len(pitch)/10))
+            num_mark[start::mark_every] = m_size
+            if "SAC" in lab:
+                fig_sac.add_trace(go.Scatter(y=pitch, name=metric_names[m],  # legendgroup=lab[:3],
+                                             # showlegend=(True if (i % 3 == 0) else False),
+                                             line=dict(color=colors[m], width=4),  cliponaxis=False,  mode='lines+markers',
+                                             marker=dict(color=colors[m], symbol=markers[-m], size=num_mark.tolist())
+                                             ))
+
+            elif "MPC" in lab:
+                fig_mpc.add_trace(go.Scatter(y=pitch, name=metric_names[m],  # legendgroup=lab[:3],
+                                             # showlegend=(True if (i % 3 == 0) else False),
+                                             line=dict(color=colors[m], width=4), cliponaxis=False,  mode='lines+markers',
+                                             marker=dict(color=colors[m], symbol=markers[-m], size=num_mark.tolist())
+                                             ))
+
             fig.add_trace(go.Scatter(y=pitch, name=lab[:3] + str(m), legendgroup=lab[:3],
                                      showlegend=(True if (i % 3 == 0) else False),
                                      line=dict(color=colors[int(i / 3)], width=2),  # mode='lines+markers',
@@ -267,7 +298,6 @@ def pid(cfg):
                                      # marker=dict(color=colors[i], symbol=markers[i], size=16)
                                      ), row=m + 1, col=2)
 
-
         fig.update_layout(title='Comparison of Controllers and Reward Functions',
                           font=dict(
                               family="Times New Roman, Times, serif",
@@ -275,7 +305,7 @@ def pid(cfg):
                               color="black"
                           ),
                           legend_orientation="h",
-                          legend=dict(x=.8, y=0.07,
+                          legend=dict(x=.6, y=0.07,
                                       bgcolor='rgba(205, 223, 212, .4)',
                                       bordercolor="Black",
                                       ),
@@ -294,60 +324,138 @@ def pid(cfg):
                           #     showticklabels=True, ),
                           )
 
-        fig.update_xaxes(title_text="Timestep",row=3, col=1,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+        fig_sac.update_layout(  # title='Comparison of SAC Policies',
+            font=dict(
+                family="Times New Roman, Times, serif",
+                size=32,
+                color="black"
+            ),
+            legend_orientation="h",
+            legend=dict(x=.35, y=0.1,
+                        bgcolor='rgba(205, 223, 212, .4)',
+                        bordercolor="Black",
+                        ),
+            # xaxis_title='Timestep',
+            # yaxis_title='Angle (Degrees)',
+            showlegend=False,
+            plot_bgcolor='white',
+            width=1600,
+            height=800,
+            margin=dict(t=5,r=5),
+        )
+
+        fig_mpc.update_layout(  # title='Comparison of MPC Policies',
+            font=dict(
+                family="Times New Roman, Times, serif",
+                size=32,
+                color="black"
+            ),
+            legend_orientation="h",
+            showlegend=False,
+            legend=dict(x=.35, y=0.1,
+                        bgcolor='rgba(205, 223, 212, .4)',
+                        bordercolor="Black",
+                        # ncol= 2,
+                        ),
+            # xaxis_title='Timestep',
+            # yaxis_title='Angle (Degrees)',
+            plot_bgcolor='white',
+            width=1600,
+            height=800,
+            margin=dict(t=5, r=5),
+        )
+
+        reg_color = 'rgba(255,60,60,.15)'
+        fig_sac.add_trace(
+            go.Scatter(x=[0, 500], y=[5, 5], name='Living Region', legendgroup='Living Region', fill='tozeroy',
+                       mode='lines',
+                       fillcolor=reg_color, line=dict(width=0.0, color=reg_color)))  # fill down to xaxis
+        fig_sac.add_trace(
+            go.Scatter(x=[0, 500], y=[-5, -5], showlegend=False, legendgroup='Living Region', fill='tozeroy',
+                       mode='lines',
+                       fillcolor=reg_color, line=dict(width=0.0, color=reg_color)))  # fill down to xaxis
+
+        fig_mpc.add_trace(
+            go.Scatter(x=[0, 500], y=[5, 5], name='Living Region', legendgroup='Living Region', fill='tozeroy',
+                       mode='lines',
+                       fillcolor=reg_color, line=dict(width=0.0, color=reg_color)))  # fill down to xaxis
+        fig_mpc.add_trace(
+            go.Scatter(x=[0, 500], y=[-5, -5], showlegend=False, legendgroup='Living Region', fill='tozeroy',
+                       mode='lines',
+                       fillcolor=reg_color, line=dict(width=0.0, color=reg_color)))  # fill down to xaxis
+
+        # SOLO
+        rang_ind = [-20, 20]
+        fig_sac.update_xaxes(title_text="Timestep", range=[0,500],
+                             ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)',
+                             zerolinewidth=1, )
+        fig_sac.update_yaxes(title_text="Pitch (degrees)", range=rang_ind,
+                             ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)',
+                             zerolinewidth=1, )
+        fig_sac.show()
+        fig_sac.write_image(os.getcwd() + "/compare_sac.pdf")
+
+        fig_mpc.update_xaxes(title_text="Timestep", range=[0,500],
+                             ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)',
+                             zerolinewidth=1, )
+        fig_mpc.update_yaxes(title_text="Pitch (degrees)", range=rang_ind,
+                             ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)',
+                             zerolinewidth=1, )
+        fig_mpc.show()
+        fig_mpc.write_image(os.getcwd() + "/compare_mpc.pdf")
+
+        # COMPARISON
+
+        fig.update_xaxes(title_text="Timestep", row=3, col=1,
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_xaxes(row=2, col=1,
-                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_xaxes(row=1, col=1,
-                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_xaxes(title_text="Timestep", row=3, col=2,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_xaxes(row=2, col=2,
-                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_xaxes(row=1, col=2,
-                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         # fig.update_xaxes(title_text="xaxis 1 title", row=1, col=1)
         # fig.update_yaxes(title_text="Roll (Degrees)", row=1, col=1)
 
-        rang = [-30,30]
+        rang = [-30, 30]
         nticks = 6
         fig.update_yaxes(title_text="Living Rew.", range=rang, row=1, col=1, nticks=nticks,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_yaxes(title_text="Rotation Rew.", range=rang, row=2, col=1, nticks=nticks,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_yaxes(title_text="Square Cost", range=rang, row=3, col=1, nticks=nticks,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_yaxes(range=rang, row=1, col=2, nticks=nticks, showticklabels=False,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_yaxes(range=rang, row=2, col=2, nticks=nticks, showticklabels=False,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
         fig.update_yaxes(range=rang, row=3, col=2, nticks=nticks, showticklabels=False,
-                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1,)
-
+                         ticks="inside", tickwidth=2, zeroline=True, zerolinecolor='rgba(0,0,0,.5)', zerolinewidth=1, )
 
         print(f"Plotting {len(labels)} control responses")
-        save = False
-        if save:
-            fig.write_image(os.getcwd() + "compare.png")
-        else:
-            fig.show()
+        # save = False
+        # if save:
+        #     fig.write_image(os.getcwd() + "compare.png")
+        # else:
+        #     fig.show()
+        #
+        # return fig
 
-        return fig
-
-    # compare_control(env, cfg)
+    # compare_control(env, cfg, save=True)
     # quit()
-    plot_results()
+    plot_results(logx=False, save=True, mpc=False)
     quit()
-    pid_s = PID_scalar(cfg)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # # # # # # # # # # # Evalutation Function  # # # # # # # # # # # # # # # # # # # #
     def bo_rollout_wrapper(params, weights=None):  # env, controller, exp_cfg):
-        # pid_1 = pid_s.transform(np.array(params)[0, :3])
-        # pid_2 = pid_s.transform(np.array(params)[0, 3:])
-        # pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
-        pid_1 = [params["roll-p"], params["roll-i"],
-                 params["roll-d"]]  # [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        pid_1 = [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
+        # pid_1 = [params["roll-p"], params["roll-i"],
+        #          params["roll-d"]]  # [params["pitch-p"], params["pitch-i"], params["pitch-d"]]
         pid_2 = [params["roll-p"], params["roll-i"], params["roll-d"]]
         print(f"Optimizing Parameters {np.round(pid_1, 3)},{np.round(pid_2, 3)}")
         pid_params = [[pid_1[0], pid_1[1], pid_1[2]], [pid_2[0], pid_2[1], pid_2[2]]]
@@ -368,9 +476,9 @@ def pid(cfg):
             for i, vec in enumerate(rewards_full):
                 mult_rewards[i].append(vec)
 
-            if sim_error:
-                print("Repeating strange simulation")
-                continue
+            # if sim_error:
+            #     print("Repeating strange simulation")
+            #     continue
             # if len(rews) < 400:
             #     cum_cost.append(-(cfg.experiment.r_len - len(rews)) / cfg.experiment.r_len)
             # else:
@@ -385,7 +493,7 @@ def pid(cfg):
         cum_cost = np.mean(cum_cost)
         # print(f"Cum. Cost {cum_cost / max_cost}")
         # print(f"- Mean Cum. Cost / Rew: {cum_cost}, std dev: {std}")
-        eval = {"Square": (-np.mean(rewards_full[0]), np.std(rewards_full[0])),
+        eval = {"Square": (np.mean(rewards_full[0]), np.std(rewards_full[0])),
                 "Living": (np.mean(rewards_full[1]), np.std(rewards_full[1])),
                 "Rotation": (np.mean(rewards_full[2]), np.std(rewards_full[2]))}
 
@@ -415,25 +523,25 @@ def pid(cfg):
         name="PID Control Robot",
         search_space=SearchSpace([
             RangeParameter(
-                name=f"roll-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
+                name=f"roll-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=10000.0, log_scale=True,
             ),
             # FixedParameter(name="roll-i", value=0.0, parameter_type=ParameterType.FLOAT),
             RangeParameter(
-                name=f"roll-i", parameter_type=ParameterType.FLOAT, lower=0, upper=100.0, log_scale=False,
+                name=f"roll-i", parameter_type=ParameterType.FLOAT, lower=0, upper=1000.0, log_scale=False,
             ),
             RangeParameter(
-                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=1, upper=5000.0, log_scale=True,
+                name=f"roll-d", parameter_type=ParameterType.FLOAT, lower=.1, upper=5000.0, log_scale=True,
             ),
 
-            # RangeParameter(
-            #     name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=5000.0, log_scale=True,
-            # ),
-            # RangeParameter(
-            #     name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            # ),
-            # RangeParameter(
-            #     name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=0.0, upper=100.0
-            # ),
+            RangeParameter(
+                name=f"pitch-p", parameter_type=ParameterType.FLOAT, lower=1.0, upper=10000.0, log_scale=True,
+            ),
+            RangeParameter(
+                name=f"pitch-d", parameter_type=ParameterType.FLOAT, lower=0, upper=1000.0, log_scale=False,
+            ),
+            RangeParameter(
+                name=f"pitch-i", parameter_type=ParameterType.FLOAT, lower=.1, upper=5000.0, log_scale=True,
+            ),
             # FixedParameter(name="pitch-i", value=0.0, parameter_type=ParameterType.FLOAT),
 
         ]),
@@ -477,7 +585,8 @@ def pid(cfg):
     exp.runner = MyRunner()
     exp.optimization_config = optimization_config
 
-    print(f"Running Sobol initialization trials...")
+    log.info(f"Running experiment, metric name {cfg.metric.name}")
+    log.info(f"Running Sobol initialization trials...")
     sobol = Models.SOBOL(exp.search_space)
     num_search = cfg.bo.random
     for i in range(num_search):
@@ -515,7 +624,7 @@ def pid(cfg):
 
     num_opt = cfg.bo.optimized
     for i in range(num_opt):
-        print(f"Running GP+EI optimization trial {i + 1}/{num_opt}...")
+        log.info(f"Running GP+EI optimization trial {i + 1}/{num_opt}...")
         # Reinitialize GP+EI model at each step with updated data.
         batch = exp.new_trial(generator_run=gpei.gen(1))
         gpei = Models.BOTORCH(experiment=exp, data=exp.eval())
@@ -525,10 +634,10 @@ def pid(cfg):
 
     from ax.plot.exp_utils import exp_to_df
 
-    best_arm, _ = batch.best_arm_predictions
+    best_arm, _ = gpei.gen(1).best_arm_predictions
     best_parameters = best_arm.parameters
+    log.info(f"Best parameters {best_parameters}")
 
-    print(exp_to_df(exp=exp))
     experiment_log = {
         "Exp": exp_to_df(exp=exp),
         "Cfg": cfg,
@@ -536,10 +645,12 @@ def pid(cfg):
     }
 
     log.info("Printing Parameters")
-    print(exp_to_df(exp=exp))
+    log.info(exp_to_df(exp=exp))
     save_log(cfg, exp, experiment_log)
 
-    plot_learning(exp, cfg).show()
+    fig_learn = plot_learning(exp, cfg)
+    fig_learn.write_image("learning" + ".png")
+    fig_learn.show()
     plot_all(gpei, objectives, name=f"FINAL -", rend=True)
 
 
