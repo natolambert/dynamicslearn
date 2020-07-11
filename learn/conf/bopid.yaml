@@ -24,7 +24,7 @@ mpc:
 experiment:
   num_r: 10
   r_len: 2000 #5000
-  repeat: 10
+  repeat: 1
 
 bo:
   random: 25

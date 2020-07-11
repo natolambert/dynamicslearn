@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 import glob
-from natsort import natsorted
+# from natsort import natsorted
 import numpy as np
 import torch
 from collections import defaultdict
@@ -16,7 +16,7 @@ from collections import defaultdict
 sys.path.append(os.getcwd())
 log = logging.getLogger(__name__)
 
-from learn.utils.plotly import generate_errorbar_traces, plot_rewards_over_trials, hv_characterization
+from learn.utils.plotly import generate_errorbar_traces, plot_rewards_over_trials, hv_characterization, plot_sweep_1, plot_rollout_dat
 
 
 ######################################################################
@@ -26,6 +26,13 @@ def plot(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    # Yaw control
+    yaw_dir = "/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-05-13/08-01-09/metric.name=Yaw,robot=iono_sim/"
+    ex = "0/trial_33.dat"
+    yaw_ex = yaw_dir+ex
+    # plot_sweep_1(yaw_dir)
+    plot_rollout_dat(yaw_ex)
+    quit()
     # dir=2020-02-10/15-39-36
     files = glob.glob(hydra.utils.get_original_cwd() + '/outputs/' + cfg.dir + '/*/**.dat')
     ms = []

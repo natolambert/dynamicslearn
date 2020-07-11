@@ -52,7 +52,7 @@ model:
     dt: 6
     name: iono
     flight_mode: basic
-    history: 2
+    history: 1
     delta_state_targets:
     - pitch
     - roll

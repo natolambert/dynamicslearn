@@ -1,6 +1,7 @@
 todo.txt
 
 /__pycache__
+/plot/
 /data
 /_models
 /_policies

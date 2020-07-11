@@ -12,7 +12,7 @@ policy:
 
 
 experiment:
-  num_roll: 3 #25
+  num_roll: 50
   r_len: 2000 #5000
   seeds: 1
   random: 1
@@ -20,10 +20,10 @@ experiment:
 
 mpc:
   params:
-    mode: random
-    N: 2500
-    T: 10
-    hold: true
+    mode: yaw
+    N: 500
+    T: 5
+    hold: false
 
 
 bo:

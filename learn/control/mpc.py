@@ -13,10 +13,19 @@ class MPController(Controller):
         self.T = self.cfg.params.T
         self.hold = self.cfg.params.hold
 
+        self.yaw = controller_cfg.params.mode
+
         self.low = torch.tensor(self.env.action_space.low, dtype=torch.float32)
         self.high = torch.tensor(self.env.action_space.high, dtype=torch.float32)
         self.action_sampler = torch.distributions.Uniform(low=self.low, high=self.high)
 
+        self.yaw_actions = torch.tensor([
+            [1500, 1500, 1500, 1500],
+            [2000, 1000, 1000, 2000],
+            [1000, 2000, 2000, 1000],
+            [2000, 2000, 1000, 1000],
+            [1000, 1000, 2000, 2000],
+        ])
     def reset(self):
         self.interal = 0
         print("Resetting MPController Not Needed, but passed")
@@ -29,10 +38,20 @@ class MPController(Controller):
         states = torch.zeros(self.N, self.T + 1, state.shape[-1])
         states[:, 0, :] = state0
         rewards = torch.zeros(self.N, self.T)
-        if self.hold:
-            action_candidates = self.action_sampler.sample(sample_shape=(self.N, 1)).repeat(1, self.T, 1)
+        if self.yaw:
+
+            action_idx = torch.randint(0,5,(self.N, self.T),dtype=torch.long)
+            action_candidates = torch.zeros((self.N, self.T,len(self.low)))
+            for i in range(action_candidates.shape[0]):
+                act = []
+                for t in range(self.T):
+                    act.append(self.yaw_actions[action_idx[i,t]])
+                action_candidates[i,:,:] = torch.stack(act)
         else:
-            action_candidates = self.action_sampler.sample(sample_shape=(self.N, self.T))
+            if self.hold:
+                action_candidates = self.action_sampler.sample(sample_shape=(self.N, 1)).repeat(1, self.T, 1)
+            else:
+                action_candidates = self.action_sampler.sample(sample_shape=(self.N, self.T))
 
         # TODO
         for t in range(self.T):

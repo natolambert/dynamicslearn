@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 # import seaborn as sns
 import pandas as pd
 import os
+import glob
+import torch
 
 import plotly
 import matplotlib.pyplot as plt
@@ -26,22 +28,84 @@ colors = [
 ]
 
 markers = [
-    "cross-open-dot",
-    "circle-open-dot",
-    "x-open-dot",
-    "triangle-up-open-dot",
-    "y-down-open",
-    "diamond-open-dot",
-    "hourglass-open",
-    "hash-open-dot",
-    "star-open-dot",
-    "square-open-dot",
-]
+            "cross",
+            "circle-open-dot",
+            "x-open-dot",
+            "triangle-up-open-dot",
+            "y-down-open",
+            "diamond-open-dot",
+            "hourglass",
+            "hash",
+            "star",
+            "square",
+        ]
+
+def plot_sweep_1(dir):
+    labels = []
+    rewards = []
+    samples = []
+    sub_dirs = os.listdir(dir)
+    # This sweeps across the reward functions eg
+    for sub in sub_dirs:
+        # this
+        if "DS" in sub:
+            continue
+        path = os.path.join(dir, sub)
+        # seeds = glob.glob(path + "/*")
+        # This sweeps across the random seeds
+
+        trials = glob.glob(path + '/trial_*')
+        trials.sort(key=lambda x: os.path.getmtime(x))
+        data = torch.load(trials[-1])
+        rewards.append(data['rewards'])
+        samples.append(data['steps'])
+        # rewards.append(seed_r)
+        # samples.append(seed_samples)
+        labels.append(sub[sub.find("name=") + len("name="):sub.find(',')])
+
+    env_name = "Iono-Yaw"
+    fig = plot_rewards_over_trials(rewards, env_name, save=True, limits=[-20,150])
+
+    return fig
+
+def plot_rollout_dat(yaw_ex):
+    data = torch.load(yaw_ex)
+    states = data['raw_data'][0][0]
+    actions = data['raw_data'][0][1]
+    fig = plot_rollout(states, actions, pry=[1,0,2], save=True, loc="/yaw", only_x=True)
+    return fig
 
 
-def plot_results(logx=False, logy=False, save=False):
+def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
+    mark_every = m_every
+    size = 30
+    l = len(err_traces[0]['x'])
+    if skip is not None:
+        size_list = [0] * skip + [size] + [0] * (mark_every - 1 - skip)
+    else:
+        size_list = [size] + [0] * (mark_every - 1)
+    repeat = int(l / mark_every)
+    size_list = size_list * repeat
+    line = err_traces[0]
+    line['mode'] = 'lines+markers'
+    line['cliponaxis']=False
+    line['marker'] = dict(
+        color=line['line']['color'],
+        size=size_list,
+        symbol="x" if symbol is None else symbol,
+        line=dict(width=1,
+                  color='rgba(1,1,1,1)')
+    )
+    err_traces[0] = line
+    return err_traces
+
+def plot_results(logx=False, logy=False, save=False, mpc=False):
     import glob
     import torch
+
+    # PID  baselines
+    # /Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-04-14/11-12-02
+
     SAC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/'
     # '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/18-46-58/'
     MPC_example = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-57/'
@@ -49,8 +113,14 @@ def plot_results(logx=False, logy=False, save=False):
     MPC_example_lowN = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-33-38/'
     MPC_example_lowNT = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-26/11-01-16/'
 
-    sweep_dirs = [SAC_example, MPC_example, MPC_example_lowN,  MPC_example_lowNT]
-    alg_names = ['SAC', 'MPC', 'MPC-Low N', 'MPC-Low N&T']
+    if not mpc:
+        sweep_dirs = [SAC_example, MPC_example]  # , MPC_example_lowN,  MPC_example_lowNT]
+        alg_names = ['SAC', 'MPC']  # , 'MPC-Low N', 'MPC-Low N&T']
+        rang = [0, 20]
+    else:
+        sweep_dirs = [MPC_example, MPC_example_lowN, MPC_example_lowNT]
+        alg_names = ['MPC', 'MPC-Low N', 'MPC-Low N&T']
+        rang = [0, 15]
     labels = []
     rewards = []
     samples = []
@@ -82,10 +152,12 @@ def plot_results(logx=False, logy=False, save=False):
 
     unique_labels = np.unique(labels)
     traces = []
-    fig = plotly.subplots.make_subplots(rows=len(unique_labels), cols=1,
-                                        subplot_titles=(unique_labels),
-                                        vertical_spacing=0.1,
+    fig = plotly.subplots.make_subplots(rows=3,  # len(unique_labels),
+                                        cols=1,
+                                        # subplot_titles=(unique_labels),
+                                        vertical_spacing=0.025,
                                         shared_xaxes=True, )  # go.Figure()
+    start = [0,1, 2]
     for p, u in enumerate(unique_labels):
         idx = np.argwhere(np.array(labels) == u)
         for c, i in enumerate(idx.squeeze()):
@@ -103,9 +175,12 @@ def plot_results(logx=False, logy=False, save=False):
             samp_mean = np.mean(np.stack(to_plot_samples).squeeze(), axis=0)
             samp_std = np.std(np.stack(to_plot_samples).squeeze(), axis=0)
 
-            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(), xs=[to_plot_samples[0].tolist()],
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(),
+                                                  # xs=[to_plot_samples[0].tolist()],
+                                                  xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=alg)
 
+            tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip = start[c], m_every = 5)
             # fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
             #                          error_y=dict(
             #                              type='data',  # value of error bar given in data coordinates
@@ -125,13 +200,14 @@ def plot_results(logx=False, logy=False, save=False):
                 fig.add_trace(t, p + 1, 1)
 
     if logx:
-        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
-        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
-        fig.update_xaxes(title_text="Env Step", type='log', row=3, col=1)
+        fig.update_xaxes(ticks="inside", title_text="Env Episode", type='log', row=3, col=1,
+                         tickvals=[0, 1, 2, 5, 10, 20])
+        fig.update_xaxes(ticks="inside", type='log', row=2, col=1)
+        fig.update_xaxes(ticks="inside", type='log', row=1, col=1)
     else:
-        fig.update_xaxes(title_text="Env Step", range=[0, 50000], row=3, col=1)
-        fig.update_xaxes(range=[0, 50000], row=2, col=1)
-        fig.update_xaxes(range=[0, 50000], row=1, col=1)
+        fig.update_xaxes(ticks="inside", range=rang, title_text="Env Episode", row=3, col=1)
+        fig.update_xaxes(ticks="inside", range=rang, row=2, col=1)
+        fig.update_xaxes(ticks="inside", range=rang, row=1, col=1)
 
     if logy:
         fig.update_yaxes(title_text="Living Rew.", type='log', row=1, col=1)
@@ -142,12 +218,14 @@ def plot_results(logx=False, logy=False, save=False):
         fig.update_yaxes(title_text="Rotation Rew.", row=2, col=1)
         fig.update_yaxes(title_text="Square Cost", range=[-50, 0], row=3, col=1)
 
-    fig.update_layout(title=f"Sample Efficiency vs Reward",
+    fig.update_layout(title="",  # f"Sample Efficiency vs Reward",
                       font=dict(
                           family="Times New Roman, Times, serif",
-                          size=24,
+                          size=32,
                           color="black"
                       ),
+                      margin=dict(t=0, r=0),
+                      showlegend=False,
                       # legend_orientation="h",
                       # legend=dict(x=.05, y=0.5,
                       #             bgcolor='rgba(205, 223, 212, .4)',
@@ -158,23 +236,23 @@ def plot_results(logx=False, logy=False, save=False):
                       plot_bgcolor='white',
                       width=1500,
                       height=800,
-                      xaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      yaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
+                      # xaxis=dict(
+                      #     showline=True,
+                      #     showgrid=False,
+                      #     showticklabels=True, ),
+                      # yaxis=dict(
+                      #     showline=True,
+                      #     showgrid=False,
+                      #     showticklabels=True, ),
                       legend_orientation="h",
-                      legend=dict(x=.7, y=0.1,
+                      legend=dict(x=.45, y=1.06,
                                   bgcolor='rgba(205, 223, 212, .4)',
                                   bordercolor="Black",
                                   ),
                       )
 
     if save:
-        fig.write_image(os.getcwd() + "/learning.png")
+        fig.write_image(os.getcwd() + "/learning.pdf")
     else:
         fig.show()
 
@@ -365,7 +443,7 @@ def plot_test_train(model, dataset, variances=False):
     return mse
 
 
-def plot_rewards_over_trials(rewards, env_name, save=False):
+def plot_rewards_over_trials(rewards, env_name, save=False, limits=None):
     import plotly.graph_objects as go
     data = []
     traces = []
@@ -395,9 +473,10 @@ def plot_rewards_over_trials(rewards, env_name, save=False):
     }
 
     fig = go.Figure(fig)
-
+    if limits is not None:
+        fig.update_yaxes(range=limits)
     if save:
-        fig.write_image(os.getcwd() + "/learning.png")
+        fig.write_image(os.getcwd() + "/learning.pdf")
     else:
         fig.show()
 
@@ -414,12 +493,24 @@ def hv_characterization():
     import plotly.graph_objects as go
 
     fig = plotly.subplots.make_subplots(rows=3, cols=1,
+                                        # shared_xaxes=True,
                                         subplot_titles=(
                                             "100Hz Oscillation", "IV Step Response", "Voltage Step Response"),
-                                        vertical_spacing=.25)  # go.Figure()
+                                        vertical_spacing=.15)  # go.Figure()
 
-    fig.update_layout(title='HV Characterization',
+    fig.update_layout(#title='HV Characterization',
+                      font=dict(
+                          family="Times New Roman, Times, serif",
+                          size=26,
+                          color="black"
+                      ),
                       plot_bgcolor='white',
+                      legend_orientation="h",
+        legend=dict(x=.6, y=0.07,
+                    bgcolor='rgba(205, 223, 212, .4)',
+                    bordercolor="Black",
+                    ),
+
                       xaxis=dict(
                           showline=True,
                           showgrid=False,
@@ -611,7 +702,7 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     return err_traces, xs, ys
 
 
-def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
+def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None, only_x=False):
     import plotly.graph_objects as go
     import numpy as np
     import plotly
@@ -625,29 +716,53 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
 
     actions = np.stack(actions)
 
-    fig = plotly.subplots.make_subplots(rows=2, cols=1,
+    if only_x:
+        r= 1
+        h = 800
+        w= 1500
+    else:
+        h=1600
+        w=1500
+        r=2
+    r = 1 if only_x else 2
+    fig = plotly.subplots.make_subplots(rows=r, cols=1,
                                         subplot_titles=("Euler Angles", "Actions"),
-                                        vertical_spacing=.15)  # go.Figure()
-    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw',
-                             line=dict(color='firebrick', width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch',
-                             line=dict(color='royalblue', width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll',
-                             line=dict(color='green', width=4)), row=1, col=1)
+                                        vertical_spacing=.15,
+                                        horizontal_spacing=0)  # go.Figure()
 
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
-                             line=dict(color='firebrick', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
-                             line=dict(color='royalblue', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
-                             line=dict(color='green', width=4)), row=2, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
-                             line=dict(color='orange', width=4)), row=2, col=1)
+    size_list = np.zeros(len(pitch))
+    mark_every = 50
+    m_size = 32
+    start = np.random.randint(0, int(len(pitch) / 10))
+    size_list[start::mark_every] = m_size
+    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False,  mode='lines+markers',
+                             marker=dict(color=colors[0], symbol=markers[0], size=size_list),
+                             line=dict(color=colors[0], width=4)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False,  mode='lines+markers',
+                             marker=dict(color=colors[1], symbol=markers[1], size=size_list),
+                             line=dict(color=colors[1], width=4)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False,  mode='lines+markers',
+                             marker=dict(color=colors[2], symbol=markers[2], size=size_list),
+                             line=dict(color=colors[2], width=4)), row=1, col=1)
 
-    fig.update_layout(title='Euler Angles from MPC Rollout',
-                      xaxis_title='Timestep',
+    if not only_x:
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
+                                 line=dict(color='firebrick', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
+                                 line=dict(color='royalblue', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
+                                 line=dict(color='green', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
+                                line=dict(color='orange', width=4)), row=2, col=1)
+
+    fig.update_layout(#title='Euler Angles from MPC Rollout',
+                    font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
+                    xaxis_title='Timestep',
                       yaxis_title='Angle (Degrees)',
                       plot_bgcolor='white',
+                      height=h,
+                      width=w,
+                    margin=dict(t=0, r=0),
                       xaxis=dict(
                           showline=True,
                           showgrid=False,
@@ -657,7 +772,18 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None):
                           showgrid=False,
                           showticklabels=True, ),
                       )
+
+    if only_x:
+        fig.update_layout(
+            legend_orientation = "h",
+            legend = dict(x=.45, y=1,
+                          bgcolor='rgba(205, 223, 212, .4)',
+                          bordercolor="Black",
+                          ),
+        )
     if save:
-        fig.write_image(os.getcwd() + loc + "_rollout.png")
+        fig.write_image(os.getcwd() + loc + "_rollout.pdf")
     else:
         fig.show()
+
+    return fig

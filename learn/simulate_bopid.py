@@ -136,8 +136,8 @@ def pid(cfg):
         metrics.append(1)
 
         # Square cost policy
-        sac_policy2 = torch.load(
-            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/metric.name=Square,robot=iono_sim/26/trial_40000.dat')
+        # sac_policy2 = torch.load(
+        #     '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-03-25/20-30-47/metric.name=Square,robot=iono_sim/26/trial_40000.dat')
         controllers.append(sac_policy2['policy'])
         labels.append("SAC - Square")
         metrics.append(2)
