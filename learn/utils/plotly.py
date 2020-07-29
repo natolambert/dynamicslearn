@@ -29,11 +29,11 @@ colors = [
 
 markers = [
             "cross",
-            "circle-open-dot",
-            "x-open-dot",
-            "triangle-up-open-dot",
+            "circle",
+            "x",
+            "triangle-up",
             "y-down-open",
-            "diamond-open-dot",
+            "diamond",
             "hourglass",
             "hash",
             "star",
@@ -702,7 +702,7 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     return err_traces, xs, ys
 
 
-def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None, only_x=False):
+def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=None, only_x=False):
     import plotly.graph_objects as go
     import numpy as np
     import plotly
@@ -731,8 +731,8 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None, only_x=Fa
                                         horizontal_spacing=0)  # go.Figure()
 
     size_list = np.zeros(len(pitch))
-    mark_every = 50
-    m_size = 32
+    mark_every = 75
+    m_size = 64
     start = np.random.randint(0, int(len(pitch) / 10))
     size_list[start::mark_every] = m_size
     fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False,  mode='lines+markers',
@@ -756,12 +756,13 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None, only_x=Fa
                                 line=dict(color='orange', width=4)), row=2, col=1)
 
     fig.update_layout(#title='Euler Angles from MPC Rollout',
-                    font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
+                    font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
                     xaxis_title='Timestep',
                       yaxis_title='Angle (Degrees)',
                       plot_bgcolor='white',
                       height=h,
                       width=w,
+                    showlegend=legend,
                     margin=dict(t=0, r=0),
                       xaxis=dict(
                           showline=True,
@@ -785,5 +786,76 @@ def plot_rollout(states, actions, pry=[1, 2, 0], save=False, loc=None, only_x=Fa
         fig.write_image(os.getcwd() + loc + "_rollout.pdf")
     else:
         fig.show()
+
+    return fig
+
+def plot_lie(initial):
+    import plotly.graph_objects as go
+    import numpy as np
+    import plotly
+
+    h = 800 #1300
+    w = 1500
+
+    fig = plotly.subplots.make_subplots(rows=1, cols=1,
+                                        # subplot_titles=("MBRL-MPC", "Lie bracket"),
+                                        vertical_spacing=.05,
+                                        shared_xaxes=True,
+                                        horizontal_spacing=0)  # go.Figure()
+    initial = np.add(initial,.1)
+
+    off = -.1 #-.2
+    # lie = np.add(np.tile([1,2,3,4],10)[:25],off)
+    lie = np.add(np.concatenate(([4,4,4,4], np.tile(np.repeat([1,2,3,4],5),10)[:24])),off)
+    # size_list = np.zeros(len(pitch))
+    mark_every = 75
+    m_size = 30
+    # start = np.random.randint(0, int(len(initial) / 10))
+    # size_list[start::mark_every] = m_size
+    fig.add_trace(go.Scatter(x=np.arange(len(initial)), y=initial, name='MBRL-MPC', cliponaxis=False, mode='markers',
+                             marker=dict(color=colors[0], symbol=markers[0], size=m_size)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=np.arange(len(initial)), y=lie, name='Lie bracket', cliponaxis=False, mode='markers',
+                             marker=dict(color=colors[1], symbol=markers[1], size=m_size)), row=1, col=1)
+
+    fig.update_layout(  # title='Euler Angles from MPC Rollout',
+        font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
+        xaxis2_title='Timestep',
+        # yaxis_title='Action',
+        # yaxis2_title='Action',
+        plot_bgcolor='white',
+        height=h,
+        width=w,
+        showlegend=False,
+        margin=dict(t=0, r=0),
+        xaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+        xaxis2=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+        yaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True,
+            tickmode='array',
+            tickvals=[0, 1, 2, 3, 4],
+            ticktext=['Equil.', '+Pitch', '+Roll', '-Pitch', '-Roll']
+        ),
+        yaxis2=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True,
+            tickmode='array',
+            tickvals=[0, 1, 2, 3, 4],
+            ticktext=['Equil.', '+Pitch', '+Roll', '-Pitch', '-Roll']
+        ),
+        # row=2, col=1,
+    )
+
+
+    # fig.show()
+    fig.write_image(os.getcwd()  + "/actions.pdf")
 
     return fig

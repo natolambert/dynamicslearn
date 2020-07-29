@@ -3,7 +3,7 @@ load:
   dir: true
   type: .csv
   fname: /Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/_logged_data_autonomous/_newquad1/publ2/
-  freq: 25
+  freq: 75
   data_labels:
     - pwm1
     - pwm2
