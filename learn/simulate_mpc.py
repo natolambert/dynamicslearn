@@ -16,7 +16,7 @@ from learn.trainer import train_model
 import gym
 import logging
 import hydra
-from learn.utils.plotly import plot_rewards_over_trials, plot_rollout, plot_lie
+from learn.utils.plotly import plot_rewards_over_trials, plot_rollout, plot_lie, plot_results_yaw
 from learn.utils.sim import *
 
 log = logging.getLogger(__name__)
@@ -36,58 +36,71 @@ def mpc(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
+    plot_results_yaw(pts=cfg.data)
+    quit()
+
     env_name = cfg.env.params.name
     env = gym.make(env_name)
     env.reset()
-    full_rewards = []
-    temp = hydra.utils.get_original_cwd() + '/outputs/2020-07-11/17-17-05/trial_3.dat'
-    dat = torch.load(temp)
-    actions = dat['raw_data'][0][1]
-    l = []
+    env.seed(cfg.random_seed)
 
-    yaw_actions = np.array([
-        [1500, 1500, 1500, 1500],
-        [2000, 1000, 1000, 2000],
-        [1000, 2000, 2000, 1000],
-        [2000, 2000, 1000, 1000],
-        [1000, 1000, 2000, 2000],
-    ])
+    # full_rewards = []
+    # temp = hydra.utils.get_original_cwd() + '/outputs/2020-07-11/17-17-05/trial_3.dat'
+    # dat = torch.load(temp)
+    # actions = dat['raw_data'][0][1]
+    # l = []
+    #
+    # yaw_actions = np.array([
+    #     [1500, 1500, 1500, 1500],
+    #     [2000, 1000, 1000, 2000],
+    #     [1000, 2000, 2000, 1000],
+    #     [2000, 2000, 1000, 1000],
+    #     [1000, 1000, 2000, 2000],
+    # ])
+    #
+    # def find_ind(arr):
+    #     if np.all(np.equal(arr, [1500, 1500, 1500, 1500])):
+    #         return 0
+    #     elif np.all(np.equal(arr, [2000, 1000, 1000, 2000])):
+    #         return 1
+    #     elif np.all(np.equal(arr, [1000, 2000, 2000, 1000])):
+    #         return 3
+    #     elif np.all(np.equal(arr, [2000, 2000, 1000, 1000])):
+    #         return 2
+    #     else: # [1000, 1000, 2000, 2000]
+    #         return 4
+    #
+    # for act in actions:
+    #     act = act.numpy()
+    #     id = find_ind(act)
+    #     l.append(id)
+    #
+    # initial = l[:24]
+    # states = dat['raw_data'][0][0][:25]
+    # yaw_value = np.rad2deg(states[-1][0])-np.rad2deg(states[0][0])
+    # print(f"Yaw after 25 steps{yaw_value}")
+    # plot_lie(initial)
+    # # plot_rollout(np.stack(dat['raw_data'][0][0])[:500,:3], dat['raw_data'][0][1], loc="/yaw_plt", save=True, only_x=True, legend=False)
+    # quit()
 
-    def find_ind(arr):
-        if np.all(np.equal(arr, [1500, 1500, 1500, 1500])):
-            return 0
-        elif np.all(np.equal(arr, [2000, 1000, 1000, 2000])):
-            return 1
-        elif np.all(np.equal(arr, [1000, 2000, 2000, 1000])):
-            return 3
-        elif np.all(np.equal(arr, [2000, 2000, 1000, 1000])):
-            return 2
-        else: # [1000, 1000, 2000, 2000]
-            return 4
-
-    for act in actions:
-        act = act.numpy()
-        id = find_ind(act)
-        l.append(id)
-
-    initial = l[:24]
-    states = dat['raw_data'][0][0][:25]
-    yaw_value = np.rad2deg(states[-1][0])-np.rad2deg(states[0][0])
-    print(f"Yaw after 25 steps{yaw_value}")
-    plot_lie(initial)
-    # plot_rollout(np.stack(dat['raw_data'][0][0])[:500,:3], dat['raw_data'][0][1], loc="/yaw_plt", save=True, only_x=True, legend=False)
-
-
-
-    quit()
     if cfg.metric.name == 'Living':
         metric = living_reward
+        log.info(f"Using metric living reward")
     elif cfg.metric.name == 'Rotation':
         metric = rotation_mat
+        log.info(f"Using metric rotation matrix")
     elif cfg.metric.name == 'Square':
         metric = squ_cost
+        log.info(f"Using metric square cost")
     elif cfg.metric.name == 'Yaw':
         metric = yaw_r
+        log.info(f"Using metric yaw sliding mode")
+    elif cfg.metric.name == 'Yaw2':
+        metric = yaw_r2
+        log.info(f"Using metric yaw base")
+    elif cfg.metric.name == 'Yaw3':
+        metric = yaw_r3
+        log.info(f"Using metric yaw rate")
     else:
         raise ValueError("Improper metric name passed")
 
@@ -120,16 +133,18 @@ def mpc(cfg):
         msg += f"Mean Cumulative reward {np.mean(total_costs)}, "
         msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rand])}"
         log.info(msg)
+        last_yaw = data_r[0][-1][2]
 
         trial_log = dict(
             env_name=cfg.env.params.name,
-            model=None,
+            model=model,
             seed=cfg.random_seed,
-            raw_data=data_rand,
-            trial_num=-1,
+            # raw_data=data_rs,
+            yaw_num=last_yaw,
+            trial_num=i,
             rewards=total_costs,
             steps=total_steps,
-            nll=None,
+            nll=train_log,
         )
         save_log(cfg, -1, trial_log)
 
@@ -163,13 +178,16 @@ def mpc(cfg):
             msg = "Rollouts completed of "
             msg += f"Mean Cumulative reward {np.mean(total_costs)}, "  # / cfg.experiment.r_len
             msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rs])}"
+            log.info(f"Final yaw {np.rad2deg(data_r[0][-1][2])}")
             log.info(msg)
+            last_yaw = data_r[0][-1][2]
 
             trial_log = dict(
                 env_name=cfg.env.params.name,
                 model=model,
                 seed=cfg.random_seed,
-                raw_data=data_rs,
+                # raw_data=data_rs,
+                yaw_num=last_yaw,
                 trial_num=i,
                 rewards=total_costs,
                 steps=total_steps,

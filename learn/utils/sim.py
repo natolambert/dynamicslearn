@@ -7,7 +7,6 @@ from torch.utils.data import Dataset, DataLoader
 import pickle
 import random
 
-
 # Torch Packages
 import torch
 # import torch.nn as nn
@@ -20,6 +19,7 @@ import copy
 # import matplotlib.pyplot as plt
 # import matplotlib
 import time
+
 
 def squ_cost(state, action):
     if torch.is_tensor(state):
@@ -46,13 +46,14 @@ def living_reward(state, action):
         rew = int(flag1) + int(flag2)
     return rew
 
+
 def yaw_r(state, action):
     if torch.is_tensor(state):
         yaw = state[:, 2]
         pitch = state[:, 0]
         roll = state[:, 1]
         flag = (torch.abs(pitch) < np.deg2rad(5)) & (torch.abs(roll) < np.deg2rad(5))
-        rew = flag.float() * yaw**2 + (~flag).float()*squ_cost(state,action)
+        rew = flag.float() * yaw ** 2 + (~flag).float() * squ_cost(state, action)
 
     else:
         yaw = state[2]
@@ -65,7 +66,45 @@ def yaw_r(state, action):
             rew = yaw ** 2
         else:
             rew = squ_cost(state, action)
-    return rew +.5*squ_cost(state,action)
+    return rew
+
+
+def yaw_r2(state, action):
+    if torch.is_tensor(state):
+        yaw = state[:, 2]
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        flag = (torch.abs(pitch) < np.deg2rad(5)) & (torch.abs(roll) < np.deg2rad(5))
+        rew = yaw ** 2 + .5 * squ_cost(state, action)
+
+    else:
+        yaw = state[2]
+        pitch = state[0]
+        roll = state[1]
+        flag1 = np.abs(pitch) < np.deg2rad(5)
+        flag2 = np.abs(roll) < np.deg2rad(5)
+        flag = int(flag1) & int(flag2)
+        rew = yaw ** 2 + squ_cost(state, action)
+    return rew
+
+def yaw_r3(state, action, last_yaw=[]):
+    if torch.is_tensor(state):
+        yaw = state[:, 2]
+        pitch = state[:, 0]
+        roll = state[:, 1]
+        flag = (torch.abs(pitch) < np.deg2rad(5)) & (torch.abs(roll) < np.deg2rad(5))
+        rew = yaw ** 2 + .5 * squ_cost(state, action)
+
+    else:
+        yaw = state[2]
+        pitch = state[0]
+        roll = state[1]
+        flag1 = np.abs(pitch) < np.deg2rad(5)
+        flag2 = np.abs(roll) < np.deg2rad(5)
+        flag = int(flag1) & int(flag2)
+        rew = yaw ** 2 + squ_cost(state, action)
+    return rew
+
 
 def rotation_mat(state, action):
     if torch.is_tensor(state):
@@ -283,7 +322,7 @@ def gather_predictions(model_dir, dataset, delta=True, variances=False):
         U = dataset[1]
         dX = dataset[2]
 
-        n_out = round(nn.n_out/2)
+        n_out = round(nn.n_out / 2)
         # Original gather predictions
         if not variances:
             predictions_1 = np.empty((0, n_out))  # np.shape(X)[1]))

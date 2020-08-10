@@ -99,6 +99,144 @@ def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
     err_traces[0] = line
     return err_traces
 
+def plot_results_yaw(pts = False):
+    import glob
+    import torch
+    dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-04/12-17-52/'
+    sub_dirs = os.listdir(dir)
+    # This sweeps across the reward functions eg
+    rewards = []
+    samples = []
+    for sub in sub_dirs:
+        # this
+        path = os.path.join(dir, sub)
+        seeds = glob.glob(path + "/*")
+        # This sweeps across the random seeds
+        seed_r = []
+        seed_samples = []
+        for s in seeds:
+            trials = glob.glob(s + '/trial_*')
+            trials.sort(key=lambda x: os.path.getmtime(x))
+            y_vec = []
+            for t in trials:
+                d = torch.load(t)
+                if d['trial_num'] == -1:
+                    pass
+                    # y_vec.append(0)
+                else:
+                    y_vec.append(np.rad2deg(np.abs(d['yaw_num'])))
+            data = torch.load(trials[-1])
+            seed_samples.append(data['steps'])
+
+            lens = np.subtract(seed_samples[-1][1:],seed_samples[-1][:-1])
+            seed_r.append(100*np.divide(y_vec,lens))
+            # seed_r.append(data['yaw_num'])
+        rewards.append(seed_r)
+        samples.append(seed_samples)
+
+
+    import plotly
+    import plotly.graph_objects as go
+
+    traces = []
+    fig = plotly.subplots.make_subplots(rows=1,  # len(unique_labels),
+                                        cols=1,
+                                        # subplot_titles=(unique_labels),
+                                        vertical_spacing=0.025,
+                                        shared_xaxes=True, )  # go.Figure()
+
+    names = ['Yaw2', 'Yaw'
+    ]
+    start = [0,1,2]
+    idx = np.arange(len(sub_dirs))
+    for c, i in enumerate(idx.squeeze()):
+        to_plot_rew = rewards[i]
+        to_plot_samples = samples[i]
+
+        min_len = min([len(r) for r in to_plot_rew])
+        to_plot_rew = np.stack([t[:min_len] for t in to_plot_rew]).squeeze()
+        to_plot_samples = np.stack([t[:min_len] for t in to_plot_samples]).squeeze()
+
+        rew_mean = np.mean(np.stack(to_plot_rew).squeeze(), axis=0)
+        rew_std = np.std(np.stack(to_plot_rew).squeeze(), axis=0)
+        samp_mean = np.mean(np.stack(to_plot_samples).squeeze(), axis=0)
+        samp_std = np.std(np.stack(to_plot_samples).squeeze(), axis=0)
+
+        if not pts:
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(), # np.mean(to_plot_samples, axis=0)
+                                                  # xs=[to_plot_samples[0].tolist()],
+                                                  xs=[np.mean(to_plot_samples, axis=0).tolist()],
+                                                  # xs=[np.arange(len(to_plot_samples[0])).tolist()],
+                                                  color=colors[c], name=names[c])
+        else:
+            to_plot_samples = np.stack([np.diff(t[:min_len]) for t in to_plot_samples]).squeeze()
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_samples.tolist(), # np.mean(to_plot_samples, axis=0)
+                                                  # xs=[to_plot_samples[0].tolist()],
+                                                  xs=[np.arange(len(to_plot_samples[0])).tolist()],
+                                                  color=colors[c], name=names[c])
+
+        tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip=start[c], m_every=5)
+        # fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
+        #                          error_y=dict(
+        #                              type='data',  # value of error bar given in data coordinates
+        #                              array=rew_std,
+        #                              visible=True),
+        #                          error_x=dict(
+        #                              type='data',  # value of error bar given in data coordinates
+        #                              array=samp_std,
+        #                              visible=True)
+        #                          # line=dict(color=colors[i], width=2),  # mode='lines+markers',
+        #                          # marker=dict(color=colors[i], symbol=markers[i], size=16)
+        #                          ), row=p, col=1)
+        for t in tr:
+            # t['legendgroup'] = alg
+            # if p > 0:
+            #     t['showlegend'] = False
+            # fig.add_trace(t, p + 1, 1)
+            fig.add_trace(t)
+    fig.update_layout(title="",  # f"Sample Efficiency vs Reward",
+                      font=dict(
+                          family="Times New Roman, Times, serif",
+                          size=32,
+                          color="black"
+                      ),
+                      margin=dict(t=0, r=0),
+                      showlegend=True,
+                      # legend_orientation="h",
+                      # legend=dict(x=.05, y=0.5,
+                      #             bgcolor='rgba(205, 223, 212, .4)',
+                      #             bordercolor="Black",
+                      #             ),
+                      # xaxis_title='Timestep',
+                      # yaxis_title='Angle (Degrees)',
+                      plot_bgcolor='white',
+                      width=1500,
+                      height=800,
+                      # xaxis=dict(
+                      #     showline=True,
+                      #     showgrid=False,
+                      #     showticklabels=True, ),
+                      # yaxis=dict(
+                      #     showline=True,
+                      #     showgrid=False,
+                      #     showticklabels=True, ),
+                      legend_orientation="h",
+                      legend=dict(x=.45, y=1.06,
+                                  bgcolor='rgba(205, 223, 212, .4)',
+                                  bordercolor="Black",
+                                  ),
+                      )
+
+    if not pts:
+        fig.update_yaxes(title_text="Yaw Rate (deg/s)", range=[0, 50], row=1, col=1)
+        fig.update_xaxes(title_text="Trials", row=1, col=1)
+    else:
+        fig.update_yaxes(title_text="Flight Length",row=1, col=1)
+        fig.update_xaxes(title_text="Trial Number", row=1, col=1)
+
+    fig.write_image(os.getcwd() + "/learning.pdf")
+
+
 def plot_results(logx=False, logy=False, save=False, mpc=False):
     import glob
     import torch

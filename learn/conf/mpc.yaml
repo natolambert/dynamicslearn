@@ -10,17 +10,18 @@ random_seed: 1
 policy:
   mode: mpc
 
+data: false
 
 experiment:
-  num_roll: 50
-  r_len: 2000 #5000
+  num_roll: 25
+  r_len: 1000 #5000
   seeds: 1
   random: 1
   repeat: 1
 
 mpc:
   params:
-    mode: yaw
+    mode: random
     N: 500
     T: 5
     hold: false

@@ -72,6 +72,7 @@ class RigidEnv(gym.Env):
         # For reference, a negative thrust of -mg/4 will keep the robot stable
         u = self.pwm_thrust_torque(pwm)
         state = self.state
+        self.last_state = state
 
         for i in range(self.repeat):
             dt = self.dt
@@ -151,6 +152,7 @@ class RigidEnv(gym.Env):
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
+        self.last_state = self.state
         self.steps_beyond_done = None
         return self.get_obs()
 

@@ -13,7 +13,7 @@ class MPController(Controller):
         self.T = self.cfg.params.T
         self.hold = self.cfg.params.hold
 
-        self.yaw = controller_cfg.params.mode
+        self.yaw = controller_cfg.params.mode == 'yaw'
 
         self.low = torch.tensor(self.env.action_space.low, dtype=torch.float32)
         self.high = torch.tensor(self.env.action_space.high, dtype=torch.float32)
