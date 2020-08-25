@@ -13,15 +13,18 @@ policy:
 data: false
 
 experiment:
-  num_roll: 25
-  r_len: 1000 #5000
+  num_roll: 30
+  r_len: 1000 #1000 #5000
   seeds: 1
   random: 1
   repeat: 1
+  yaw: true
+  safe: false
+  inertial: true
 
 mpc:
   params:
-    mode: random
+    mode: random #yaw
     N: 500
     T: 5
     hold: false

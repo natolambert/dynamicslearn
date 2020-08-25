@@ -61,8 +61,12 @@ class RigidEnv(gym.Env):
         self.state = None
         self.steps_beyond_done = None
 
-    def seed(self, seed=None):
+    def seed(self, seed=None, inertial=False):
         self.np_random, seed = seeding.np_random(seed)
+        if inertial:
+            self.Ixx = self.Ixx * self.np_random.uniform(low=0.85, high=1.15, size=1)[0]
+            self.Iyy = self.Iyy * self.np_random.uniform(low=0.85, high=1.15, size=1)[0]
+
         return [seed]
 
     def step(self, pwm):
@@ -143,11 +147,14 @@ class RigidEnv(gym.Env):
     def set_state(self, x):
         self.state = x
 
-    def reset(self):
+    def reset(self, safe=False):
         x0 = np.array([0, 0, 0])
         v0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
-        ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16., size=(3,))
+        if safe:
+            ypr0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+        else:
+            ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16., size=(3,))
         ypr0[-1] = 0 # 0 out yaw
         w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 

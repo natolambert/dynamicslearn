@@ -102,12 +102,17 @@ def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
 def plot_results_yaw(pts = False):
     import glob
     import torch
-    dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-04/12-17-52/'
+    dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-13/13-07-29-2/'
+    # dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-13/08-47-15/'
+    # dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-10/14-50-22/'
+    # dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-04/12-17-52/'
     sub_dirs = os.listdir(dir)
     # This sweeps across the reward functions eg
     rewards = []
     samples = []
     for sub in sub_dirs:
+        if 'DS' in sub:
+            continue
         # this
         path = os.path.join(dir, sub)
         seeds = glob.glob(path + "/*")
@@ -121,15 +126,21 @@ def plot_results_yaw(pts = False):
             for t in trials:
                 d = torch.load(t)
                 if d['trial_num'] == -1:
-                    pass
-                    # y_vec.append(0)
+                    # pass
+                    y_vec.append(0)
                 else:
-                    y_vec.append(np.rad2deg(np.abs(d['yaw_num'])))
+                    # y_vec.append(d['rewards'])
+                    # y_vec.append(np.rad2deg(np.abs(d['yaw_num'])))
+                    y_vec.append(np.array(180*np.abs(d['yaw_num']/np.pi))/10)
             data = torch.load(trials[-1])
+            # seed_r.append(data['rewards'])
             seed_samples.append(data['steps'])
+            # seed_samples.append(data['trial_num'])
 
-            lens = np.subtract(seed_samples[-1][1:],seed_samples[-1][:-1])
-            seed_r.append(100*np.divide(y_vec,lens))
+            # lens = np.subtract(seed_samples[-1][1:],seed_samples[-1][:-1])
+            # seed_r.append(100*np.divide(y_vec,lens))
+            seed_r.append(y_vec)
+
             # seed_r.append(data['yaw_num'])
         rewards.append(seed_r)
         samples.append(seed_samples)
@@ -141,15 +152,19 @@ def plot_results_yaw(pts = False):
     traces = []
     fig = plotly.subplots.make_subplots(rows=1,  # len(unique_labels),
                                         cols=1,
-                                        # subplot_titles=(unique_labels),
                                         vertical_spacing=0.025,
                                         shared_xaxes=True, )  # go.Figure()
 
-    names = ['Yaw2', 'Yaw'
-    ]
-    start = [0,1,2]
-    idx = np.arange(len(sub_dirs))
-    for c, i in enumerate(idx.squeeze()):
+    names = ['Yaw1', 'Yaw2', 'Yaw3', 'Yaw4']
+
+    names = ['Inertial, S0', 'Inertial Only', 'S0 Only', 'Baseline']
+    names = ['Inertial, S0', 'Baseline']
+    start = [0,1]
+    if len(sub_dirs)> 1:
+        idx = np.arange(len(rewards)).squeeze()
+    else:
+        idx = [0]
+    for c, i in enumerate(idx):
         to_plot_rew = rewards[i]
         to_plot_samples = samples[i]
 
@@ -165,8 +180,8 @@ def plot_results_yaw(pts = False):
         if not pts:
             tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(), # np.mean(to_plot_samples, axis=0)
                                                   # xs=[to_plot_samples[0].tolist()],
-                                                  xs=[np.mean(to_plot_samples, axis=0).tolist()],
-                                                  # xs=[np.arange(len(to_plot_samples[0])).tolist()],
+                                                  # xs=[np.mean(to_plot_samples, axis=0).tolist()],
+                                                  xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=names[c])
         else:
             to_plot_samples = np.stack([np.diff(t[:min_len]) for t in to_plot_samples]).squeeze()
@@ -175,7 +190,7 @@ def plot_results_yaw(pts = False):
                                                   xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=names[c])
 
-        tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip=start[c], m_every=5)
+        tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip=start[c], m_every=3)
         # fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
         #                          error_y=dict(
         #                              type='data',  # value of error bar given in data coordinates
@@ -194,14 +209,32 @@ def plot_results_yaw(pts = False):
             #     t['showlegend'] = False
             # fig.add_trace(t, p + 1, 1)
             fig.add_trace(t)
+
+    if not pts:
+        fig.add_shape(
+            # Line Horizontal
+            go.layout.Shape(
+                type="line",
+                x0=xs[0][0],
+                y0=10,
+                x1=xs[0][-1],
+                y1=10,
+                line=dict(
+                    color="Black",
+                    width=6,
+                    dash="dashdot",
+                )
+            ),
+            row=1, col=1, )
+
     fig.update_layout(title="",  # f"Sample Efficiency vs Reward",
                       font=dict(
                           family="Times New Roman, Times, serif",
-                          size=32,
+                          size=42,
                           color="black"
                       ),
                       margin=dict(t=0, r=0),
-                      showlegend=True,
+                      showlegend=False,
                       # legend_orientation="h",
                       # legend=dict(x=.05, y=0.5,
                       #             bgcolor='rgba(205, 223, 212, .4)',
@@ -228,12 +261,14 @@ def plot_results_yaw(pts = False):
                       )
 
     if not pts:
-        fig.update_yaxes(title_text="Yaw Rate (deg/s)", range=[0, 50], row=1, col=1)
-        fig.update_xaxes(title_text="Trials", row=1, col=1)
+        fig.update_yaxes(title_text="Yaw Rate (deg/s)", range=[0, 30], row=1, col=1)
+        fig.update_xaxes(title_text="Trials") #, range=[0,5000], row=1, col=1)
     else:
         fig.update_yaxes(title_text="Flight Length",row=1, col=1)
         fig.update_xaxes(title_text="Trial Number", row=1, col=1)
 
+    print(xs)
+    fig.show()
     fig.write_image(os.getcwd() + "/learning.pdf")
 
 

@@ -47,12 +47,12 @@ def living_reward(state, action):
     return rew
 
 
-def yaw_r(state, action):
+def yaw_r(state, action, last_yaw=[]):
     if torch.is_tensor(state):
         yaw = state[:, 2]
         pitch = state[:, 0]
         roll = state[:, 1]
-        flag = (torch.abs(pitch) < np.deg2rad(5)) & (torch.abs(roll) < np.deg2rad(5))
+        flag = (torch.abs(pitch) < np.deg2rad(10)) & (torch.abs(roll) < np.deg2rad(10))
         rew = flag.float() * yaw ** 2 + (~flag).float() * squ_cost(state, action)
 
     else:
@@ -69,7 +69,7 @@ def yaw_r(state, action):
     return rew
 
 
-def yaw_r2(state, action):
+def yaw_r2(state, action, last_yaw=[]):
     if torch.is_tensor(state):
         yaw = state[:, 2]
         pitch = state[:, 0]
@@ -141,7 +141,7 @@ def rollout(env, controller, exp_cfg, metric=None):
     states = []
     actions = []
     rews = []
-    state = env.reset()
+    state = env.reset(safe=exp_cfg.safe)
     for t in range(exp_cfg.r_len + 1):
         last_state = state
         if done:
@@ -172,7 +172,7 @@ def explorepwm_equil(df):
     # 0  1  2  3  4  5  6  7  8
     # wx wy wz p  r  y  lx ly lz
     def gaussian(x, amp, cen, wid):
-        return amp * exp(-(x - cen) ** 2 / wid)
+        return amp * np.exp(-(x - cen) ** 2 / wid)
 
     conditions = {
         'objective vals': 0,

@@ -19,6 +19,7 @@ class MPController(Controller):
         self.high = torch.tensor(self.env.action_space.high, dtype=torch.float32)
         self.action_sampler = torch.distributions.Uniform(low=self.low, high=self.high)
 
+        self.internal = 0
         self.yaw_actions = torch.tensor([
             [1500, 1500, 1500, 1500],
             [2000, 1000, 1000, 2000],
@@ -39,6 +40,11 @@ class MPController(Controller):
         states[:, 0, :] = state0
         rewards = torch.zeros(self.N, self.T)
         if self.yaw:
+
+            action = self.yaw_actions[self.internal+1]
+            self.internal += 1
+            self.internal %= 4
+            return action
 
             action_idx = torch.randint(0,5,(self.N, self.T),dtype=torch.long)
             action_candidates = torch.zeros((self.N, self.T,len(self.low)))

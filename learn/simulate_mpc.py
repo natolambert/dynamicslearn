@@ -36,13 +36,15 @@ def mpc(cfg):
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
 
-    plot_results_yaw(pts=cfg.data)
-    quit()
+    # plot_results_yaw(pts=cfg.data)
+    # quit()
 
     env_name = cfg.env.params.name
     env = gym.make(env_name)
     env.reset()
-    env.seed(cfg.random_seed)
+
+    env.seed(cfg.random_seed, inertial=cfg.experiment.inertial)
+    log.info(f"Running experiment with interial prop x:{env.Ixx}, y:{env.Iyy}")
 
     # full_rewards = []
     # temp = hydra.utils.get_original_cwd() + '/outputs/2020-07-11/17-17-05/trial_3.dat'
@@ -133,18 +135,18 @@ def mpc(cfg):
         msg += f"Mean Cumulative reward {np.mean(total_costs)}, "
         msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rand])}"
         log.info(msg)
-        last_yaw = data_r[0][-1][2]
+        last_yaw = np.max(np.abs(np.stack(data_r[0])[:,2])) #data_r[0][-1][2]
 
         trial_log = dict(
             env_name=cfg.env.params.name,
-            model=model,
+            # model=model,
             seed=cfg.random_seed,
             # raw_data=data_rs,
             yaw_num=last_yaw,
-            trial_num=i,
+            trial_num=-1,
             rewards=total_costs,
             steps=total_steps,
-            nll=train_log,
+            # nll=train_log,
         )
         save_log(cfg, -1, trial_log)
 
@@ -178,13 +180,13 @@ def mpc(cfg):
             msg = "Rollouts completed of "
             msg += f"Mean Cumulative reward {np.mean(total_costs)}, "  # / cfg.experiment.r_len
             msg += f"Mean Flight length {cfg.policy.params.period * np.mean([np.shape(d[0])[0] for d in data_rs])}"
-            log.info(f"Final yaw {np.rad2deg(data_r[0][-1][2])}")
+            log.info(f"Final yaw {180*np.array(data_r[0][-1][2])/np.pi}")
             log.info(msg)
-            last_yaw = data_r[0][-1][2]
+            last_yaw = np.max(np.abs(np.stack(data_r[0])[:,2])) #data_r[0][-1][2]
 
             trial_log = dict(
                 env_name=cfg.env.params.name,
-                model=model,
+                # model=model,
                 seed=cfg.random_seed,
                 # raw_data=data_rs,
                 yaw_num=last_yaw,
