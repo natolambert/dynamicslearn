@@ -9,8 +9,7 @@ from .rigidbody import RigidEnv
 
 
 class IonocraftRigidEnv(RigidEnv):
-    def __init__(self, dt=.01, m=.00005, L=.01, Ixx=1.967 * 10 ** -9, Iyy=1.967 * 10 ** -9, Izz=3.775 * 10 ** -9,
-                 x_noise=.0001, u_noise=0):
+    def __init__(self, dt=.01, m=.00005, L=.01, Ixx=1.967 * 10 ** -9, Iyy=1.967 * 10 ** -9, Izz=3.775 * 10 ** -9):
         super(IonocraftRigidEnv, self).__init__(dt=dt)
 
         # Setup the parameters

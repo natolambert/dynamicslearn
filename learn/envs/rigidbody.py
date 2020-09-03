@@ -40,7 +40,7 @@ class RigidEnv(gym.Env):
 
     """
 
-    def __init__(self, dt=.01, x_noise=.01, u_noise=0):
+    def __init__(self, dt=.01, x_noise=0.0, u_noise=0): #0.01 noise
         self.x_dim = 12
         self.u_dim = 4
         self.dt = dt
@@ -125,7 +125,7 @@ class RigidEnv(gym.Env):
             x1[idx_ptp] = x0[idx_ptp] + dt * self.pqr2rpy(x0[idx_ptp], x0[idx_ptp_dot])
 
             # makes states less than 1e-12 = 0
-            x1[abs(x1) < 1e-12] = 0
+            x1[abs(x1) < 1e-15] = 0
             self.state = x1
             state = x1
 
@@ -153,14 +153,19 @@ class RigidEnv(gym.Env):
         # ypr0 = self.np_random.uniform(low=-0.0, high=0.0, size=(3,))
         if safe:
             ypr0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+            ypr0 = self.np_random.uniform(low=-0.00, high=0.00, size=(3,))
+            w0 = self.np_random.uniform(low=-0.00, high=0.00, size=(3,))
         else:
             ypr0 = self.np_random.uniform(low=-np.pi/16., high=np.pi/16., size=(3,))
+            w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
+
         ypr0[-1] = 0 # 0 out yaw
-        w0 = self.np_random.uniform(low=-0.01, high=0.01, size=(3,))
 
         self.state = np.concatenate([x0, v0, ypr0, w0])
         self.last_state = self.state
         self.steps_beyond_done = None
+        self.interal = 0
+
         return self.get_obs()
 
     def get_reward(self, next_ob, action):
