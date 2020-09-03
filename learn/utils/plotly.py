@@ -28,17 +28,18 @@ colors = [
 ]
 
 markers = [
-            "cross",
-            "circle",
-            "x",
-            "triangle-up",
-            "y-down-open",
-            "diamond",
-            "hourglass",
-            "hash",
-            "star",
-            "square",
-        ]
+    "cross",
+    "circle",
+    "x",
+    "triangle-up",
+    "y-down-open",
+    "diamond",
+    "hourglass",
+    "hash",
+    "star",
+    "square",
+]
+
 
 def plot_sweep_1(dir):
     labels = []
@@ -64,19 +65,20 @@ def plot_sweep_1(dir):
         labels.append(sub[sub.find("name=") + len("name="):sub.find(',')])
 
     env_name = "Iono-Yaw"
-    fig = plot_rewards_over_trials(rewards, env_name, save=True, limits=[-20,150])
+    fig = plot_rewards_over_trials(rewards, env_name, save=True, limits=[-20, 150])
 
     return fig
+
 
 def plot_rollout_dat(yaw_ex):
     data = torch.load(yaw_ex)
     states = data['raw_data'][0][0]
     actions = data['raw_data'][0][1]
-    fig = plot_rollout(states, actions, pry=[1,0,2], save=True, loc="/yaw", only_x=True)
+    fig = plot_rollout(states, actions, pry=[1, 0, 2], save=True, loc="/yaw", only_x=True)
     return fig
 
 
-def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
+def add_marker(err_traces, color=[], symbol=None, skip=None, m_every=5):
     mark_every = m_every
     size = 30
     l = len(err_traces[0]['x'])
@@ -88,7 +90,7 @@ def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
     size_list = size_list * repeat
     line = err_traces[0]
     line['mode'] = 'lines+markers'
-    line['cliponaxis']=False
+    line['cliponaxis'] = False
     line['marker'] = dict(
         color=line['line']['color'],
         size=size_list,
@@ -99,7 +101,8 @@ def add_marker(err_traces, color=[], symbol=None, skip=None, m_every = 5):
     err_traces[0] = line
     return err_traces
 
-def plot_results_yaw(pts = False):
+
+def plot_results_yaw(pts=False):
     import glob
     import torch
     dir = '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-08-13/13-07-29-2/'
@@ -131,7 +134,7 @@ def plot_results_yaw(pts = False):
                 else:
                     # y_vec.append(d['rewards'])
                     # y_vec.append(np.rad2deg(np.abs(d['yaw_num'])))
-                    y_vec.append(np.array(180*np.abs(d['yaw_num']/np.pi))/10)
+                    y_vec.append(np.array(180 * np.abs(d['yaw_num'] / np.pi)) / 10)
             data = torch.load(trials[-1])
             # seed_r.append(data['rewards'])
             seed_samples.append(data['steps'])
@@ -144,7 +147,6 @@ def plot_results_yaw(pts = False):
             # seed_r.append(data['yaw_num'])
         rewards.append(seed_r)
         samples.append(seed_samples)
-
 
     import plotly
     import plotly.graph_objects as go
@@ -159,8 +161,8 @@ def plot_results_yaw(pts = False):
 
     names = ['Inertial, S0', 'Inertial Only', 'S0 Only', 'Baseline']
     names = ['Inertial, S0', 'Baseline']
-    start = [0,1]
-    if len(sub_dirs)> 1:
+    start = [0, 1]
+    if len(sub_dirs) > 1:
         idx = np.arange(len(rewards)).squeeze()
     else:
         idx = [0]
@@ -178,14 +180,14 @@ def plot_results_yaw(pts = False):
         samp_std = np.std(np.stack(to_plot_samples).squeeze(), axis=0)
 
         if not pts:
-            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(), # np.mean(to_plot_samples, axis=0)
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_rew.tolist(),  # np.mean(to_plot_samples, axis=0)
                                                   # xs=[to_plot_samples[0].tolist()],
                                                   # xs=[np.mean(to_plot_samples, axis=0).tolist()],
                                                   xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=names[c])
         else:
             to_plot_samples = np.stack([np.diff(t[:min_len]) for t in to_plot_samples]).squeeze()
-            tr, xs, ys = generate_errorbar_traces(ys=to_plot_samples.tolist(), # np.mean(to_plot_samples, axis=0)
+            tr, xs, ys = generate_errorbar_traces(ys=to_plot_samples.tolist(),  # np.mean(to_plot_samples, axis=0)
                                                   # xs=[to_plot_samples[0].tolist()],
                                                   xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=names[c])
@@ -262,9 +264,9 @@ def plot_results_yaw(pts = False):
 
     if not pts:
         fig.update_yaxes(title_text="Yaw Rate (deg/s)", range=[0, 30], row=1, col=1)
-        fig.update_xaxes(title_text="Trials") #, range=[0,5000], row=1, col=1)
+        fig.update_xaxes(title_text="Trials")  # , range=[0,5000], row=1, col=1)
     else:
-        fig.update_yaxes(title_text="Flight Length",row=1, col=1)
+        fig.update_yaxes(title_text="Flight Length", row=1, col=1)
         fig.update_xaxes(title_text="Trial Number", row=1, col=1)
 
     print(xs)
@@ -330,7 +332,7 @@ def plot_results(logx=False, logy=False, save=False, mpc=False):
                                         # subplot_titles=(unique_labels),
                                         vertical_spacing=0.025,
                                         shared_xaxes=True, )  # go.Figure()
-    start = [0,1, 2]
+    start = [0, 1, 2]
     for p, u in enumerate(unique_labels):
         idx = np.argwhere(np.array(labels) == u)
         for c, i in enumerate(idx.squeeze()):
@@ -353,7 +355,7 @@ def plot_results(logx=False, logy=False, save=False, mpc=False):
                                                   xs=[np.arange(len(to_plot_samples[0])).tolist()],
                                                   color=colors[c], name=alg)
 
-            tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip = start[c], m_every = 5)
+            tr = add_marker(tr, color=colors[c], symbol=markers[-c], skip=start[c], m_every=5)
             # fig.add_trace(go.Scatter(y=rew_mean, x=samp_mean, name=alg + lab, legendgroup=alg,
             #                          error_y=dict(
             #                              type='data',  # value of error bar given in data coordinates
@@ -468,6 +470,83 @@ def plot_dist(df, x, y, z):
 
 def plot_eulers_action(df):
     raise NotImplementedError()
+
+
+def quick_iono(df):
+    # df = df[6000:8000]
+    pitch = df['pitch_0tx'].values
+    roll = df['roll_0tx'].values
+    yaw = df['yaw_0tx'].values
+    a1 = df['linax_0tx'].values
+    a2 = df['linay_0tx'].values
+    a3 = df['linyz_0tx'].values
+    states = ['pitch_0tx', 'pitch_0tx', 'linax_0tx', 'linay_0tx', 'linyz_0tx']
+    import plotly.express as px
+    # fig = px.line(df[states], title='flight')
+    import plotly.graph_objects as go
+
+    x = np.arange(len(pitch))
+    # Create traces
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=pitch,
+                             mode='lines', ))
+    fig.add_trace(go.Scatter(x=x, y=roll,
+                             mode='lines+markers', ))
+
+    fig.add_trace(go.Scatter(x=x, y=yaw,
+                             mode='lines+markers', ))
+
+    fig.add_trace(go.Scatter(x=x, y=a1,
+                             mode='lines+markers', ))
+    fig.add_trace(go.Scatter(x=x, y=a2,
+                             mode='lines+markers', ))
+    fig.add_trace(go.Scatter(x=x, y=a3,
+                             mode='lines+markers', ))
+
+    fig.show()
+
+    a1 = df['m1pwm_0tu'].values
+    a2 = df['m2pwm_0tu'].values
+    a3 = df['m3pwm_0tu'].values
+    a4 = df['m4pwm_0tu'].values
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=a1,
+                             mode='lines+markers', ))
+    fig.add_trace(go.Scatter(x=x, y=a2,
+                             mode='lines+markers', ))
+    fig.add_trace(go.Scatter(x=x, y=a3,
+                             mode='lines+markers', ))
+    fig.add_trace(go.Scatter(x=x, y=a4,
+                             mode='lines+markers', ))
+
+    fig.show()
+
+    fig = go.Figure(data=df[states])
+    fig.show()
+    quit()
+    from plotly.subplots import make_subplots
+    import plotly.graph_objects as go
+
+    # fig = make_subplots(rows=3, cols=1)
+    #
+    # fig.append_trace(go.Scatter(
+    #     x=[3, 4, 5],
+    #     y=[1000, 1100, 1200],
+    # ), row=1, col=1)
+    #
+    # fig.append_trace(go.Scatter(
+    #     x=[2, 3, 4],
+    #     y=[100, 110, 120],
+    # ), row=2, col=1)
+    #
+    # fig.append_trace(go.Scatter(
+    #     x=[0, 1, 2],
+    #     y=[10, 11, 12]
+    # ), row=3, col=1)
+    #
+    # fig.update_layout(height=600, width=600, title_text="Stacked Subplots")
+    # fig.show()
 
 
 def plot_test_train(model, dataset, variances=False):
@@ -665,38 +744,44 @@ def hv_characterization():
     import plotly.io as pio
     import plotly.graph_objects as go
 
-    fig = plotly.subplots.make_subplots(rows=3, cols=1,
-                                        # shared_xaxes=True,
-                                        subplot_titles=(
-                                            "100Hz Oscillation", "IV Step Response", "Voltage Step Response"),
-                                        vertical_spacing=.15)  # go.Figure()
+    def make_fif():
+        fig = plotly.subplots.make_subplots(rows=1, cols=1)  # ),
+        # shared_xaxes=True,
+        # subplot_titles=(
+        #     "100Hz Oscillation", "IV Step Response", "Voltage Step Response"),
+        # vertical_spacing=.15)  # go.Figure()
 
-    fig.update_layout(#title='HV Characterization',
-                      font=dict(
-                          family="Times New Roman, Times, serif",
-                          size=26,
-                          color="black"
-                      ),
-                      plot_bgcolor='white',
-                      legend_orientation="h",
-        legend=dict(x=.6, y=0.07,
-                    bgcolor='rgba(205, 223, 212, .4)',
-                    bordercolor="Black",
-                    ),
+        fig.update_layout(  # title='HV Characterization',
+            font=dict(
+                family="Times New Roman, Times, serif",
+                size=32,
+                color="black"
+            ),
+            margin=dict(t=0, r=0),
+            plot_bgcolor='white',
+            legend_orientation="h",
+            showlegend=False,
+            legend=dict(x=.6, y=0.07,
+                        bgcolor='rgba(205, 223, 212, .4)',
+                        bordercolor="Black",
+                        ),
 
-                      xaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      yaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      # font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
-                      height=1000,
-                      width=1500,
-                      # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
-                      )
+            xaxis=dict(
+                showline=True,
+                showgrid=False,
+                showticklabels=True, ),
+            yaxis=dict(
+                showline=True,
+                showgrid=False,
+                showticklabels=True, ),
+            # font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
+            height=800,
+            width=800,
+            # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
+        )
+        return fig
+
+    fig = make_fif()
     with open(d1) as csvfile:
         # laod data
         df = pd.read_csv(csvfile, sep=",", header=10)
@@ -713,8 +798,11 @@ def hv_characterization():
         fig.add_trace(go.Scatter(x=time, y=HV, name='HV',
                                  line=dict(color='royalblue', width=4), legendgroup='HV'), row=1, col=1)
 
-        fig.update_xaxes(title_text='Time (ms)', row=1, col=1)
-        fig.update_yaxes(title_text='Volts', row=1, col=1)
+        fig.update_xaxes(title_text='Time (ms)', range=[0,20], row=1, col=1)
+        fig.update_yaxes(title_text='Circuit Input/Outputs (V)', row=1, col=1)
+        fig.write_image("hv1.pdf")
+        fig.show()
+    fig = make_fif()
 
     with open(d2) as csvfile:
         # laod data
@@ -728,14 +816,15 @@ def hv_characterization():
         HV = df.values[:-1, 2]
 
         fig.add_trace(go.Scatter(x=time, y=DAC, name='DACx100',
-                                 line=dict(color='firebrick', width=4), legendgroup='DAC', showlegend=False), row=2,
-                      col=1)
+                                 line=dict(color='firebrick', width=4), legendgroup='DAC', showlegend=False))#, row=1,col=2)
         fig.add_trace(go.Scatter(x=time, y=HV, name='HV',
-                                 line=dict(color='royalblue', width=4), legendgroup='HV', showlegend=False), row=2,
-                      col=1)
+                                 line=dict(color='royalblue', width=4), legendgroup='HV', showlegend=False))#, row=2,  col=2)
 
-        fig.update_xaxes(title_text='Time (s)', row=2, col=1)
-        fig.update_yaxes(title_text='Volts', row=2, col=1)
+        fig.update_xaxes(title_text='Time (s)',range=[1,11],)#, row=1, col=2)
+        fig.update_yaxes(title_text='Circuit Input/Outputs (V)')#, row=1, col=2)
+        fig.write_image("hv2.pdf")
+        fig.show()
+    fig = make_fif()
 
     with open(d3) as csvfile:
         # laod data
@@ -751,27 +840,26 @@ def hv_characterization():
         HV = df.values[cutoff:-1 + end_p, 2]
 
         fig.add_trace(go.Scatter(x=time, y=DAC, name='DACx100',
-                                 line=dict(color='firebrick', width=4), legendgroup='DAC', showlegend=False), row=3,
-                      col=1)
+                                 line=dict(color='firebrick', width=4), legendgroup='DAC', showlegend=False))#, row=3,col=1)
         fig.add_trace(go.Scatter(x=time, y=HV, name='HV',
-                                 line=dict(color='royalblue', width=4), legendgroup='HV', showlegend=False), row=3,
-                      col=1)
+                                 line=dict(color='royalblue', width=4), legendgroup='HV', showlegend=False))#, row=3,
+                      # col=1)
 
-        fig.update_xaxes(title_text='Time (ms)', row=3, col=1)
-        fig.update_yaxes(title_text='Volts', row=3, col=1)
+        fig.update_xaxes(title_text='Time (ms)')#, row=3, col=1)
+        fig.update_yaxes(title_text='Circuit Input/Outputs (V)')#, row=3, col=1)
 
         ninety_rise = max(HV * .9)
         first = (HV > (max(HV) * .9)).nonzero()[0][0]
         t_90 = time[first]
 
         fig.add_trace(go.Scatter(
-            x=[t_90 * .8],
-            y=[ninety_rise * 1.2],
-            text=[f"90 percent rise time = {round(t_90, 2)}, V = {round(ninety_rise, 2)}"],
+            x=[t_90 * 1.8],
+            y=[ninety_rise * .85],
+            text=[f"90% time = {round(t_90, 2)}, <br>V = {round(ninety_rise, 2)}"],
             mode="text",
             showlegend=False,
         ),
-            row=3, col=1
+            row=1, col=1
         )
 
         fig.add_shape(
@@ -788,7 +876,7 @@ def hv_characterization():
                     # dash="dashdot",
                 )
             ),
-            row=3, col=1, )
+            row=1, col=1, )
         fig.add_shape(
             # Line Vertical
             go.layout.Shape(
@@ -796,17 +884,20 @@ def hv_characterization():
                 x0=t_90,
                 y0=0,
                 x1=t_90,
-                y1=350,
+                y1=375,
                 line=dict(
                     color="RoyalBlue",
                     width=1
                 )
             ),
-            row=3, col=1, )
+            row=1, col=1, )
+
+        fig.write_image("hv3.pdf")
+        fig.show()
 
     # fig.write_image(os.getcwd()+"/fig1.png")
-    fig.write_image(os.getcwd() + "/fig1.pdf")
-    pio.show(fig)
+    # fig.write_image(os.getcwd() + "/fig1.pdf")
+    # pio.show(fig)
 
 
 def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=None):
@@ -890,13 +981,13 @@ def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=N
     actions = np.stack(actions)
 
     if only_x:
-        r= 1
+        r = 1
         h = 800
-        w= 1500
+        w = 1500
     else:
-        h=1600
-        w=1500
-        r=2
+        h = 1600
+        w = 1500
+        r = 2
     r = 1 if only_x else 2
     fig = plotly.subplots.make_subplots(rows=r, cols=1,
                                         subplot_titles=("Euler Angles", "Actions"),
@@ -908,13 +999,13 @@ def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=N
     m_size = 64
     start = np.random.randint(0, int(len(pitch) / 10))
     size_list[start::mark_every] = m_size
-    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False,  mode='lines+markers',
+    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False, mode='lines+markers',
                              marker=dict(color=colors[0], symbol=markers[0], size=size_list),
                              line=dict(color=colors[0], width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False,  mode='lines+markers',
+    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False, mode='lines+markers',
                              marker=dict(color=colors[1], symbol=markers[1], size=size_list),
                              line=dict(color=colors[1], width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False,  mode='lines+markers',
+    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False, mode='lines+markers',
                              marker=dict(color=colors[2], symbol=markers[2], size=size_list),
                              line=dict(color=colors[2], width=4)), row=1, col=1)
 
@@ -926,34 +1017,34 @@ def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=N
         fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
                                  line=dict(color='green', width=4)), row=2, col=1)
         fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
-                                line=dict(color='orange', width=4)), row=2, col=1)
+                                 line=dict(color='orange', width=4)), row=2, col=1)
 
-    fig.update_layout(#title='Euler Angles from MPC Rollout',
-                    font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
-                    xaxis_title='Timestep',
-                      yaxis_title='Angle (Degrees)',
-                      plot_bgcolor='white',
-                      height=h,
-                      width=w,
-                    showlegend=legend,
-                    margin=dict(t=0, r=0),
-                      xaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      yaxis=dict(
-                          showline=True,
-                          showgrid=False,
-                          showticklabels=True, ),
-                      )
+    fig.update_layout(  # title='Euler Angles from MPC Rollout',
+        font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
+        xaxis_title='Timestep',
+        yaxis_title='Angle (Degrees)',
+        plot_bgcolor='white',
+        height=h,
+        width=w,
+        showlegend=legend,
+        margin=dict(t=0, r=0),
+        xaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+        yaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+    )
 
     if only_x:
         fig.update_layout(
-            legend_orientation = "h",
-            legend = dict(x=.45, y=1,
-                          bgcolor='rgba(205, 223, 212, .4)',
-                          bordercolor="Black",
-                          ),
+            legend_orientation="h",
+            legend=dict(x=.45, y=1,
+                        bgcolor='rgba(205, 223, 212, .4)',
+                        bordercolor="Black",
+                        ),
         )
     if save:
         fig.write_image(os.getcwd() + loc + "_rollout.pdf")
@@ -962,12 +1053,101 @@ def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=N
 
     return fig
 
+
+def plot_rollout_separate(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=None, only_x=False):
+    import plotly.graph_objects as go
+    import numpy as np
+    import plotly
+    ar = np.stack(states)
+    l = np.shape(ar)[0]
+    xs = np.arange(l)
+
+    yaw = np.degrees(ar[:, pry[2]])
+    pitch = np.degrees(ar[:, pry[0]])
+    roll = np.degrees(ar[:, pry[1]])
+
+    actions = np.stack(actions)
+
+    if only_x:
+        r = 1
+        h = 800
+        w = 1500
+    else:
+        h = 1600
+        w = 1500
+        r = 2
+    r = 1 if only_x else 2
+    fig = plotly.subplots.make_subplots(rows=r, cols=1,
+                                        subplot_titles=("Euler Angles", "Actions"),
+                                        vertical_spacing=.15,
+                                        horizontal_spacing=0)  # go.Figure()
+
+    size_list = np.zeros(len(pitch))
+    mark_every = 75
+    m_size = 64
+    start = np.random.randint(0, int(len(pitch) / 10))
+    size_list[start::mark_every] = m_size
+    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False, mode='lines+markers',
+                             marker=dict(color=colors[0], symbol=markers[0], size=size_list),
+                             line=dict(color=colors[0], width=4)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False, mode='lines+markers',
+                             marker=dict(color=colors[1], symbol=markers[1], size=size_list),
+                             line=dict(color=colors[1], width=4)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False, mode='lines+markers',
+                             marker=dict(color=colors[2], symbol=markers[2], size=size_list),
+                             line=dict(color=colors[2], width=4)), row=1, col=1)
+
+    if not only_x:
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
+                                 line=dict(color='firebrick', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
+                                 line=dict(color='royalblue', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
+                                 line=dict(color='green', width=4)), row=2, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
+                                 line=dict(color='orange', width=4)), row=2, col=1)
+
+    fig.update_layout(  # title='Euler Angles from MPC Rollout',
+        font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
+        xaxis_title='Timestep',
+        yaxis_title='Angle (Degrees)',
+        plot_bgcolor='white',
+        height=h,
+        width=w,
+        showlegend=legend,
+        margin=dict(t=0, r=0),
+        xaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+        yaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True, ),
+    )
+
+    if only_x:
+        fig.update_layout(
+            legend_orientation="h",
+            legend=dict(x=.45, y=1,
+                        bgcolor='rgba(205, 223, 212, .4)',
+                        bordercolor="Black",
+                        ),
+        )
+    if save:
+        fig.write_image(os.getcwd() + loc + "_rollout.pdf")
+    else:
+        fig.show()
+
+    return fig
+
+
 def plot_lie(initial):
     import plotly.graph_objects as go
     import numpy as np
     import plotly
 
-    h = 800 #1300
+    h = 800  # 1300
     w = 1500
 
     fig = plotly.subplots.make_subplots(rows=1, cols=1,
@@ -975,11 +1155,11 @@ def plot_lie(initial):
                                         vertical_spacing=.05,
                                         shared_xaxes=True,
                                         horizontal_spacing=0)  # go.Figure()
-    initial = np.add(initial,.1)
+    initial = np.add(initial, .1)
 
-    off = -.1 #-.2
+    off = -.1  # -.2
     # lie = np.add(np.tile([1,2,3,4],10)[:25],off)
-    lie = np.add(np.concatenate(([4,4,4,4], np.tile(np.repeat([1,2,3,4],5),10)[:24])),off)
+    lie = np.add(np.concatenate(([4, 4, 4, 4], np.tile(np.repeat([1, 2, 3, 4], 5), 10)[:24])), off)
     # size_list = np.zeros(len(pitch))
     mark_every = 75
     m_size = 30
@@ -1027,8 +1207,7 @@ def plot_lie(initial):
         # row=2, col=1,
     )
 
-
     # fig.show()
-    fig.write_image(os.getcwd()  + "/actions.pdf")
+    fig.write_image(os.getcwd() + "/actions.pdf")
 
     return fig

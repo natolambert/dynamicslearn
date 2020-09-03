@@ -972,7 +972,8 @@ def load_iono_txt(fname, load_params):
 
         new_data = new_data[serial_error_flag, :]
 
-        if True and m_avg > 1:
+        # MOVING AVERAGE TODO
+        if False and m_avg > 1:
             # fitlers the euler angles by targeted value
             new_data[:, -1] = np.convolve(
                 new_data[:, -1], np.ones((m_avg,)) / m_avg, mode='same')

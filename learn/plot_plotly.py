@@ -25,7 +25,8 @@ def plot(cfg):
     log.info("============= Configuration =============")
     log.info(f"Config:\n{cfg.pretty()}")
     log.info("=========================================")
-
+    hv_characterization()
+    quit()
     # Yaw control
     yaw_dir = "/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/sweeps/2020-05-13/08-01-09/metric.name=Yaw,robot=iono_sim/"
     ex = "0/trial_33.dat"

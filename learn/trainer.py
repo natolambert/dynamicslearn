@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 from learn.utils.data import *
 from learn.utils.nn import *
 import learn.utils.matplotlib as u_p
-from learn.utils.plotly import plot_test_train, plot_dist
+from learn.utils.plotly import plot_test_train, plot_dist, quick_iono
 # neural nets
 from learn.models.model_general_nn import GeneralNN
 from learn.models.model_ensemble_nn import EnsembleNN
@@ -151,7 +151,7 @@ def trainer(cfg):
     data_dir = cfg.load.fname  # base_dir
 
     avail_data = os.path.join(os.getcwd()[:os.getcwd().rfind('outputs') - 1] + f"/ex_data/SAS/{cfg.robot}.csv")
-    if os.path.isfile(avail_data):
+    if False: #os.path.isfile(avail_data):
         df = pd.read_csv(avail_data)
         log.info(f"Loaded preprocessed data from {avail_data}")
     else:
@@ -169,13 +169,14 @@ def trainer(cfg):
         log.info(msg)
 
     from scipy import stats
+    quick_iono(df)
     # remove data 4 standard deviations away
-    df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
+    # df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
     # plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
-    data = create_model_params(df, cfg.model)
-    X = data['states'].values
-    U = data['inputs'].values
-    dX = data['targets'].values
+    # data = create_model_params(df, cfg.model)
+    # X = data['states'].values
+    # U = data['inputs'].values
+    # dX = data['targets'].values
 
     # x = torch.Tensor(np.hstack((X,U,dX))).numpy()
     # import faiss
