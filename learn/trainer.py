@@ -103,7 +103,7 @@ def train_model(X, U, dX, model_cfg, logged=False):
 
     if model_cfg.params.training.cluster > 0:
         h = model_cfg.params.history
-        mat = to_matrix(X, U, dX, model_cfg)
+        mat = to_matrix(X.squeeze(), U, dX.squeeze(), model_cfg)
         num_pts = np.shape(mat)[0]
         if num_pts < model_cfg.params.training.cluster:
             if logged: log.info(f"Not enough points to cluster to {model_cfg.params.training.cluster} yet.")
@@ -115,9 +115,9 @@ def train_model(X, U, dX, model_cfg, logged=False):
             X_t, U_t, dX_t = to_Dataset(mat_r, dims=[model_cfg.params.dx * (h + 1), model_cfg.params.du * (h + 1),
                                                  model_cfg.params.dt])
     else:
-        X_t = X
+        X_t = X.squeeze()
         U_t = U
-        dX_t = dX
+        dX_t = dX.squeeze()
 
     acctest, acctrain = model.train_cust((X_t, U_t, dX_t), model_cfg.params)
 

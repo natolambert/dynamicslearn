@@ -8,36 +8,30 @@ policy:
 pid:
   params:
     mode: INTEG
-    equil: [16383, 16383, 16383, 16383]
-    min_pwm: 0
-    max_pwm: 65535
-    int_max: 50000
+    equil: [0]
+    min_pwm: -1
+    max_pwm: 1
+    int_max: 1
     dt: .02
-    min_values: [.1, .1, .1]
-    max_values: [50000, 1, 50000]
+    min_values: [.001, .001, .01]
+    max_values: [100, 1, 100]
     terminal_cost: 1
     living_cost: .1
-    pitch_mult: [1, -1, -1, +1]
-    roll_mult: [-1, -1, +1, +1]
-    pry: [1, 0, 2]
 
 experiment:
-  r_len: 2000 #1000 #5000
-
+  r_len: 200 #1000 #5000
 
 
 
 env:
   params:
-    name: CrazyflieRigid-v0
-    flight_mode: basic
-    inv_huber: true
+    name: CartPoleContEnv-v0
 
 model:
   params:
-    dx: 6
-    du: 4
-    dt: 6
+    dx: 4
+    du: 1
+    dt: 4
     history: 0
     delta_state_targets:
       - pitch

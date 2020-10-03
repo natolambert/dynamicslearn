@@ -106,8 +106,8 @@ def pid(cfg):
     full_rewards = []
     exp_cfg = cfg.experiment
 
-    from learn.utils.plotly import hv_characterization
-    hv_characterization()
+    # from learn.utils.plotly import hv_characterization
+    # hv_characterization()
 
     def compare_control(env, cfg, save=True):
         import torch

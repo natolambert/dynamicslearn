@@ -503,13 +503,15 @@ def quick_iono(df):
     fig.add_trace(go.Scatter(x=x, y=a3,
                              mode='lines+markers', ))
 
-    fig.show()
+    # fig.show()
 
     a1 = df['m1pwm_0tu'].values
     a2 = df['m2pwm_0tu'].values
     a3 = df['m3pwm_0tu'].values
     a4 = df['m4pwm_0tu'].values
 
+    plot_rollout_separate(np.stack((pitch,roll,yaw)),np.stack((a1,a2,a3,a4)))
+    quit()
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=x, y=a1,
                              mode='lines+markers', ))
@@ -754,10 +756,10 @@ def hv_characterization():
         fig.update_layout(  # title='HV Characterization',
             font=dict(
                 family="Times New Roman, Times, serif",
-                size=32,
+                size=44,
                 color="black"
             ),
-            margin=dict(t=0, r=0),
+            margin=dict(t=0, b=10, r=0),
             plot_bgcolor='white',
             legend_orientation="h",
             showlegend=False,
@@ -776,7 +778,7 @@ def hv_characterization():
                 showticklabels=True, ),
             # font=dict(family='Times New Roman', size=30, color='#7f7f7f'),
             height=800,
-            width=800,
+            width=1000,
             # legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'}
         )
         return fig
@@ -845,7 +847,7 @@ def hv_characterization():
                                  line=dict(color='royalblue', width=4), legendgroup='HV', showlegend=False))#, row=3,
                       # col=1)
 
-        fig.update_xaxes(title_text='Time (ms)')#, row=3, col=1)
+        fig.update_xaxes(title_text='Time (us)')#, row=3, col=1)
         fig.update_yaxes(title_text='Circuit Input/Outputs (V)')#, row=3, col=1)
 
         ninety_rise = max(HV * .9)
@@ -855,7 +857,7 @@ def hv_characterization():
         fig.add_trace(go.Scatter(
             x=[t_90 * 1.8],
             y=[ninety_rise * .85],
-            text=[f"90% time = {round(t_90, 2)}, <br>V = {round(ninety_rise, 2)}"],
+            text=[f"90% rise = {round(t_90, 0)-500}us, <br>V = {round(ninety_rise, 0)} V"],
             mode="text",
             showlegend=False,
         ),
@@ -970,59 +972,115 @@ def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=N
     import plotly.graph_objects as go
     import numpy as np
     import plotly
+
     ar = np.stack(states)
-    l = np.shape(ar)[0]
-    xs = np.arange(l)
 
-    yaw = np.degrees(ar[:, pry[2]])
-    pitch = np.degrees(ar[:, pry[0]])
-    roll = np.degrees(ar[:, pry[1]])
+    if np.shape(ar)[1] == 4:
+        # Cartpole
+        l = np.shape(ar)[0]
+        xs = np.arange(l)
 
-    actions = np.stack(actions)
+        pos = ar[:, 0]
+        angle = ar[:, 1]
 
-    if only_x:
-        r = 1
-        h = 800
-        w = 1500
+        only_x = True
+        actions = np.stack(actions)
+
+        if only_x:
+            r = 1
+            h = 800
+            w = 1500
+        else:
+            h = 1600
+            w = 1500
+            r = 2
+        r = 1 if only_x else 2
+        fig = plotly.subplots.make_subplots(rows=r, cols=1,
+                                            subplot_titles=("Euler Angles", "Actions"),
+                                            vertical_spacing=.15,
+                                            horizontal_spacing=0)  # go.Figure()
+
+        size_list = np.zeros(len(pos))
+        mark_every = 75
+        m_size = 64
+        start = np.random.randint(0, int(len(pos) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=pos, name='X Pos.', cliponaxis=False, mode='lines+markers',
+                                 marker=dict(color=colors[0], symbol=markers[0], size=size_list),
+                                 line=dict(color=colors[0], width=4)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=angle, name='Pole Angle', cliponaxis=False, mode='lines+markers',
+                                 marker=dict(color=colors[1], symbol=markers[1], size=size_list),
+                                 line=dict(color=colors[1], width=4)), row=1, col=1)
+
+
+        if not only_x:
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
+                                     line=dict(color='firebrick', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
+                                     line=dict(color='royalblue', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
+                                     line=dict(color='green', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
+                                     line=dict(color='orange', width=4)), row=2, col=1)
+
+        yaxtitle = 'Angle (Degrees)/ Position (m)'
+
     else:
-        h = 1600
-        w = 1500
-        r = 2
-    r = 1 if only_x else 2
-    fig = plotly.subplots.make_subplots(rows=r, cols=1,
-                                        subplot_titles=("Euler Angles", "Actions"),
-                                        vertical_spacing=.15,
-                                        horizontal_spacing=0)  # go.Figure()
+        #quad/iono
+        l = np.shape(ar)[0]
+        xs = np.arange(l)
 
-    size_list = np.zeros(len(pitch))
-    mark_every = 75
-    m_size = 64
-    start = np.random.randint(0, int(len(pitch) / 10))
-    size_list[start::mark_every] = m_size
-    fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False, mode='lines+markers',
-                             marker=dict(color=colors[0], symbol=markers[0], size=size_list),
-                             line=dict(color=colors[0], width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False, mode='lines+markers',
-                             marker=dict(color=colors[1], symbol=markers[1], size=size_list),
-                             line=dict(color=colors[1], width=4)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False, mode='lines+markers',
-                             marker=dict(color=colors[2], symbol=markers[2], size=size_list),
-                             line=dict(color=colors[2], width=4)), row=1, col=1)
+        yaw = np.degrees(ar[:, pry[2]])
+        pitch = np.degrees(ar[:, pry[0]])
+        roll = np.degrees(ar[:, pry[1]])
 
-    if not only_x:
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
-                                 line=dict(color='firebrick', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
-                                 line=dict(color='royalblue', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
-                                 line=dict(color='green', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
-                                 line=dict(color='orange', width=4)), row=2, col=1)
+        actions = np.stack(actions)
+
+        if only_x:
+            r = 1
+            h = 800
+            w = 1500
+        else:
+            h = 1600
+            w = 1500
+            r = 2
+        r = 1 if only_x else 2
+        fig = plotly.subplots.make_subplots(rows=r, cols=1,
+                                            subplot_titles=("Euler Angles", "Actions"),
+                                            vertical_spacing=.15,
+                                            horizontal_spacing=0)  # go.Figure()
+
+        size_list = np.zeros(len(pitch))
+        mark_every = 75
+        m_size = 64
+        start = np.random.randint(0, int(len(pitch) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=yaw, name='Yaw', cliponaxis=False, mode='lines+markers',
+                                 marker=dict(color=colors[0], symbol=markers[0], size=size_list),
+                                 line=dict(color=colors[0], width=4)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=pitch, name='Pitch', cliponaxis=False, mode='lines+markers',
+                                 marker=dict(color=colors[1], symbol=markers[1], size=size_list),
+                                 line=dict(color=colors[1], width=4)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=xs, y=roll, name='Roll', cliponaxis=False, mode='lines+markers',
+                                 marker=dict(color=colors[2], symbol=markers[2], size=size_list),
+                                 line=dict(color=colors[2], width=4)), row=1, col=1)
+
+        if not only_x:
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
+                                     line=dict(color='firebrick', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
+                                     line=dict(color='royalblue', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
+                                     line=dict(color='green', width=4)), row=2, col=1)
+            fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
+                                     line=dict(color='orange', width=4)), row=2, col=1)
+
+        yaxtitle = 'Angle (Degrees)'
 
     fig.update_layout(  # title='Euler Angles from MPC Rollout',
         font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
         xaxis_title='Timestep',
-        yaxis_title='Angle (Degrees)',
+        yaxis_title=yaxtitle,
         plot_bgcolor='white',
         height=h,
         width=w,
@@ -1058,15 +1116,26 @@ def plot_rollout_separate(states, actions, pry=[1, 2, 0], legend=False, save=Fal
     import plotly.graph_objects as go
     import numpy as np
     import plotly
-    ar = np.stack(states)
+
+    only_x = False
+    if not only_x:
+        start = 850#700
+        length = 50#300
+    else:
+        start = 700
+        length = 300
+
+    ar = np.stack(states).T[start:start+length]
     l = np.shape(ar)[0]
-    xs = np.arange(l)
+    xs = np.arange(l)*10 #convert to ms with 10x
 
-    yaw = np.degrees(ar[:, pry[2]])
-    pitch = np.degrees(ar[:, pry[0]])
-    roll = np.degrees(ar[:, pry[1]])
+    yaw = ar[:, pry[2]]
+    pitch = ar[:, pry[0]]
+    roll = ar[:, pry[1]]
 
-    actions = np.stack(actions)
+    actions = np.stack(actions).T[start:start+length]
+
+
 
     if only_x:
         r = 1
@@ -1076,14 +1145,17 @@ def plot_rollout_separate(states, actions, pry=[1, 2, 0], legend=False, save=Fal
         h = 1600
         w = 1500
         r = 2
+        xs = np.arange(l) * 10  +1500 # convert to ms with 10x
+
     r = 1 if only_x else 2
     fig = plotly.subplots.make_subplots(rows=r, cols=1,
-                                        subplot_titles=("Euler Angles", "Actions"),
-                                        vertical_spacing=.15,
+                                        # subplot_titles=("Euler Angles", "Actions"),
+                                        vertical_spacing=.02,
+                                        shared_xaxes=True,
                                         horizontal_spacing=0)  # go.Figure()
 
     size_list = np.zeros(len(pitch))
-    mark_every = 75
+    mark_every = 16 #75
     m_size = 64
     start = np.random.randint(0, int(len(pitch) / 10))
     size_list[start::mark_every] = m_size
@@ -1098,32 +1170,65 @@ def plot_rollout_separate(states, actions, pry=[1, 2, 0], legend=False, save=Fal
                              line=dict(color=colors[2], width=4)), row=1, col=1)
 
     if not only_x:
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1',
-                                 line=dict(color='firebrick', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2',
-                                 line=dict(color='royalblue', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3',
-                                 line=dict(color='green', width=4)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4',
-                                 line=dict(color='orange', width=4)), row=2, col=1)
+        size_list = np.zeros(len(pitch))
+        mark_every = 8  # 75
+        m_size = 32
+        start = np.random.randint(0, int(len(pitch) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 0], name='M1', mode = 'lines+markers',
+                                 marker=dict(color=colors[0], symbol=markers[0], size=size_list),
+                                 line=dict(color=colors[0], width=4)), row=2, col=1)
+        start = np.random.randint(0, int(len(pitch) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 1], name='M2', mode = 'lines+markers',
+                                 marker=dict(color=colors[1], symbol=markers[1], size=size_list),
+                                 line=dict(color=colors[1], width=4)), row=2, col=1)
+        start = np.random.randint(0, int(len(pitch) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 2], name='M3', mode = 'lines+markers',
+                                 marker=dict(color=colors[2], symbol=markers[2], size=size_list),
+                                 line=dict(color=colors[2], width=4)), row=2, col=1)
+        start = np.random.randint(0, int(len(pitch) / 10))
+        size_list[start::mark_every] = m_size
+        fig.add_trace(go.Scatter(x=xs, y=actions[:, 3], name='M4', mode = 'lines+markers',
+                                 marker=dict(color=colors[3], symbol=markers[3], size=size_list),
+                                 line=dict(color=colors[3], width=4)), row=2, col=1)
 
+        fig.update_xaxes(title='Time (ms)', row=2, col=1,
+                         showline=True,
+                            showgrid=False,
+                            showticklabels=True,)
+        fig.update_yaxes(title='PWM Applied (mV)', row=2, col=1)
+
+        fig.update_xaxes(row=1, col=1,
+                         showline=True,
+                            showgrid=False,
+                            showticklabels=False,)
+
+    else:
+        fig.update_xaxes(title='Time (ms)', row=1, col=1,
+                         showline=True,
+                         showgrid=False,
+                         showticklabels=True, )
+
+    fig.update_yaxes(title='Euler Angles (deg.)', range=[-25,10], row=1, col=1)
     fig.update_layout(  # title='Euler Angles from MPC Rollout',
         font=dict(family='Times New Roman', size=40, color='#7f7f7f'),
-        xaxis_title='Timestep',
-        yaxis_title='Angle (Degrees)',
+
+        # yaxis_title='Angle (Degrees)',
         plot_bgcolor='white',
         height=h,
         width=w,
         showlegend=legend,
         margin=dict(t=0, r=0),
-        xaxis=dict(
-            showline=True,
-            showgrid=False,
-            showticklabels=True, ),
-        yaxis=dict(
-            showline=True,
-            showgrid=False,
-            showticklabels=True, ),
+        # xaxis=dict(
+        #     showline=True,
+        #     showgrid=False,
+        #     showticklabels=True, ),
+        # yaxis=dict(
+        #     showline=True,
+        #     showgrid=False,
+        #     showticklabels=True, ),
     )
 
     if only_x:
@@ -1134,10 +1239,10 @@ def plot_rollout_separate(states, actions, pry=[1, 2, 0], legend=False, save=Fal
                         bordercolor="Black",
                         ),
         )
-    if save:
-        fig.write_image(os.getcwd() + loc + "_rollout.pdf")
-    else:
-        fig.show()
+    # if save:
+    fig.write_image(os.getcwd() + "/rollout.pdf")
+    # else:
+    fig.show()
 
     return fig
 

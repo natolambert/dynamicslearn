@@ -149,6 +149,7 @@ class IonocraftRigidEnv(RigidEnv):
         m3 = pwm_to_thrust(PWM[2], beta)
         m4 = pwm_to_thrust(PWM[3], beta)
 
+        # possible bug in the torques getting multiplied by the length twice
         Thrust = (-m1 - m2 - m3 - m4)  # pwm_to_thrust(np.sum(PWM) / (4 * 65535.0))
         taux = l * (-m1 - m2 + m3 + m4)
         tauy = l * (m1 - m2 - m3 + m4)

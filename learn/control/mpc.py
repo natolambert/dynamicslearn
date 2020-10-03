@@ -130,6 +130,7 @@ class MPController(Controller):
         #     [0, 0, 3000, 3000],
         #     [0, 0, 3000, 3000],
         # ])
+
     def reset(self):
         self.interal = 0
         print("Resetting MPController Not Needed, but passed")
@@ -144,18 +145,20 @@ class MPController(Controller):
         rewards = torch.zeros(self.N, self.T)
         if self.yaw:
 
-            action = self.yaw_actions[self.internal+1]
+            action = self.yaw_actions[self.internal + 1]
             self.internal += 2
             self.internal %= 24
             return action
 
-            action_idx = torch.randint(0,5,(self.N, self.T),dtype=torch.long)
-            action_candidates = torch.zeros((self.N, self.T,len(self.low)))
-            for i in range(action_candidates.shape[0]):
-                act = []
-                for t in range(self.T):
-                    act.append(self.yaw_actions[action_idx[i,t]])
-                action_candidates[i,:,:] = torch.stack(act)
+            # # constrained yaw action below
+            # action_idx = torch.randint(0, 5, (self.N, self.T), dtype=torch.long)
+            # action_candidates = torch.zeros((self.N, self.T, len(self.low)))
+            # for i in range(action_candidates.shape[0]):
+            #     act = []
+            #     for t in range(self.T):
+            #         act.append(self.yaw_actions[action_idx[i, t]])
+            #     action_candidates[i, :, :] = torch.stack(act)
+
         else:
             if self.hold:
                 action_candidates = self.action_sampler.sample(sample_shape=(self.N, 1)).repeat(1, self.T, 1)
@@ -181,7 +184,7 @@ class MPController(Controller):
             import plotly.graph_objects as go
             fig = go.Figure()
             # Create and style traces
-            for i, vec in enumerate(states[:,:,0]):
+            for i, vec in enumerate(states[:, :, 0]):
                 if i < 500:
                     fig.add_trace(go.Scatter(y=vec))
             fig.show()

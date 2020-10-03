@@ -93,11 +93,12 @@ class CartPoleContEnv(gym.Env):
 
         self.steps_beyond_done = None
 
-    def seed(self, seed=None):
+    def seed(self, seed=None, inertial=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def step(self, action):
+        action = np.array(action)
         assert self.action_space.contains(
             action), "%r (%s) invalid" % (action, type(action))
         state = self.state
@@ -142,10 +143,10 @@ class CartPoleContEnv(gym.Env):
 
         return np.array(self.state), reward, done, {}
 
-    def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+    def reset(self, safe=None):
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,)).reshape(4,1)
         self.steps_beyond_done = None
-        return np.array(self.state)
+        return np.array(self.state).reshape(4,1)
 
     def render(self, mode='human'):
         screen_width = 600

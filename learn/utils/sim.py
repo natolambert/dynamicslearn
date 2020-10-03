@@ -23,27 +23,59 @@ import time
 
 def squ_cost(state, action):
     if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        cost = pitch ** 2 + roll ** 2
+        cartpole = np.shape(state)[-1] == 4
     else:
-        pitch = state[0]
-        roll = state[1]
-        cost = pitch ** 2 + roll ** 2
+        cartpole = np.shape(state)[0]
+    if cartpole:
+        if torch.is_tensor(state):
+            pos = state[:, 0]
+            angle = torch.rad2deg(state[:, 2])/2
+            cost = pos ** 2 + angle ** 2
+        else:
+            pos = state[0]
+            angle = np.rad2deg(state[2])/2
+            cost = pos ** 2 + angle ** 2
+        # Cartpole
+    else:
+        if torch.is_tensor(state):
+            pitch = state[:, 0]
+            roll = state[:, 1]
+            cost = pitch ** 2 + roll ** 2
+        else:
+            pitch = state[0]
+            roll = state[1]
+            cost = pitch ** 2 + roll ** 2
     return -cost
 
 
 def living_reward(state, action):
     if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = (torch.abs(pitch) < np.deg2rad(5)).float() + (torch.abs(roll) < np.deg2rad(5)).float()
+        cartpole = np.shape(state)[-1] == 4
     else:
-        pitch = state[0]
-        roll = state[1]
-        flag1 = np.abs(pitch) < np.deg2rad(5)
-        flag2 = np.abs(roll) < np.deg2rad(5)
-        rew = int(flag1) + int(flag2)
+        cartpole = np.shape(state)[0]
+    if cartpole:
+        # Cartpole
+        if torch.is_tensor(state):
+            pos = state[:, 0]
+            angle = torch.rad2deg(state[:, 2])
+            rew = ((torch.lt(torch.abs(pos),2.4) & torch.lt(torch.abs(angle),12))).int()
+        else:
+            pos = state[0]
+            angle = np.rad2deg(state[2])
+            rew = int((np.abs(pos) < 2.4 and np.abs(angle) < 12))
+
+    else:
+        print("In the wrong place")
+        if torch.is_tensor(state):
+            pitch = state[:, 0]
+            roll = state[:, 1]
+            rew = (torch.abs(pitch) < np.deg2rad(5)).float() + (torch.abs(roll) < np.deg2rad(5)).float()
+        else:
+            pitch = state[0]
+            roll = state[1]
+            flag1 = np.abs(pitch) < np.deg2rad(5)
+            flag2 = np.abs(roll) < np.deg2rad(5)
+            rew = int(flag1) + int(flag2)
     return rew
 
 
@@ -68,6 +100,43 @@ def yaw_r(state, action, last_yaw=[]):
             rew = squ_cost(state, action)
     return rew
 
+
+def rotation_mat(state, action):
+    if torch.is_tensor(state):
+        cartpole = np.shape(state)[-1] == 4
+    else:
+        cartpole = np.shape(state)[0]
+    if cartpole:
+        # Cartpole
+        if torch.is_tensor(state):
+            pos = state[:, 0]/2
+            angle = state[:, 2]
+            rew = torch.cos(pos) * torch.cos(angle)
+
+        else:
+            pos = state[0]/2
+            angle = state[2]
+            rew = math.cos(state[0]) * math.cos(state[1])
+
+        # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
+        #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
+        #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
+        # return np.
+    else:
+        # CF
+        if torch.is_tensor(state):
+            pitch = state[:, 0]
+            roll = state[:, 1]
+            rew = torch.cos(pitch) * torch.cos(roll)
+
+        else:
+            rew = math.cos(state[0]) * math.cos(state[1])
+
+        # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
+        #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
+        #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
+        # return np.linalg.det(np.linalg.inv(rotn_matrix))
+    return rew
 
 def yaw_r2(state, action, last_yaw=[]):
     if torch.is_tensor(state):
@@ -106,21 +175,6 @@ def yaw_r3(state, action, last_yaw=[]):
     return rew
 
 
-def rotation_mat(state, action):
-    if torch.is_tensor(state):
-        pitch = state[:, 0]
-        roll = state[:, 1]
-        rew = torch.cos(pitch) * torch.cos(roll)
-
-    else:
-        rew = math.cos(state[0]) * math.cos(state[1])
-
-    # rotn_matrix = np.array([[1., math.sin(x0[0]) * math.tan(x0[1]), math.cos(x0[0]) * math.tan(x0[1])],
-    #                         [0., math.cos(x0[0]), -math.sin(x0[0])],
-    #                         [0., math.sin(x0[0]) / math.cos(x0[1]), math.cos(x0[0]) / math.cos(x0[1])]])
-    # return np.linalg.det(np.linalg.inv(rotn_matrix))
-    return rew
-
 
 def euler_numer(last_state, state, mag=5):
     flag = False
@@ -146,13 +200,16 @@ def rollout(env, controller, exp_cfg, metric=None):
         last_state = state
         if done:
             break
-        action = controller.get_action(state, metric=metric)
+        action = controller.get_action(state.squeeze(), metric=metric)
         states.append(state)
         actions.append(action)
 
         state, rew, done, _ = env.step(action)
-        sim_error = euler_numer(last_state, state)
-        done = done or sim_error
+        if exp_cfg.r_len > 200:
+            sim_error = euler_numer(last_state, state)
+            done = done or sim_error
+        else:
+            sim_error = False
         if metric is not None:
             rews.append(metric(state, action))
         else:

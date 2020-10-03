@@ -20,6 +20,13 @@ pid:
     roll_mult: [-1, -1, +1, +1]
     pry: [1, 0, 2]
 
+experiment:
+  r_len: 3000 #1000 #5000
+  yaw: true
+  safe: true
+  inertial: false
+
+
 env:
   params:
     name: IonoRigid-v0
