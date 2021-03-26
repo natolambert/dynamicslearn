@@ -1,4 +1,5 @@
 model:
+  _target_: learn.models.GeneralNN
   class: learn.models.GeneralNN
   params:
     training:
@@ -8,7 +9,7 @@ model:
       dt: ${env.params.dt}
       hid_width: 250
       hid_depth: 2
-      probl: true
+      probl: false #true
       activ: learn.utils.nn.Swish
       dropout: 0
       split: false
@@ -16,8 +17,8 @@ model:
       plot_loss: true
       cluster: 0
     optimizer:
-      epochs:  17
-      batch: 18
+      epochs:  12 #12
+      batch: 32 # 200 #18
       split: .8
       lr: .0025
       lr_schedule: [30,6]

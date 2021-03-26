@@ -32,7 +32,7 @@ bo:
   sim: false
 
 metric:
-  name: Square
+  name: Rotation
   minimize: False
 
 hydra:

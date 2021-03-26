@@ -307,8 +307,8 @@ class GeneralNN(nn.Module):
         error_train = []
         split = split
 
-        testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=batch_size)
-        trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=batch_size, shuffle=True)
+        testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=batch_size, shuffle=False)#True)
+        trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=batch_size, shuffle=False) #True)
 
         for epoch in range(epochs):
 

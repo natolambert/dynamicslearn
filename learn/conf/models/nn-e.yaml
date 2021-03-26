@@ -1,4 +1,5 @@
 model:
+  _target_: learn.models.EnsembleNN
   class: learn.models.EnsembleNN
   params:
     training:
@@ -15,6 +16,7 @@ model:
       mode: delta
       E: 5
       plot_loss: true
+      cluster: 0
     optimizer:
       epochs: 25
       batch: 18

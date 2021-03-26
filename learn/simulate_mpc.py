@@ -49,6 +49,7 @@ def mpc(cfg):
     # full_rewards = []
     # temp = hydra.utils.get_original_cwd() + '/outputs/2020-07-11/17-17-05/trial_3.dat'
     # dat = torch.load(temp)
+    # print(temp)
     # actions = dat['raw_data'][0][1]
     # l = []
     #
@@ -82,7 +83,7 @@ def mpc(cfg):
     # yaw_value = np.rad2deg(states[-1][0])-np.rad2deg(states[0][0])
     # print(f"Yaw after 25 steps{yaw_value}")
     # plot_lie(initial)
-    # # plot_rollout(np.stack(dat['raw_data'][0][0])[:500,:3], dat['raw_data'][0][1], loc="/yaw_plt", save=True, only_x=True, legend=False)
+    # plot_rollout(np.stack(dat['raw_data'][0][0])[:500,:3], dat['raw_data'][0][1], loc="/yaw_plt", save=True, only_x=True, legend=False)
     # quit()
 
     if cfg.metric.name == 'Living':
@@ -114,7 +115,7 @@ def mpc(cfg):
         r = 0
         while r < cfg.experiment.random:
             data_r = rollout(env, RandomController(env, cfg), cfg.experiment, metric=metric)
-            if env_name != 'CartPoleContEnv-v0': plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/R_{r}")
+            # if env_name != 'CartPoleContEnv-v0': plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/R_{r}")
             rews = data_r[-2]
             sim_error = data_r[-1]
             if sim_error:
@@ -151,7 +152,7 @@ def mpc(cfg):
         save_log(cfg, -1, trial_log)
 
         model, train_log = train_model(X.squeeze(), U, dX.squeeze(), cfg.model)
-
+        torch.cuda.is_available: model.cuda()
         for i in range(cfg.experiment.num_roll - cfg.experiment.random):
             controller = MPController(env, model, cfg)
 
@@ -160,7 +161,7 @@ def mpc(cfg):
             data_rs = []
             while r < cfg.experiment.repeat:
                 data_r = rollout(env, controller, cfg.experiment, metric=metric)
-                plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/{str(i)}_{r}")
+                # plot_rollout(data_r[0], data_r[1], pry=cfg.pid.params.pry, save=cfg.save, loc=f"/{str(i)}_{r}")
                 rews = data_r[-2]
                 sim_error = data_r[-1]
 
@@ -186,7 +187,7 @@ def mpc(cfg):
 
             trial_log = dict(
                 env_name=cfg.env.params.name,
-                # model=model,
+                model=model,
                 seed=cfg.random_seed,
                 raw_data=data_r,
                 # yaw_num=last_yaw,
@@ -197,10 +198,10 @@ def mpc(cfg):
             )
             save_log(cfg, i, trial_log)
 
-            model, train_log = train_model(X, U, dX, cfg.model)
+            model, train_log = train_model(X, U, dX, cfg.model, logged=True)
 
-        fig = plot_rewards_over_trials(np.transpose(np.stack([total_costs])), env_name, save=True)
-        fig.write_image(os.getcwd() + "/learning-curve.pdf")
+        # fig = plot_rewards_over_trials(np.transpose(np.stack([total_costs])), env_name, save=True)
+        # fig.write_image(os.getcwd() + "/learning-curve.pdf")
 
 
 # def subsample(rollout, period):

@@ -44,9 +44,9 @@ def create_model_params(df, model_cfg):
     if not model_cfg.params.delta_state_targets == False:
         for typ in model_cfg.params.delta_state_targets:
             target_keys.append(typ + '_0dx')
-    if not model_cfg.params.true_state_targets == False:
-        for typ in model_cfg.params.true_state_targets:
-            target_keys.append(typ + '_1fx')
+    # if not model_cfg.params.true_state_targets == False:
+    #     for typ in model_cfg.params.true_state_targets:
+    #         target_keys.append(typ + '_1fx')
 
     # grab variables
     history_states = df.filter(regex='tx')
@@ -169,7 +169,7 @@ def trainer(cfg):
         log.info(msg)
 
     from scipy import stats
-    quick_iono(df)
+    # quick_iono(df)
     # remove data 4 standard deviations away
     # df = df[(np.nan_to_num(np.abs(stats.zscore(df))) < 4).all(axis=1)]
     # plot_dist(df, x='roll_0tx', y='pitch_0tx', z='yaw_0tx')
@@ -200,6 +200,8 @@ def trainer(cfg):
     #
     # quit()
 
+    # from learn.utils.plotly import plot_mses
+    # plot_mses(save=True)
 
 
 
@@ -207,15 +209,19 @@ def trainer(cfg):
 
     X, U, dX = params_to_training(data)
 
+    end_pts = np.where(df['term'].values == 1)
+    init = np.add(np.where(df['term'].values == 1), 1).squeeze()
+    all = np.concatenate(([0], init))
+
     model, train_log = train_model(X, U, dX, cfg.model)
     model.store_training_lists(list(data['states'].columns),
                                list(data['inputs'].columns),
                                list(data['targets'].columns))
 
-    mse = plot_test_train(model, (X, U, dX), variances=True)
-    torch.save((mse, cfg.model.params.training.cluster), 'cluster.dat')
+    # mse = plot_test_train(model, (X, U, dX), variances=True)
+    # torch.save((mse, cfg.model.params.training.cluster), 'cluster.dat')
+    # log.info(f"MSE of test set predictions {mse}")
 
-    log.info(f"MSE of test set predictions {mse}")
     msg = "Trained Model..."
     msg += "Prediction List" + str(list(data['targets'].columns)) + "\n"
     msg += "Min test error: " + str(train_log['min_testerror']) + "\n"
@@ -223,7 +229,7 @@ def trainer(cfg):
     msg += "Min train error: " + str(train_log['min_trainerror']) + "\n"
     log.info(msg)
 
-    if cfg.model.params.training.plot_loss:
+    if False: #cfg.model.params.training.plot_loss:
         plt.figure(2)
         ax1 = plt.subplot(211)
         ax1.plot(train_log['testerror'], label='Test Loss')
@@ -235,6 +241,37 @@ def trainer(cfg):
         # plt.show()
         plt.savefig(os.path.join(os.getcwd() + '/modeltraining.pdf'))
 
+    #compute MSEs on real data
+    predictions = []
+    true_trajs = []
+    for i in range(len(all)-1):
+        idx_start = all[i]
+        idx_end = idx_start+30 #all[i+1]
+        x0 = X[idx_start,:]
+        uvec = U[idx_start:idx_end-1,:]
+        true = X[idx_start+1:idx_end,:]
+        pred = []
+        xpred = x0
+        for u in uvec:
+            if cfg.model.params.training.ensemble:
+                xpred = xpred + model.predict(xpred, u)[0]
+            else:
+                xpred = xpred + model.predict(xpred, u)
+            pred.append(xpred)
+        if len(true) < 29:
+            continue
+        else:
+            predictions.append(pred)
+            true_trajs.append(true)
+
+    print(len(predictions))
+    pred_vec = np.stack(predictions)
+    true_vec = np.stack(true_trajs)
+    errors = np.mean(np.square(true_vec-pred_vec),axis=-1)
+    from learn.utils.plotly import plot_mses
+    fig = plot_mses(errors=errors.tolist(),save=True)
+
+    torch.save(errors, os.getcwd()+'/'+str(cfg.load.freq)+'.dat')
     # Saves NN params
     if cfg.save:
         save_file(model, cfg.model.params.name + '.pth')
@@ -247,6 +284,66 @@ def trainer(cfg):
 
     log.info(f"Saved to directory {os.getcwd()}")
 
+def plot_mse_err(mse_batch, save_loc=None, show=True, log_scale=True, title=None, y_min=.01, y_max=1e7,
+                     legend=False):
+
+    # assert setup, "Must run setup_plotting before this function"
+    from utils.plotly import generate_errorbar_traces
+    arrays = []
+    keys = [k for k in mse_batch[0].keys()]
+    for k in keys:
+        temp = []
+        for data in mse_batch:
+            temp.append(data[k])
+        arrays.append(np.stack(temp))
+
+
+    colors_temp = ['rgb(12, 7, 134)', 'rgb(64, 3, 156)', 'rgb(106, 0, 167)',
+                   'rgb(143, 13, 163)', 'rgb(176, 42, 143)', 'rgb(203, 71, 119)', 'rgb(224, 100, 97)',
+                   'rgb(242, 132, 75)', 'rgb(252, 166, 53)', 'rgb(252, 206, 37)']
+    traces_plot = []
+    for n, (ar, k) in enumerate(zip(arrays, keys)):
+        # temp
+        # if n > 1:
+        #     continue
+        tr, xs, ys = generate_errorbar_traces(ar, xs=[np.arange(1, np.shape(ar)[1] + 1).tolist()], percentiles='66+90',
+                                              color=color_dict_plotly[k],
+                                              name=label_dict[k]+str(n))
+        w_marker = []
+        # for t in tr:
+        m = add_marker(tr, color=color_dict_plotly[k], symbol=marker_dict_plotly[k], skip=30)
+        # w_marker.append(m)
+        [traces_plot.append(t) for t in m]
+
+    layout = dict(  # title=title if title else f"Average Error over Run",
+        xaxis={'title': 'Prediction Step'},  # 2e-9, 5
+        yaxis={'title': 'Mean Squared Error', 'range': [np.log10(20e-6), np.log10(5)]},# 25]}, #
+        # [np.log10(y_min), np.log10(y_max)]},
+        yaxis_type="log",
+        xaxis_showgrid=False, yaxis_showgrid=False,
+        font=dict(family='Times New Roman', size=50, color='#000000'),
+        height=800,
+        width=1500,
+        plot_bgcolor='white',
+        showlegend=legend,
+        margin=dict(r=0, l=0, b=10, t=1),
+
+        legend={'x': .01, 'y': .98, 'bgcolor': 'rgba(50, 50, 50, .03)',
+                'font': dict(family='Times New Roman', size=30, color='#000000')}
+    )
+
+    fig = {
+        'data': traces_plot,
+        # 'layout': layout
+    }
+
+    import plotly.io as pio
+    fig = go.Figure(fig)
+    fig.update_layout(layout)
+    if show: fig.show()
+    fig.write_image(save_loc + ".pdf")
+
+    return fig
 
 if __name__ == '__main__':
     sys.exit(trainer())

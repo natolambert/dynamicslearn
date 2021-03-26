@@ -447,8 +447,8 @@ def pid(cfg):
 
     # compare_control(env, cfg, save=True)
     # quit()
-    plot_results(logx=False, save=True, mpc=False)
-    quit()
+    # plot_results(logx=False, save=True, mpc=False)
+    # quit()
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # # # # # # # # # # # Evalutation Function  # # # # # # # # # # # # # # # # # # # #

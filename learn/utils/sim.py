@@ -29,11 +29,11 @@ def squ_cost(state, action):
     if cartpole:
         if torch.is_tensor(state):
             pos = state[:, 0]
-            angle = torch.rad2deg(state[:, 2])/2
+            angle = state[:, 2]
             cost = pos ** 2 + angle ** 2
         else:
             pos = state[0]
-            angle = np.rad2deg(state[2])/2
+            angle = state[2]
             cost = pos ** 2 + angle ** 2
         # Cartpole
     else:
@@ -57,12 +57,12 @@ def living_reward(state, action):
         # Cartpole
         if torch.is_tensor(state):
             pos = state[:, 0]
-            angle = torch.rad2deg(state[:, 2])
-            rew = ((torch.lt(torch.abs(pos),2.4) & torch.lt(torch.abs(angle),12))).int()
+            angle = state[:, 2]
+            rew = ((torch.lt(torch.abs(pos), 2.4) & torch.lt(torch.abs(angle), np.radians(12)))).int()
         else:
             pos = state[0]
-            angle = np.rad2deg(state[2])
-            rew = int((np.abs(pos) < 2.4 and np.abs(angle) < 12))
+            angle = state[2]
+            rew = int((np.abs(pos) < 2.4 and np.abs(angle) < np.radians(12)))
 
     else:
         print("In the wrong place")
@@ -83,7 +83,7 @@ def yaw_r(state, action, last_yaw=[]):
     if torch.is_tensor(state):
         yaw = state[:, 2]
         pitch = state[:, 0]
-        roll = state[:, 1]
+        roll = state[:, 1] #
         flag = (torch.abs(pitch) < np.deg2rad(10)) & (torch.abs(roll) < np.deg2rad(10))
         rew = flag.float() * yaw ** 2 + (~flag).float() * squ_cost(state, action)
 
@@ -109,12 +109,12 @@ def rotation_mat(state, action):
     if cartpole:
         # Cartpole
         if torch.is_tensor(state):
-            pos = state[:, 0]/2
+            pos = state[:, 0] / 2
             angle = state[:, 2]
             rew = torch.cos(pos) * torch.cos(angle)
 
         else:
-            pos = state[0]/2
+            pos = state[0] / 2
             angle = state[2]
             rew = math.cos(state[0]) * math.cos(state[1])
 
@@ -138,6 +138,7 @@ def rotation_mat(state, action):
         # return np.linalg.det(np.linalg.inv(rotn_matrix))
     return rew
 
+
 def yaw_r2(state, action, last_yaw=[]):
     if torch.is_tensor(state):
         yaw = state[:, 2]
@@ -156,6 +157,7 @@ def yaw_r2(state, action, last_yaw=[]):
         rew = yaw ** 2 + squ_cost(state, action)
     return rew
 
+
 def yaw_r3(state, action, last_yaw=[]):
     if torch.is_tensor(state):
         yaw = state[:, 2]
@@ -173,7 +175,6 @@ def yaw_r3(state, action, last_yaw=[]):
         flag = int(flag1) & int(flag2)
         rew = yaw ** 2 + squ_cost(state, action)
     return rew
-
 
 
 def euler_numer(last_state, state, mag=5):

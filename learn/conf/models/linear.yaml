@@ -1,5 +1,5 @@
 model:
-  class: learn.models.LinearModel
+  _target_: learn.models.LinearModel
   params:
     training:
       solver: None

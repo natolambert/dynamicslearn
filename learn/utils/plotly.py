@@ -80,7 +80,7 @@ def plot_rollout_dat(yaw_ex):
 
 def add_marker(err_traces, color=[], symbol=None, skip=None, m_every=5):
     mark_every = m_every
-    size = 30
+    size = 45
     l = len(err_traces[0]['x'])
     if skip is not None:
         size_list = [0] * skip + [size] + [0] * (mark_every - 1 - skip)
@@ -696,6 +696,71 @@ def plot_test_train(model, dataset, variances=False):
     # plt.show()
     return mse
 
+def plot_mses(errors = None, save=False, limits=None):
+    import plotly.graph_objects as go
+    data = []
+    traces = []
+    colors = plt.get_cmap('tab10').colors
+    if errors is not None:
+        i=0
+        cs_str = 'rgb' + str(colors[i])
+        ys = np.stack(errors)
+        data.append(ys)
+        tr, xs, ys = generate_errorbar_traces(np.asarray(data[i]), color=cs_str, name=f"simulation")
+
+        m = add_marker(tr, color=cs_str, symbol=markers[i], skip=5)
+        [traces.append(t) for t in m]
+
+    else:
+        dirs = ['/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2021-03-22/19-15-2350.dat',
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2021-03-22/19-14-5225.dat']
+        dirs = ['/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2021-03-25/13-15-26/50.dat',
+            '/Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/outputs/2021-03-25/13-14-46/25.dat']
+        for i,d in enumerate(dirs):
+            errors = torch.load(d)
+            cs_str = 'rgb' + str(colors[i])
+            ys = np.stack(errors)
+            data.append(ys)
+            tr, xs, ys = generate_errorbar_traces(np.asarray(data[i]), color=cs_str, name=f"simulation")
+
+            m = add_marker(tr, color=cs_str, symbol=markers[i], skip=5)
+            [traces.append(t) for t in m]
+
+            # for t in err_traces:
+            #     traces.append(t)
+
+    layout = dict( #title=f"Learning Curve Reward vs Number of Trials (Env: {env_name})",
+                  # xaxis={'title': 'Trial Num'},
+                  # yaxis={'title': 'Cum. Reward'},
+                    xaxis={'title': 'Predictive Horizon'},
+                    yaxis={'title': 'MSE', 'range':[np.log10(0.5),np.log10(2000)]},
+                  yaxis_type="log",
+                  plot_bgcolor='white',
+                  showlegend=False,
+                  xaxis_showgrid=False, yaxis_showgrid=False,
+                margin=dict(r=0, l=0, b=10, t=1),
+
+                font=dict(family='Times New Roman', size=50, color='#000000'),
+                  height=1000,
+                  width=1500,
+                  legend={'x': .83, 'y': .05, 'bgcolor': 'rgba(50, 50, 50, .03)'})
+
+    fig = {
+        'data': traces,
+        # 'layout': layout
+    }
+
+    fig = go.Figure(fig)
+    fig.update_layout(layout)
+
+    if limits is not None:
+        fig.update_yaxes(range=limits)
+    if save:
+        fig.write_image(os.getcwd() + "/learning.pdf")
+    else:
+        fig.show()
+
+    return fig
 
 def plot_rewards_over_trials(rewards, env_name, save=False, limits=None):
     import plotly.graph_objects as go
@@ -968,7 +1033,7 @@ def generate_errorbar_traces(ys, xs=None, percentiles='66+95', color=None, name=
     return err_traces, xs, ys
 
 
-def plot_rollout(states, actions, pry=[1, 2, 0], legend=False, save=False, loc=None, only_x=False):
+def plot_rollout(states, actions, pry=[1, 2, 0], legend=True, save=False, loc=None, only_x=False):
     import plotly.graph_objects as go
     import numpy as np
     import plotly

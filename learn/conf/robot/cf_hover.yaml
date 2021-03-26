@@ -3,7 +3,7 @@ load:
   dir: true
   type: .csv
   fname: /Users/nato/Documents/Berkeley/Research/Codebases/dynamics-learn/_logged_data_autonomous/_newquad1/publ2/
-  freq: 75
+  freq: 50
   data_labels:
     - pwm1
     - pwm2
@@ -42,23 +42,30 @@ pid:
 
 model:
   params:
-    dx: 9
+    dx: 3
     du: 4
-    dt: 9
-    history: 3
+    dt: 3
+    history: 0
     delta_state_targets:
       - pitch
       - roll
       - yaw
     true_state_targets:
+#      - linax
+#      - linay
+#      - linaz
+#      - omegax
+#      - omegay
+#      - omegaz
+    ignore_in:  # can be non axis specific
+      - vbat
       - linax
       - linay
+      - linyz
       - linaz
       - omegax
       - omegay
       - omegaz
-    ignore_in:  # can be non axis specific
-      - vbat
     extra_inputs:
 
 env:
