@@ -8,6 +8,6 @@ setup(
     license='MIT License',
     long_description=open('README.md').read(),
     install_requires=[
-          'hydra-core==0.9.0',
+          'hydra-core==1.3.4',
       ],
 )  
